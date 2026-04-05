@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'services/api_service.dart';
+import 'screens/dashboard/dashboard_screen.dart';
 
 void main() {
   runApp(const KestrelApp());
@@ -20,7 +21,7 @@ class KestrelApp extends StatelessWidget {
         ),
         useMaterial3: true,
       ),
-      home: const ConnectionTest(),
+      home: const DashboardScreen(),
     );
   }
 }
