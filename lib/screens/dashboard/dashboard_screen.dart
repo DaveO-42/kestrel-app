@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import '../../services/api_service.dart';
+import '../positions/position_detail_screen.dart';
 
 class DashboardScreen extends StatefulWidget {
   const DashboardScreen({super.key});
@@ -243,41 +244,51 @@ class _PositionRow extends StatelessWidget {
     final pnlPct = position['pnl_pct'] as num?;
     final isPositive = (pnl ?? 0) >= 0;
 
-    return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 6),
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-        children: [
-          Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(position['ticker'],
-                  style: Theme.of(context).textTheme.titleSmall),
-              Text('Entry: €${position['entry_price_eur']} · Stop: €${position['current_stop_eur']}',
-                  style: Theme.of(context).textTheme.bodySmall),
-            ],
+    return GestureDetector(
+      onTap: () {
+        Navigator.push(
+          context,
+          MaterialPageRoute(
+            builder: (_) => PositionDetailScreen(ticker: position['ticker']),
           ),
-          if (pnl != null)
+        );
+      },
+      child: Padding(
+        padding: const EdgeInsets.symmetric(vertical: 6),
+        child: Row(
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          children: [
             Column(
-              crossAxisAlignment: CrossAxisAlignment.end,
+              crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(
-                  '${isPositive ? '+' : ''}€${pnl.toStringAsFixed(2)}',
-                  style: TextStyle(
-                    color: isPositive ? Colors.green : Colors.red,
-                    fontWeight: FontWeight.bold,
-                  ),
-                ),
-                Text(
-                  '${isPositive ? '+' : ''}${pnlPct?.toStringAsFixed(2)}%',
-                  style: TextStyle(
-                    color: isPositive ? Colors.green : Colors.red,
-                    fontSize: 12,
-                  ),
-                ),
+                Text(position['ticker'],
+                    style: Theme.of(context).textTheme.titleSmall),
+                Text('Entry: €${position['entry_price_eur']} · Stop: €${position['current_stop_eur']}',
+                    style: Theme.of(context).textTheme.bodySmall),
               ],
             ),
-        ],
+            if (pnl != null)
+              Column(
+                crossAxisAlignment: CrossAxisAlignment.end,
+                children: [
+                  Text(
+                    '${isPositive ? '+' : ''}€${pnl.toStringAsFixed(2)}',
+                    style: TextStyle(
+                      color: isPositive ? Colors.green : Colors.red,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                  Text(
+                    '${isPositive ? '+' : ''}${pnlPct?.toStringAsFixed(2)}%',
+                    style: TextStyle(
+                      color: isPositive ? Colors.green : Colors.red,
+                      fontSize: 12,
+                    ),
+                  ),
+                ],
+              ),
+          ],
+        ),
       ),
     );
   }
