@@ -148,7 +148,7 @@ class _BudgetItem extends StatelessWidget {
 
 class _SystemCard extends StatelessWidget {
   final Map<String, dynamic> system;
-  final Map<string, dynamic> latestRun;
+  final Map<String, dynamic> latestRun;
   const _SystemCard({required this.system, required this.latestRun});
 
   @override
