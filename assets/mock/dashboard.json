@@ -1,0 +1,46 @@
+{
+  "budget": {
+    "total_eur": 700.00,
+    "available_eur": 402.50,
+    "invested_eur": 297.50,
+    "updated_at": "2026-04-05T15:10:00Z"
+  },
+  "positions": [
+    {
+      "ticker": "NVDA",
+      "entry_price_eur": 112.45,
+      "last_known_price_eur": 121.30,
+      "price_updated_at": "2026-04-05T16:05:00Z",
+      "quantity": 3,
+      "current_stop_eur": 104.20,
+      "initial_stop_eur": 103.85,
+      "highest_close_eur": 122.10,
+      "atr_at_entry_eur": 4.30,
+      "stop_mode": "normal",
+      "pnl_eur": 26.55,
+      "pnl_pct": 7.87,
+      "entry_date": "2026-03-18",
+      "notes": "Q-Beat vor 5d: EPS $0.89 vs. $0.79 erw.",
+      "signals": []
+    }
+  ],
+  "system": {
+    "paused": false,
+    "pause_reason": null,
+    "pause_since": null,
+    "drawdown_pct": 12.4,
+    "drawdown_threshold_pct": 25.0,
+    "total_loss_eur": -86.80,
+    "consecutive_losses": 2,
+    "consecutive_loss_limit": 6,
+    "last_ping_at": "2026-04-05T16:15:00Z"
+  },
+  "latest_run": {
+    "run_id": "20260405_150012",
+    "started_at": "2026-04-05T15:00:12Z",
+    "completed_at": "2026-04-05T16:05:44Z",
+    "shortlist_count": 2,
+    "order_status": "pending",
+    "order_ticker": "NVDA"
+  }
+}

@@ -1,0 +1,96 @@
+{
+  "run_id": "20260405_150012",
+  "run_date": "2026-04-05",
+  "started_at": "2026-04-05T15:00:12Z",
+  "source": "logs/run_20260405_150012.json",
+  "status": "pending",
+  "top_candidate": {
+    "ticker": "NVDA",
+    "sector": "Technology",
+    "price_eur": 111.20,
+    "performance_4w_pct": 8.2,
+    "eps_surprise_pct": 12.4,
+    "last_earnings_date": "2026-03-29",
+    "next_earnings_date": "2026-06-01",
+    "rsi": 58.3,
+    "ema20": 107.60,
+    "ema50": 101.20,
+    "ema20_slope_positive": true,
+    "score": 11.14,
+    "katalysator": "Q-Beat vor 5d: EPS $0.89 vs. $0.79 erw. (+12.4%)",
+    "claude": {
+      "katalysator_intakt": true,
+      "katalysator_eingeschaetzt": "Beat noch relevant, starkes Momentum durch AI-Chip-Nachfrage",
+      "gegenargumente": ["Bewertung bereits hoch", "Makrounsicherheit durch Zölle"],
+      "gap_risiko": "niedrig",
+      "gap_risiko_begruendung": "Nächste Earnings >8 Wochen entfernt"
+    },
+    "trade_params": {
+      "entry_price_eur": 111.20,
+      "stop_level_eur": 102.60,
+      "atr_eur": 4.30,
+      "quantity": 3,
+      "position_eur": 333.60,
+      "risk_per_share_eur": 8.60,
+      "total_risk_eur": 25.80
+    }
+  },
+  "candidates": [
+    {
+      "ticker": "NVDA",
+      "sector": "Technology",
+      "price_eur": 111.20,
+      "performance_4w_pct": 8.2,
+      "eps_surprise_pct": 12.4,
+      "last_earnings_date": "2026-03-29",
+      "next_earnings_date": "2026-06-01",
+      "rsi": 58.3,
+      "ema20": 107.60,
+      "ema50": 101.20,
+      "ema20_slope_positive": true,
+      "score": 11.14,
+      "katalysator": "Q-Beat vor 5d: EPS $0.89 vs. $0.79 erw. (+12.4%)",
+      "claude": {
+        "katalysator_intakt": true,
+        "katalysator_eingeschaetzt": "Beat noch relevant, starkes Momentum durch AI-Chip-Nachfrage",
+        "gegenargumente": ["Bewertung bereits hoch", "Makrounsicherheit durch Zölle"],
+        "gap_risiko": "niedrig",
+        "gap_risiko_begruendung": "Nächste Earnings >8 Wochen entfernt"
+      },
+      "trade_params": {
+        "entry_price_eur": 111.20,
+        "stop_level_eur": 102.60,
+        "atr_eur": 4.30,
+        "quantity": 3,
+        "position_eur": 333.60,
+        "risk_per_share_eur": 8.60,
+        "total_risk_eur": 25.80
+      }
+    },
+    {
+      "ticker": "AAPL",
+      "sector": "Technology",
+      "price_eur": 167.40,
+      "performance_4w_pct": 5.1,
+      "eps_surprise_pct": 4.3,
+      "last_earnings_date": "2026-03-25",
+      "next_earnings_date": "2026-06-15",
+      "rsi": 54.1,
+      "ema20": 163.20,
+      "ema50": 158.80,
+      "ema20_slope_positive": true,
+      "score": 8.42,
+      "katalysator": "Q-Beat vor 9d: EPS $2.18 vs. $2.09 erw. (+4.3%)",
+      "claude": null,
+      "trade_params": {
+        "entry_price_eur": 167.40,
+        "stop_level_eur": 158.20,
+        "atr_eur": 4.60,
+        "quantity": 2,
+        "position_eur": 334.80,
+        "risk_per_share_eur": 9.20,
+        "total_risk_eur": 18.40
+      }
+    }
+  ]
+}

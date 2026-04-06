@@ -1,0 +1,19 @@
+{
+  "ticker": "NVDA",
+  "entry_price_eur": 112.45,
+  "last_known_price_eur": 121.30,
+  "price_updated_at": "2026-04-05T16:05:00Z",
+  "quantity": 3,
+  "current_stop_eur": 104.20,
+  "initial_stop_eur": 103.85,
+  "highest_close_eur": 122.10,
+  "atr_at_entry_eur": 4.30,
+  "stop_mode": "normal",
+  "pnl_eur": 26.55,
+  "pnl_pct": 7.87,
+  "entry_date": "2026-03-18",
+  "notes": "Q-Beat vor 5d: EPS $0.89 vs. $0.79 erw.",
+  "signals": [
+    {"severity": "INFO", "message": "RSI unter 55 – Momentum schwächer"}
+  ]
+}

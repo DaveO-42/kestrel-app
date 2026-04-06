@@ -1,0 +1,11 @@
+{
+  "paused": false,
+  "pause_reason": null,
+  "pause_since": null,
+  "drawdown_pct": 12.4,
+  "drawdown_threshold_pct": 25.0,
+  "total_loss_eur": -86.80,
+  "consecutive_losses": 2,
+  "consecutive_loss_limit": 6,
+  "last_ping_at": "2026-04-05T16:15:00Z"
+}

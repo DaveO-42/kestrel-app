@@ -39,6 +39,15 @@ dependencies:
 dev_dependencies:
   flutter_test:
     sdk: flutter
+  flutter_lints: ^6.0.0
+  flutter_launcher_icons: ^0.14.1
+
+flutter_launcher_icons:
+  android: true
+  ios: false
+  image_path: "assets/images/icon_square.png"
+  adaptive_icon_background: "#0f1822"  # Kestrel Navy
+  adaptive_icon_foreground: "assets/images/icon_square.png"
 
   # The "flutter_lints" package below contains a set of recommended lints to
   # encourage good coding practices. The lint set provided by the package is
@@ -60,6 +69,8 @@ flutter:
 
   assets:
     - assets/images/icon_square.png
+    - assets/images/icon_round.png
+    - assets/mock/
 
   # To add assets to your application, add an assets section, like this:
   # assets:

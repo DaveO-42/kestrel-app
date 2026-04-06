@@ -1,0 +1,10 @@
+{
+  "trade_count": 3,
+  "win_count": 2,
+  "win_rate_pct": 66.7,
+  "avg_return_pct": 6.9,
+  "total_pnl_eur": 77.60,
+  "max_drawdown_pct": 8.4,
+  "sharpe_ratio": 0.84,
+  "avg_hold_days": 22.3
+}
