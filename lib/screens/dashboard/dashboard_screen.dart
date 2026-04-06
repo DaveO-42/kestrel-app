@@ -1,39 +1,19 @@
 import 'package:flutter/material.dart';
 import '../../services/api_service.dart';
+import '../../theme/kestrel_theme.dart';
+import '../../main_screen.dart';
+import '../positions/position_detail_screen.dart';
 
-// KestrelColors aus dashboard_screen importieren — oder hier wiederholen
-// (In Produktion: auslagern in lib/theme/kestrel_colors.dart)
-class KestrelColors {
-  static const screenBg    = Color(0xFF0F1822);
-  static const cardBg      = Color(0xFF1B2A3E);
-  static const cardBorder  = Color(0xFF2E4A6A);
-  static const innerBg     = Color(0xFF0F1822);
-  static const appBarBg    = Color(0xFF131F2E);
+// ── Dashboard Screen ──────────────────────────────────────────
 
-  static const gold        = Color(0xFFC9A84C);
-  static const goldLight   = Color(0xFFF0D080);
-
-  static const textPrimary = Color(0xFFE8EEF8);
-  static const textGrey    = Color(0xFFC8D4E8);
-  static const textDimmed  = Color(0xFF6A8AAA);
-  static const textHint    = Color(0xFF334D68);
-
-  static const green       = Color(0xFF27C97A);
-  static const red         = Color(0xFFE84040);
-  static const orange      = Color(0xFFE07820);
-}
-
-// ── Position Detail Screen ────────────────────────────────────
-
-class PositionDetailScreen extends StatefulWidget {
-  final String ticker;
-  const PositionDetailScreen({super.key, required this.ticker});
+class DashboardScreen extends StatefulWidget {
+  const DashboardScreen({super.key});
 
   @override
-  State<PositionDetailScreen> createState() => _PositionDetailScreenState();
+  State<DashboardScreen> createState() => _DashboardScreenState();
 }
 
-class _PositionDetailScreenState extends State<PositionDetailScreen> {
+class _DashboardScreenState extends State<DashboardScreen> {
   Map<String, dynamic>? _data;
   bool _loading = true;
   String? _error;
@@ -46,7 +26,7 @@ class _PositionDetailScreenState extends State<PositionDetailScreen> {
 
   Future<void> _load() async {
     try {
-      final data = await ApiService.getPosition(widget.ticker);
+      final data = await ApiService.getDashboard();
       setState(() {
         _data = data;
         _loading = false;
@@ -64,7 +44,9 @@ class _PositionDetailScreenState extends State<PositionDetailScreen> {
     if (_loading) {
       return const Scaffold(
         backgroundColor: KestrelColors.screenBg,
-        body: Center(child: CircularProgressIndicator(color: KestrelColors.gold)),
+        body: Center(
+          child: CircularProgressIndicator(color: KestrelColors.gold),
+        ),
       );
     }
 
@@ -78,415 +60,285 @@ class _PositionDetailScreenState extends State<PositionDetailScreen> {
       );
     }
 
-    final p      = _data!;
-    final pnl    = p['pnl_eur']  as num?;
-    final pnlPct = p['pnl_pct']  as num?;
-    final isPos  = (pnl ?? 0) >= 0;
-    final signals = p['signals'] as List;
+    final budget    = _data!['budget']     as Map<String, dynamic>;
+    final positions = _data!['positions']  as List;
+    final system    = _data!['system']     as Map<String, dynamic>;
+    final latestRun = _data!['latest_run'] as Map<String, dynamic>;
+    final paused    = system['paused']     as bool;
 
     return Scaffold(
       backgroundColor: KestrelColors.screenBg,
-      appBar: AppBar(
-        backgroundColor: KestrelColors.appBarBg,
-        surfaceTintColor: Colors.transparent,
-        elevation: 0,
-        leading: IconButton(
-          icon: const Icon(Icons.arrow_back_ios,
-              color: KestrelColors.textDimmed, size: 18),
-          onPressed: () => Navigator.pop(context),
-        ),
-        titleSpacing: 0,
-        title: Row(
-          children: [
-            _KestrelLogo(size: 22),
-            const SizedBox(width: 8),
-            Text(
-              p['ticker'] as String,
-              style: const TextStyle(
-                color: KestrelColors.goldLight,
-                fontSize: 16,
-                fontWeight: FontWeight.w700,
-                letterSpacing: 0.8,
-              ),
-            ),
-          ],
-        ),
-        actions: [
-          IconButton(
-            icon: const Icon(Icons.more_vert, color: KestrelColors.textDimmed),
-            onPressed: () {
-              setState(() => _loading = true);
-              _load();
-            },
-          ),
-        ],
-        bottom: PreferredSize(
-          preferredSize: const Size.fromHeight(1),
-          child: Container(height: 1, color: KestrelColors.cardBorder),
-        ),
-      ),
-      body: ListView(
-        padding: EdgeInsets.zero,
+      appBar: _buildAppBar(context),
+      body: Column(
         children: [
-          // ── Price Hero ─────────────────────────────────────
-          _PriceHero(position: p, pnl: pnl, pnlPct: pnlPct, isPositive: isPos),
-
-          // ── Range Bar ──────────────────────────────────────
-          _RangeBar(position: p, isPositive: isPos),
-
-          // ── Karten ─────────────────────────────────────────
-          Padding(
-            padding: const EdgeInsets.fromLTRB(12, 8, 12, 24),
-            child: Column(
-              children: [
-                _TradeParamsCard(position: p),
-                if (signals.isNotEmpty) ...[
+          if (paused) PauseBanner(
+            drawdownPct: system['drawdown_pct'] as num?,
+            reason: system['pause_reason'] as String?,
+          ),
+          Expanded(
+            child: RefreshIndicator(
+              onRefresh: _load,
+              color: KestrelColors.gold,
+              backgroundColor: KestrelColors.cardBg,
+              child: ListView(
+                padding: const EdgeInsets.fromLTRB(12, 10, 12, 24),
+                children: [
+                  _BudgetHero(budget: budget),
                   const SizedBox(height: 8),
-                  _SignalsCard(signals: signals),
-                ],
-                if (p['notes'] != null) ...[
+                  _SystemCard(system: system, latestRun: latestRun),
                   const SizedBox(height: 8),
-                  _KatalysatorCard(notes: p['notes'] as String),
+                  _PositionsCard(positions: positions),
                 ],
-              ],
+              ),
             ),
           ),
         ],
       ),
     );
   }
-}
 
-// ── Price Hero ────────────────────────────────────────────────
-
-class _PriceHero extends StatelessWidget {
-  final Map<String, dynamic> position;
-  final num? pnl;
-  final num? pnlPct;
-  final bool isPositive;
-  const _PriceHero({
-    required this.position,
-    required this.pnl,
-    required this.pnlPct,
-    required this.isPositive,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    final price = position['last_known_price_eur'];
-    final pnlColor = isPositive ? KestrelColors.green : KestrelColors.red;
-    final pnlSign  = isPositive ? '+' : '';
-
-    return Container(
-      color: KestrelColors.appBarBg,
-      padding: const EdgeInsets.fromLTRB(14, 14, 14, 10),
-      child: Column(
+  AppBar _buildAppBar(BuildContext context) {
+    return AppBar(
+      backgroundColor: KestrelColors.appBarBg,
+      surfaceTintColor: Colors.transparent,
+      elevation: 0,
+      titleSpacing: 13,
+      title: Row(
         children: [
-          Text(
-            (position['ticker'] as String).toUpperCase(),
-            style: const TextStyle(
-              color: KestrelColors.textDimmed,
-              fontSize: 10,
-              letterSpacing: 1.5,
-            ),
-          ),
-          const SizedBox(height: 4),
-          Text(
-            price != null ? '€$price' : '–',
-            style: const TextStyle(
-              color: KestrelColors.textPrimary,
-              fontSize: 32,
+          KestrelLogo(size: 26),
+          const SizedBox(width: 8),
+          const Text(
+            'Kestrel',
+            style: TextStyle(
+              color: KestrelColors.goldLight,
+              fontSize: 16,
               fontWeight: FontWeight.w700,
-              height: 1.1,
+              letterSpacing: 0.8,
             ),
           ),
-          const SizedBox(height: 3),
-          if (pnl != null)
-            Text(
-              '$pnlSign€${pnl!.toStringAsFixed(2)} · $pnlSign${pnlPct?.toStringAsFixed(2)}%',
-              style: TextStyle(
-                color: pnlColor,
-                fontSize: 13,
-                fontWeight: FontWeight.w600,
-              ),
-            ),
-          if (position['price_updated_at'] != null) ...[
-            const SizedBox(height: 4),
-            Text(
-              'Stand: ${position['price_updated_at']}',
-              style: const TextStyle(
-                color: KestrelColors.textHint,
-                fontSize: 9,
-              ),
-            ),
-          ],
         ],
+      ),
+      actions: [
+        IconButton(
+          icon: const Icon(Icons.refresh, color: KestrelColors.textDimmed),
+          onPressed: () {
+            setState(() => _loading = true);
+            _load();
+          },
+        ),
+      ],
+      bottom: PreferredSize(
+        preferredSize: const Size.fromHeight(1),
+        child: Container(height: 1, color: KestrelColors.cardBorder),
       ),
     );
   }
 }
 
-// ── Range Bar ─────────────────────────────────────────────────
+// GoldTopCard kommt aus kestrel_theme.dart
 
-class _RangeBar extends StatelessWidget {
-  final Map<String, dynamic> position;
-  final bool isPositive;
-  const _RangeBar({required this.position, required this.isPositive});
+// ── Budget Hero ───────────────────────────────────────────────
 
-  /// Entry-Position auf der Bar berechnen:
-  /// Stop-Dot bei 8%, Kurs-Dot bei 92%, Entry relativ dazwischen
-  double _entryPosition() {
-    final entry = (position['entry_price_eur']  as num?)?.toDouble() ?? 0;
-    final stop  = (position['current_stop_eur'] as num?)?.toDouble() ?? 0;
-    final price = (position['last_known_price_eur'] as num?)?.toDouble() ?? entry;
-
-    final spanne = price - stop;
-    if (spanne <= 0) return 0.5;
-    final rel = (entry - stop) / spanne;
-    return (0.08 + rel * 0.84).clamp(0.09, 0.91);
-  }
+class _BudgetHero extends StatelessWidget {
+  final Map<String, dynamic> budget;
+  const _BudgetHero({required this.budget});
 
   @override
   Widget build(BuildContext context) {
-    final entry  = position['entry_price_eur']  as num?;
-    final stop   = position['current_stop_eur'] as num?;
-    final price  = position['last_known_price_eur'] as num?;
-    final entryPos = _entryPosition(); // 0.0–1.0
+    final total    = budget['total_eur']     as num;
+    final available= budget['available_eur'] as num;
+    final invested = budget['invested_eur']  as num;
+    final usedPct  = (invested / total * 100).toStringAsFixed(0);
+    final progress = (invested / total).clamp(0.0, 1.0).toDouble();
 
-    final stopDotPos  = 0.08;
-    final priceDotPos = 0.92;
-    final entryDotPos = entryPos;
-
-    // Farben je nach Zustand
-    final priceColor = isPositive ? KestrelColors.green : KestrelColors.orange;
-    final priceLabel = price != null ? '€${price.toStringAsFixed(2)}' : '–';
-    final entryLabel = entry != null ? 'Entry €${entry.toStringAsFixed(2)}' : '–';
-    final stopLabel  = stop  != null ? 'Stop €${stop.toStringAsFixed(2)}' : '–';
-
-    return Container(
-      color: KestrelColors.appBarBg,
-      padding: const EdgeInsets.fromLTRB(13, 10, 13, 14),
-      child: Column(
-        children: [
-          // Labels
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              Text(stopLabel,
-                  style: const TextStyle(
-                      color: KestrelColors.red,
-                      fontSize: 10,
-                      fontWeight: FontWeight.w600)),
-              Text(isPositive ? priceLabel : entryLabel,
-                  style: TextStyle(
-                      color: isPositive ? priceColor : KestrelColors.textGrey,
-                      fontSize: 10,
-                      fontWeight: FontWeight.w600)),
-              Text(isPositive ? entryLabel : priceLabel,
-                  style: TextStyle(
-                      color: isPositive ? KestrelColors.textGrey : priceColor,
-                      fontSize: 10,
-                      fontWeight: FontWeight.w600)),
-            ],
-          ),
-          const SizedBox(height: 8),
-
-          // Track
-          SizedBox(
-            height: 20, // Höhe für Dots mit Glow
-            child: LayoutBuilder(
-              builder: (context, constraints) {
-                final w = constraints.maxWidth;
-                return Stack(
-                  alignment: Alignment.center,
+    return GoldTopCard(
+      child: Padding(
+        padding: const EdgeInsets.fromLTRB(13, 11, 13, 13),
+        child: Column(
+          children: [
+            Row(
+              crossAxisAlignment: CrossAxisAlignment.end,
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    // Track-Hintergrund
-                    Positioned.fill(
-                      child: Container(
-                        height: 8,
-                        decoration: BoxDecoration(
-                          color: KestrelColors.cardBorder,
-                          borderRadius: BorderRadius.circular(4),
-                        ),
+                    const Text('BUDGET', style: kCardLabelStyle),
+                    const SizedBox(height: 4),
+                    Text(
+                      fmtPrice(total),
+                      style: const TextStyle(
+                        color: KestrelColors.textPrimary,
+                        fontSize: 28,
+                        fontWeight: FontWeight.w700,
+                        height: 1.0,
                       ),
                     ),
-
-                    // Zonen-Farben
-                    if (isPositive) ...[
-                      // Stop-Zone: 0 → Stop-Dot
-                      _Zone(
-                        left: 0,
-                        width: w * stopDotPos,
-                        color: KestrelColors.red.withOpacity(0.75),
-                        roundLeft: true,
-                      ),
-                      // Risikopuffer: Stop-Dot → Entry-Dot
-                      _Zone(
-                        left: w * stopDotPos,
-                        width: w * (entryDotPos - stopDotPos),
-                        color: KestrelColors.red.withOpacity(0.22),
-                      ),
-                      // Gewinn: Entry-Dot → Kurs-Dot
-                      _Zone(
-                        left: w * entryDotPos,
-                        width: w * (priceDotPos - entryDotPos),
-                        color: KestrelColors.green.withOpacity(0.82),
-                      ),
-                    ] else ...[
-                      // Stop-Zone
-                      _Zone(
-                        left: 0,
-                        width: w * stopDotPos,
-                        color: KestrelColors.red.withOpacity(0.75),
-                        roundLeft: true,
-                      ),
-                      // Verlust-Terrain: Stop → Kurs
-                      _Zone(
-                        left: w * stopDotPos,
-                        width: w * (entryDotPos - stopDotPos),
-                        color: KestrelColors.red.withOpacity(0.50),
-                      ),
-                      // Offen bis Entry: Kurs → Entry
-                      _Zone(
-                        left: w * entryDotPos,
-                        width: w * (priceDotPos - entryDotPos),
-                        color: KestrelColors.orange.withOpacity(0.45),
-                      ),
-                    ],
-
-                    // Dots
-                    _Dot(left: w * stopDotPos,  color: KestrelColors.red,         glow: false),
-                    if (isPositive) ...[
-                      _Dot(left: w * entryDotPos,  color: KestrelColors.textDimmed, glow: false),
-                      _Dot(left: w * priceDotPos,  color: KestrelColors.green,      glow: true),
-                    ] else ...[
-                      _Dot(left: w * entryDotPos,  color: KestrelColors.orange,     glow: true),
-                      _Dot(left: w * priceDotPos,  color: KestrelColors.textDimmed, glow: false),
-                    ],
                   ],
-                );
-              },
+                ),
+                Column(
+                  crossAxisAlignment: CrossAxisAlignment.end,
+                  children: [
+                    Text(
+                      fmtPrice(invested),
+                      style: const TextStyle(
+                        color: KestrelColors.gold,
+                        fontSize: 14,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                    const SizedBox(height: 2),
+                    const Text(
+                      'investiert',
+                      style: TextStyle(color: KestrelColors.textGrey, fontSize: 10),
+                    ),
+                  ],
+                ),
+              ],
             ),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-class _Zone extends StatelessWidget {
-  final double left;
-  final double width;
-  final Color color;
-  final bool roundLeft;
-  const _Zone({
-    required this.left,
-    required this.width,
-    required this.color,
-    this.roundLeft = false,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return Positioned(
-      left: left,
-      width: width.clamp(0.0, double.infinity),
-      height: 8,
-      child: Container(
-        decoration: BoxDecoration(
-          color: color,
-          borderRadius: roundLeft
-              ? const BorderRadius.horizontal(left: Radius.circular(4))
-              : null,
-        ),
-      ),
-    );
-  }
-}
-
-class _Dot extends StatelessWidget {
-  final double left;
-  final Color color;
-  final bool glow;
-  const _Dot({required this.left, required this.color, required this.glow});
-
-  @override
-  Widget build(BuildContext context) {
-    return Positioned(
-      left: left - 6,
-      child: Container(
-        width: 12,
-        height: 12,
-        decoration: BoxDecoration(
-          color: color,
-          shape: BoxShape.circle,
-          border: Border.all(color: KestrelColors.appBarBg, width: 2),
-          boxShadow: glow
-              ? [BoxShadow(color: color.withOpacity(0.4), blurRadius: 6, spreadRadius: 2)]
-              : null,
-        ),
-      ),
-    );
-  }
-}
-
-// ── Trade-Parameter Card ──────────────────────────────────────
-
-class _TradeParamsCard extends StatelessWidget {
-  final Map<String, dynamic> position;
-  const _TradeParamsCard({required this.position});
-
-  @override
-  Widget build(BuildContext context) {
-    final stopMode = position['stop_mode'] as String? ?? 'normal';
-    final isWarn   = stopMode == 'warn';
-
-    return _KestrelCard(
-      label: 'TRADE-PARAMETER',
-      child: Column(
-        children: [
-          Row(
-            children: [
-              Expanded(child: _ParamCell(value: '€${position['entry_price_eur']}', label: 'Entry')),
-              const SizedBox(width: 6),
-              Expanded(child: _ParamCell(value: '${position['quantity']}',         label: 'Stück')),
-              const SizedBox(width: 6),
-              Expanded(child: _ParamCell(value: '€${position['atr_at_entry_eur']}', label: 'ATR')),
-            ],
-          ),
-          const SizedBox(height: 6),
-          Row(
-            children: [
-              Expanded(child: _ParamCell(value: '€${position['initial_stop_eur']}',  label: 'Stop init.')),
-              const SizedBox(width: 6),
-              Expanded(child: _ParamCell(value: '€${position['current_stop_eur']}',  label: 'Stop akt.')),
-              const SizedBox(width: 6),
-              Expanded(child: _ParamCell(value: '€${position['highest_close_eur']}', label: 'Höchstkurs')),
-            ],
-          ),
-          const SizedBox(height: 10),
-          Container(height: 1, color: KestrelColors.cardBorder),
-          const SizedBox(height: 10),
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              const Text(
-                'Stop-Modus',
-                style: TextStyle(color: KestrelColors.textGrey, fontSize: 10),
+            const SizedBox(height: 12),
+            ClipRRect(
+              borderRadius: BorderRadius.circular(3),
+              child: SizedBox(
+                height: 6,
+                child: LinearProgressIndicator(
+                  value: progress,
+                  backgroundColor: KestrelColors.screenBg,
+                  valueColor: const AlwaysStoppedAnimation(KestrelColors.gold),
+                ),
               ),
-              _StopModeBadge(isWarn: isWarn),
-            ],
-          ),
-        ],
+            ),
+            const SizedBox(height: 5),
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Text('$usedPct% investiert',
+                    style: const TextStyle(color: KestrelColors.textGrey, fontSize: 10)),
+                Text('${fmtPrice(available)} verfügbar',
+                    style: const TextStyle(color: KestrelColors.textGrey, fontSize: 10)),
+              ],
+            ),
+          ],
+        ),
       ),
     );
   }
 }
 
-class _ParamCell extends StatelessWidget {
+// ── System Card ───────────────────────────────────────────────
+
+class _SystemCard extends StatelessWidget {
+  final Map<String, dynamic> system;
+  final Map<String, dynamic> latestRun;
+  const _SystemCard({required this.system, required this.latestRun});
+
+  @override
+  Widget build(BuildContext context) {
+    final paused    = system['paused']                  as bool;
+    final drawdown  = system['drawdown_pct']             as num;
+    final losses    = (system['consecutive_losses']     as num).toInt();
+    final lossLimit = (system['consecutive_loss_limit'] as num).toInt();
+    final lastPing  = system['last_ping_at']             as String?;
+    final runStatus = latestRun['order_status']          as String;
+    final runTicker = latestRun['order_ticker']          as String?;
+    final runId     = latestRun['run_id']                as String;
+
+    final runTime = runId.length >= 13
+        ? '${runId.substring(9, 11)}:${runId.substring(11, 13)}'
+        : runId;
+
+    String pingDisplay = '–';
+    if (lastPing != null) {
+      try {
+        final dt = DateTime.parse(lastPing);
+        pingDisplay =
+        '${dt.hour.toString().padLeft(2, '0')}:${dt.minute.toString().padLeft(2, '0')}';
+      } catch (_) {
+        pingDisplay = lastPing;
+      }
+    }
+
+    return GoldTopCard(
+      child: Padding(
+        padding: const EdgeInsets.fromLTRB(13, 11, 13, 13),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                const Text('SYSTEM', style: kCardLabelStyle),
+                _StatusBadge(paused: paused),
+              ],
+            ),
+            const SizedBox(height: 8),
+            Row(
+              children: [
+                Expanded(child: _InnerCell(value: '${drawdown.toStringAsFixed(1)}%', label: 'Drawdown')),
+                const SizedBox(width: 6),
+                Expanded(child: _InnerCell(value: '$losses / $lossLimit', label: 'Verluste')),
+                const SizedBox(width: 6),
+                Expanded(child: _InnerCell(value: pingDisplay, label: 'Letzter Ping')),
+              ],
+            ),
+            const SizedBox(height: 8),
+            Container(
+              decoration: BoxDecoration(
+                color: KestrelColors.screenBg,
+                borderRadius: BorderRadius.circular(7),
+                border: Border.all(color: KestrelColors.cardBorder),
+              ),
+              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 7),
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  const Text('Letzter Run',
+                      style: TextStyle(color: KestrelColors.textGrey, fontSize: 10)),
+                  Text(
+                    '$runTime · ${runTicker != null ? "$runStatus ($runTicker)" : runStatus}',
+                    style: const TextStyle(color: KestrelColors.textDimmed, fontSize: 10),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _StatusBadge extends StatelessWidget {
+  final bool paused;
+  const _StatusBadge({required this.paused});
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+      decoration: BoxDecoration(
+        color: paused ? KestrelColors.redBg : KestrelColors.greenBg,
+        borderRadius: BorderRadius.circular(5),
+        border: Border.all(
+          color: paused ? KestrelColors.redBorder : KestrelColors.greenBorder,
+        ),
+      ),
+      child: Text(
+        paused ? 'PAUSIERT' : 'AKTIV',
+        style: TextStyle(
+          color: paused ? KestrelColors.red : KestrelColors.green,
+          fontSize: 10,
+          fontWeight: FontWeight.w700,
+        ),
+      ),
+    );
+  }
+}
+
+class _InnerCell extends StatelessWidget {
   final String value;
   final String label;
-  const _ParamCell({required this.value, required this.label});
+  const _InnerCell({required this.value, required this.label});
 
   @override
   Widget build(BuildContext context) {
@@ -496,183 +348,28 @@ class _ParamCell extends StatelessWidget {
         borderRadius: BorderRadius.circular(7),
         border: Border.all(color: KestrelColors.cardBorder),
       ),
-      padding: const EdgeInsets.symmetric(vertical: 7, horizontal: 4),
+      padding: const EdgeInsets.symmetric(vertical: 7, horizontal: 6),
       child: Column(
         children: [
-          Text(
-            value,
-            style: const TextStyle(
-              color: KestrelColors.textPrimary,
-              fontSize: 12,
-              fontWeight: FontWeight.w600,
-            ),
-            textAlign: TextAlign.center,
-          ),
-          const SizedBox(height: 2),
-          Text(
-            label,
-            style: const TextStyle(color: KestrelColors.textGrey, fontSize: 9),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-class _StopModeBadge extends StatelessWidget {
-  final bool isWarn;
-  const _StopModeBadge({required this.isWarn});
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-      decoration: BoxDecoration(
-        color: isWarn ? const Color(0xFF201208) : const Color(0xFF1E1408),
-        borderRadius: BorderRadius.circular(5),
-        border: Border.all(
-          color: isWarn ? const Color(0xFF704010) : const Color(0xFF8A6E2A),
-        ),
-      ),
-      child: Text(
-        isWarn ? 'WARN ATR×1.0' : 'Normal ATR×2.0',
-        style: TextStyle(
-          color: isWarn ? KestrelColors.orange : KestrelColors.gold,
-          fontSize: 9,
-          fontWeight: FontWeight.w700,
-        ),
-      ),
-    );
-  }
-}
-
-// ── Signale Card ──────────────────────────────────────────────
-
-class _SignalsCard extends StatelessWidget {
-  final List signals;
-  const _SignalsCard({required this.signals});
-
-  @override
-  Widget build(BuildContext context) {
-    return _KestrelCard(
-      label: 'SIGNALE',
-      child: Column(
-        children: signals.asMap().entries.map((entry) {
-          final isFirst = entry.key == 0;
-          return Column(
-            children: [
-              if (!isFirst)
-                const Padding(
-                  padding: EdgeInsets.only(bottom: 8),
-                  child: Divider(height: 1, color: KestrelColors.cardBorder),
-                ),
-              if (!isFirst) const SizedBox(height: 0),
-              _SignalRow(signal: entry.value as Map<String, dynamic>),
-            ],
-          );
-        }).toList(),
-      ),
-    );
-  }
-}
-
-class _SignalRow extends StatelessWidget {
-  final Map<String, dynamic> signal;
-  const _SignalRow({required this.signal});
-
-  Color _color(String sev) {
-    switch (sev) {
-      case 'HARD': return KestrelColors.red;
-      case 'WARN': return KestrelColors.orange;
-      default:     return const Color(0xFF78B0E8);
-    }
-  }
-
-  Color _bgColor(String sev) {
-    switch (sev) {
-      case 'HARD': return const Color(0xFF200808);
-      case 'WARN': return const Color(0xFF201208);
-      default:     return const Color(0xFF081828);
-    }
-  }
-
-  Color _borderColor(String sev) {
-    switch (sev) {
-      case 'HARD': return const Color(0xFF702020);
-      case 'WARN': return const Color(0xFF704010);
-      default:     return const Color(0xFF285888);
-    }
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    final sev = signal['severity'] as String;
-    return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 4),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-            decoration: BoxDecoration(
-              color: _bgColor(sev),
-              borderRadius: BorderRadius.circular(4),
-              border: Border.all(color: _borderColor(sev)),
-            ),
-            child: Text(
-              sev,
-              style: TextStyle(
-                color: _color(sev),
-                fontSize: 9,
-                fontWeight: FontWeight.w700,
-              ),
-            ),
-          ),
-          const SizedBox(width: 8),
-          Expanded(
-            child: Text(
-              signal['message'] as String,
+          Text(value,
               style: const TextStyle(
-                color: KestrelColors.textGrey,
-                fontSize: 11,
-                height: 1.4,
-              ),
-            ),
-          ),
+                  color: KestrelColors.textPrimary,
+                  fontSize: 13,
+                  fontWeight: FontWeight.w600)),
+          const SizedBox(height: 2),
+          Text(label,
+              style: const TextStyle(color: KestrelColors.textGrey, fontSize: 9)),
         ],
       ),
     );
   }
 }
 
-// ── Katalysator Card ──────────────────────────────────────────
+// ── Positions Card ────────────────────────────────────────────
 
-class _KatalysatorCard extends StatelessWidget {
-  final String notes;
-  const _KatalysatorCard({required this.notes});
-
-  @override
-  Widget build(BuildContext context) {
-    return _KestrelCard(
-      label: 'KATALYSATOR',
-      child: Text(
-        notes,
-        style: const TextStyle(
-          color: KestrelColors.textGrey,
-          fontSize: 11,
-          height: 1.5,
-        ),
-      ),
-    );
-  }
-}
-
-// ── Generic Kestrel Card ──────────────────────────────────────
-
-class _KestrelCard extends StatelessWidget {
-  final String label;
-  final Widget child;
-  const _KestrelCard({required this.label, required this.child});
+class _PositionsCard extends StatelessWidget {
+  final List positions;
+  const _PositionsCard({required this.positions});
 
   @override
   Widget build(BuildContext context) {
@@ -682,87 +379,125 @@ class _KestrelCard extends StatelessWidget {
         borderRadius: BorderRadius.circular(12),
         border: Border.all(color: KestrelColors.cardBorder),
       ),
-      padding: const EdgeInsets.fromLTRB(13, 11, 13, 13),
+      padding: const EdgeInsets.fromLTRB(13, 11, 13, 4),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Text(
-            label,
-            style: const TextStyle(
-              color: KestrelColors.gold,
-              fontSize: 10,
-              fontWeight: FontWeight.w700,
-              letterSpacing: 0.8,
-            ),
+            'OFFENE POSITIONEN (${positions.length})',
+            style: kCardLabelStyle,
           ),
           const SizedBox(height: 10),
-          child,
+          if (positions.isEmpty)
+            const Padding(
+              padding: EdgeInsets.only(bottom: 8),
+              child: Text('Keine offenen Positionen',
+                  style: TextStyle(color: KestrelColors.textGrey, fontSize: 13)),
+            )
+          else
+            ...positions.asMap().entries.map((entry) {
+              final isLast = entry.key == positions.length - 1;
+              return Column(
+                children: [
+                  _PositionRow(position: entry.value as Map<String, dynamic>),
+                  if (!isLast)
+                    const Divider(height: 1, color: KestrelColors.cardBorder),
+                ],
+              );
+            }),
         ],
       ),
     );
   }
 }
 
-// ── Kestrel Logo (identisch zu dashboard_screen) ──────────────
+class _PositionRow extends StatelessWidget {
+  final Map<String, dynamic> position;
+  const _PositionRow({required this.position});
 
-class _KestrelLogo extends StatelessWidget {
-  final double size;
-  const _KestrelLogo({required this.size});
+  Color _trafficLight() {
+    final signals = position['signals'] as List? ?? [];
+    if (signals.any((s) => (s as Map)['severity'] == 'HARD')) return KestrelColors.red;
+    final price = (position['last_known_price_eur'] as num?)?.toDouble();
+    final stop  = (position['current_stop_eur']     as num?)?.toDouble();
+    if (price != null && stop != null && stop > 0) {
+      if ((price - stop) / stop <= 0.05) return KestrelColors.red;
+    }
+    if (signals.any((s) => (s as Map)['severity'] == 'WARN')) return KestrelColors.orange;
+    return KestrelColors.green;
+  }
 
   @override
   Widget build(BuildContext context) {
-    return CustomPaint(
-      size: Size(size, size),
-      painter: _LogoPainter(),
+    final pnl    = position['pnl_eur']  as num?;
+    final pnlPct = position['pnl_pct']  as num?;
+    final isPos  = (pnl ?? 0) >= 0;
+    final color  = _trafficLight();
+
+    return GestureDetector(
+      onTap: () => Navigator.push(
+        context,
+        MaterialPageRoute(
+          builder: (_) => PositionDetailScreen(ticker: position['ticker'] as String),
+        ),
+      ),
+      child: Padding(
+        padding: const EdgeInsets.symmetric(vertical: 9),
+        child: IntrinsicHeight(
+          child: Row(
+            children: [
+              Container(
+                width: 3,
+                margin: const EdgeInsets.symmetric(vertical: 2),
+                decoration: BoxDecoration(
+                  color: color,
+                  borderRadius: BorderRadius.circular(2),
+                ),
+              ),
+              const SizedBox(width: 10),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    Text(position['ticker'] as String,
+                        style: const TextStyle(
+                            color: KestrelColors.textPrimary,
+                            fontSize: 13,
+                            fontWeight: FontWeight.w700)),
+                    const SizedBox(height: 2),
+                    Text(
+                      'Entry €${position['entry_price_eur']} · Stop €${position['current_stop_eur']}',
+                      style: const TextStyle(color: KestrelColors.textGrey, fontSize: 10),
+                    ),
+                  ],
+                ),
+              ),
+              if (pnl != null)
+                Column(
+                  crossAxisAlignment: CrossAxisAlignment.end,
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    Text(
+                      fmtPrice(pnl, showSign: true),
+                      style: TextStyle(
+                          color: isPos ? KestrelColors.green : KestrelColors.red,
+                          fontSize: 13,
+                          fontWeight: FontWeight.w700),
+                    ),
+                    const SizedBox(height: 2),
+                    Text(
+                      fmtPct(pnlPct),
+                      style: TextStyle(
+                          color: isPos ? KestrelColors.green : KestrelColors.red,
+                          fontSize: 10),
+                    ),
+                  ],
+                ),
+            ],
+          ),
+        ),
+      ),
     );
   }
-}
-
-class _LogoPainter extends CustomPainter {
-  @override
-  void paint(Canvas canvas, Size size) {
-    final rect = Offset.zero & size;
-    final bgPaint = Paint()..color = KestrelColors.cardBg;
-    final rrect = RRect.fromRectAndRadius(rect, Radius.circular(size.width * 0.23));
-    canvas.drawRRect(rrect, bgPaint);
-
-    final arrowPaint = Paint()
-      ..color = KestrelColors.gold
-      ..style = PaintingStyle.stroke
-      ..strokeWidth = size.width * 0.077
-      ..strokeJoin = StrokeJoin.round
-      ..strokeCap = StrokeCap.round;
-
-    final s = size.width / 26;
-    final arrowPath = Path()
-      ..moveTo(4 * s, 18 * s)
-      ..lineTo(9 * s, 13 * s)
-      ..lineTo(13 * s, 16 * s)
-      ..lineTo(22 * s, 7 * s);
-    canvas.drawPath(arrowPath, arrowPaint);
-
-    final arrowHead = Path()
-      ..moveTo(18 * s, 7 * s)
-      ..lineTo(22 * s, 7 * s)
-      ..lineTo(22 * s, 11 * s);
-    canvas.drawPath(arrowHead, arrowPaint);
-
-    final birdPaint = Paint()
-      ..color = KestrelColors.textGrey.withOpacity(0.9)
-      ..style = PaintingStyle.fill;
-
-    final birdPath = Path();
-    birdPath.moveTo(10 * s, 12 * s);
-    birdPath.cubicTo(9 * s, 10 * s, 8 * s, 8 * s, 10 * s, 7 * s);
-    birdPath.cubicTo(11 * s, 6 * s, 13 * s, 7 * s, 13 * s, 9 * s);
-    birdPath.cubicTo(14 * s, 7 * s, 16 * s, 6 * s, 17 * s, 7 * s);
-    birdPath.cubicTo(19 * s, 8 * s, 18 * s, 11 * s, 16 * s, 12 * s);
-    birdPath.cubicTo(15 * s, 13 * s, 14 * s, 13 * s, 13 * s, 14 * s);
-    birdPath.cubicTo(12 * s, 15 * s, 11 * s, 15 * s, 10 * s, 14 * s);
-    birdPath.close();
-    canvas.drawPath(birdPath, birdPaint);
-  }
-
-  @override
-  bool shouldRepaint(covariant CustomPainter oldDelegate) => false;
 }
