@@ -198,26 +198,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
             'invested_eur': 0,
           }),
         ),
-        const SizedBox(height: 8),
-        // Gedimmte System-Card
-        Opacity(
-          opacity: 0.25,
-          child: _SystemCard(
-            system: {
-              'paused': false,
-              'drawdown_pct': 0,
-              'drawdown_threshold_pct': 25,
-              'consecutive_losses': 0,
-              'consecutive_loss_limit': 6,
-              'last_ping_at': null,
-            },
-            latestRun: {
-              'run_id': '',
-              'order_status': '–',
-              'order_ticker': null,
-            },
-          ),
-        ),
+
       ],
     );
   }
@@ -231,6 +212,15 @@ class _DashboardScreenState extends State<DashboardScreen> {
     final latestRun = _data!['latest_run'] as Map<String, dynamic>;
     final paused    = system['paused']     as bool? ?? false;
 
+    // Gesamt-P&L aus allen offenen Positionen summieren
+    final totalPnl = positions.fold<double>(
+      0,
+          (sum, p) => sum + ((p as Map<String, dynamic>)['pnl_eur'] as num? ?? 0).toDouble(),
+    );
+
+    final drawdown  = (system['drawdown_pct']           as num?) ?? 0;
+    final ddLimit   = (system['drawdown_threshold_pct'] as num?) ?? 25;
+
     return RefreshIndicator(
       onRefresh: _load,
       color: KestrelColors.gold,
@@ -243,11 +233,13 @@ class _DashboardScreenState extends State<DashboardScreen> {
               drawdownPct: system['drawdown_pct'] as num?,
               reason: system['pause_reason'] as String?,
             ),
-          _BudgetHero(budget: budget),
-          const SizedBox(height: 8),
-          _SystemCard(system: system, latestRun: latestRun),
+          _BudgetHero(budget: budget, totalPnl: positions.isEmpty ? null : totalPnl),
+          const SizedBox(height: 6),
+          _DrawdownStrip(drawdown: drawdown, limit: ddLimit),
           const SizedBox(height: 8),
           _PositionsCard(positions: positions),
+          const SizedBox(height: 8),
+          _LastRunStrip(latestRun: latestRun),
         ],
       ),
     );
@@ -258,7 +250,8 @@ class _DashboardScreenState extends State<DashboardScreen> {
 
 class _BudgetHero extends StatelessWidget {
   final Map<String, dynamic> budget;
-  const _BudgetHero({required this.budget});
+  final double? totalPnl;
+  const _BudgetHero({required this.budget, this.totalPnl});
 
   @override
   Widget build(BuildContext context) {
@@ -266,6 +259,7 @@ class _BudgetHero extends StatelessWidget {
     final available = (budget['available_eur'] as num?) ?? 0;
     final invested  = (budget['invested_eur']  as num?) ?? 0;
     final pct       = total > 0 ? (invested / total).clamp(0.0, 1.0) : 0.0;
+    final pnlPos    = (totalPnl ?? 0) >= 0;
 
     return ClipRRect(
       borderRadius: BorderRadius.circular(12),
@@ -305,24 +299,57 @@ class _BudgetHero extends StatelessWidget {
                         ],
                       ),
                       const Spacer(),
-                      Column(
+                      // Rechte Seite: investiert | P&L nebeneinander
+                      Row(
                         crossAxisAlignment: CrossAxisAlignment.end,
                         children: [
-                          Text(
-                            fmtPrice(invested),
-                            style: const TextStyle(
-                              color: KestrelColors.gold,
-                              fontSize: 14,
-                              fontWeight: FontWeight.w600,
-                            ),
+                          // Investiert
+                          Column(
+                            crossAxisAlignment: CrossAxisAlignment.end,
+                            children: [
+                              Text(
+                                fmtPrice(invested),
+                                style: const TextStyle(
+                                  color: KestrelColors.gold,
+                                  fontSize: 14,
+                                  fontWeight: FontWeight.w600,
+                                ),
+                              ),
+                              const Text(
+                                'investiert',
+                                style: TextStyle(
+                                  color: KestrelColors.textGrey,
+                                  fontSize: 10,
+                                ),
+                              ),
+                            ],
                           ),
-                          const Text(
-                            'investiert',
-                            style: TextStyle(
-                              color: KestrelColors.textGrey,
-                              fontSize: 10,
+                          // P&L — nur wenn Positionen vorhanden
+                          if (totalPnl != null) ...[
+                            const SizedBox(width: 16),
+                            Column(
+                              crossAxisAlignment: CrossAxisAlignment.end,
+                              children: [
+                                Text(
+                                  fmtPrice(totalPnl, showSign: true),
+                                  style: TextStyle(
+                                    color: pnlPos
+                                        ? KestrelColors.green
+                                        : KestrelColors.red,
+                                    fontSize: 14,
+                                    fontWeight: FontWeight.w600,
+                                  ),
+                                ),
+                                const Text(
+                                  'unrealisiert',
+                                  style: TextStyle(
+                                    color: KestrelColors.textGrey,
+                                    fontSize: 10,
+                                  ),
+                                ),
+                              ],
                             ),
-                          ),
+                          ],
                         ],
                       ),
                     ],
@@ -624,6 +651,133 @@ class _PositionsCard extends StatelessWidget {
                 ],
               );
             }),
+        ],
+      ),
+    );
+  }
+}
+
+// ── Drawdown Strip ───────────────────────────────────────────
+
+class _DrawdownStrip extends StatelessWidget {
+  final num drawdown;
+  final num limit;
+  const _DrawdownStrip({required this.drawdown, required this.limit});
+
+  @override
+  Widget build(BuildContext context) {
+    final pct      = limit > 0 ? (drawdown / limit).clamp(0.0, 1.0) : 0.0;
+    final isWarn   = pct >= 0.7;  // ≥70% des Limits → Orange
+    final barColor = isWarn ? KestrelColors.orange : KestrelColors.green;
+    final txtColor = isWarn ? KestrelColors.orange : KestrelColors.textDimmed;
+
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 2),
+      child: Column(
+        children: [
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Text(
+                'Drawdown  ${drawdown.toStringAsFixed(1).replaceAll('.', ',')} %'
+                    '  ·  Limit ${limit.toStringAsFixed(0)} %',
+                style: TextStyle(color: txtColor, fontSize: 10),
+              ),
+              Text(
+                '${(pct * 100).toStringAsFixed(0)} %',
+                style: TextStyle(
+                  color: txtColor,
+                  fontSize: 10,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 4),
+          Container(
+            height: 3,
+            decoration: BoxDecoration(
+              color: KestrelColors.cardBorder,
+              borderRadius: BorderRadius.circular(2),
+            ),
+            child: FractionallySizedBox(
+              alignment: Alignment.centerLeft,
+              widthFactor: pct.toDouble(),
+              child: Container(
+                decoration: BoxDecoration(
+                  color: barColor,
+                  borderRadius: BorderRadius.circular(2),
+                ),
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+// ── Last Run Strip ────────────────────────────────────────────
+
+class _LastRunStrip extends StatelessWidget {
+  final Map<String, dynamic> latestRun;
+  const _LastRunStrip({required this.latestRun});
+
+  String _fmtRunTime(String runId) {
+    if (runId.length < 13) return runId;
+    final now   = DateTime.now();
+    final year  = int.tryParse(runId.substring(0, 4)) ?? 0;
+    final month = int.tryParse(runId.substring(4, 6)) ?? 0;
+    final day   = int.tryParse(runId.substring(6, 8)) ?? 0;
+    final hour  = runId.substring(9, 11);
+    final min   = runId.substring(11, 13);
+    final isToday = now.year == year && now.month == month && now.day == day;
+    return isToday ? 'heute $hour:$min' : '$day.${month.toString().padLeft(2,'0')}. $hour:$min';
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final runId   = latestRun['run_id']          as String? ?? '';
+    final count   = latestRun['shortlist_count'] as int?    ?? 0;
+    final status  = latestRun['order_status']    as String? ?? '–';
+    final ticker  = latestRun['order_ticker']    as String?;
+
+    if (runId.isEmpty) return const SizedBox.shrink();
+
+    final statusStr = switch (status) {
+      'filled'  => ticker != null ? '$ticker filled' : 'filled',
+      'pending' => 'pending',
+      'skipped' => 'skipped',
+      _         => status,
+    };
+
+    final statusColor = switch (status) {
+      'filled'  => KestrelColors.green,
+      'pending' => KestrelColors.gold,
+      'skipped' => KestrelColors.textDimmed,
+      _         => KestrelColors.textHint,
+    };
+
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 2),
+      child: Row(
+        children: [
+          const Text(
+            'Letzter Run: ',
+            style: TextStyle(color: KestrelColors.textHint, fontSize: 10),
+          ),
+          Text(
+            '${_fmtRunTime(runId)} · $count Kandidat${count == 1 ? '' : 'en'} · ',
+            style: const TextStyle(color: KestrelColors.textDimmed, fontSize: 10),
+          ),
+          Text(
+            statusStr,
+            style: TextStyle(
+              color: statusColor,
+              fontSize: 10,
+              fontWeight: FontWeight.w600,
+            ),
+          ),
         ],
       ),
     );
