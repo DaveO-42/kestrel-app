@@ -100,7 +100,9 @@ class _PositionDetailScreenState extends State<PositionDetailScreen> {
         children: [
           // Scrollbarer Content — Padding unten für Sell-Button
           ListView(
-            padding: const EdgeInsets.only(bottom: 88),
+            padding: EdgeInsets.only(
+              bottom: 88 + MediaQuery.of(context).padding.bottom,
+            ),
             children: [
               // HARD-Banner direkt unter AppBar
               if (hasHard) const _HardBanner(),
@@ -407,6 +409,13 @@ class _TradeParamsCard extends StatelessWidget {
   final Map<String, dynamic> position;
   const _TradeParamsCard({required this.position});
 
+  String _positionSize(Map<String, dynamic> p) {
+    final price = (p['last_known_price_eur'] as num?)?.toDouble();
+    final qty   = (p['quantity']             as num?)?.toDouble();
+    if (price == null || qty == null) return '–';
+    return fmtPrice(price * qty);
+  }
+
   String _stopDistanz(Map<String, dynamic> p) {
     final price = (p['last_known_price_eur'] as num?)?.toDouble();
     final stop  = (p['current_stop_eur']     as num?)?.toDouble();
@@ -451,8 +460,8 @@ class _TradeParamsCard extends StatelessWidget {
                   label: 'Stück')),
               const SizedBox(width: 6),
               Expanded(child: _ParamCell(
-                  value: fmtPrice(position['atr_at_entry_eur'] as num?),
-                  label: 'ATR')),
+                  value: _positionSize(position),
+                  label: 'Position')),
             ],
           ),
           const SizedBox(height: 6),
@@ -468,8 +477,8 @@ class _TradeParamsCard extends StatelessWidget {
                   dimmed: true)),
               const SizedBox(width: 6),
               Expanded(child: _ParamCell(
-                  value: fmtPrice(position['highest_close_eur'] as num?),
-                  label: 'Höchstkurs')),
+                  value: fmtPrice(position['atr_at_entry_eur'] as num?),
+                  label: 'ATR')),
             ],
           ),
           const SizedBox(height: 10),
@@ -767,6 +776,7 @@ class _SellButton extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final bottomInset = MediaQuery.of(context).padding.bottom;
     return Container(
       decoration: const BoxDecoration(
         gradient: LinearGradient(
@@ -779,7 +789,7 @@ class _SellButton extends StatelessWidget {
           stops: [0.0, 0.45],
         ),
       ),
-      padding: const EdgeInsets.fromLTRB(16, 16, 16, 12),
+      padding: EdgeInsets.fromLTRB(16, 16, 16, 12 + bottomInset),
       child: GestureDetector(
         onTap: () {
           // V2: Verkauf-Flow

@@ -835,6 +835,13 @@ class _PositionRow extends StatelessWidget {
   final Map<String, dynamic> position;
   const _PositionRow({required this.position});
 
+  String _positionValue(Map<String, dynamic> p) {
+    final price = (p['last_known_price_eur'] as num?)?.toDouble();
+    final qty   = (p['quantity']             as num?)?.toDouble();
+    if (price == null || qty == null) return '–';
+    return fmtPrice(price * qty);
+  }
+
   Color _trafficLight() {
     final signals = position['signals'] as List? ?? [];
     if (signals.any((s) => (s as Map)['severity'] == 'HARD'))
@@ -895,7 +902,7 @@ class _PositionRow extends StatelessWidget {
                     ),
                     const SizedBox(height: 2),
                     Text(
-                      'Entry ${fmtPrice(position['entry_price_eur'] as num?)} · Stop ${fmtPrice(position['current_stop_eur'] as num?)}',
+                      '${position['quantity']} Stück · Gesamtwert ${_positionValue(position)}',
                       style: const TextStyle(
                         color: KestrelColors.textGrey,
                         fontSize: 10,
