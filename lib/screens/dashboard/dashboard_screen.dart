@@ -5,7 +5,8 @@ import '../../main_screen.dart';
 import '../positions/position_detail_screen.dart';
 
 class DashboardScreen extends StatefulWidget {
-  const DashboardScreen({super.key});
+  final Map<String, dynamic>? preloadedData;
+  const DashboardScreen({super.key, this.preloadedData});
 
   @override
   State<DashboardScreen> createState() => _DashboardScreenState();
@@ -19,7 +20,13 @@ class _DashboardScreenState extends State<DashboardScreen> {
   @override
   void initState() {
     super.initState();
-    _load();
+    if (widget.preloadedData != null) {
+      // Splash hat bereits geladen — direkt anzeigen
+      _data    = widget.preloadedData;
+      _loading = false;
+    } else {
+      _load();
+    }
   }
 
   Future<void> _load() async {

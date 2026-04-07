@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import 'main_screen.dart';
+import 'screens/splash/splash_screen.dart';
 import 'theme/kestrel_theme.dart';
 
 void main() {
@@ -15,7 +15,7 @@ class KestrelApp extends StatelessWidget {
       title: 'Kestrel',
       debugShowCheckedModeBanner: false,
       theme: KestrelTheme.theme,
-      home: const MainScreen(),
+      home: const SplashScreen(),
     );
   }
 }
