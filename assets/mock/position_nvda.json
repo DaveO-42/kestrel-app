@@ -14,6 +14,6 @@
   "entry_date": "2026-03-18",
   "notes": "Q-Beat vor 5d: EPS $0.89 vs. $0.79 erw.",
   "signals": [
-    {"severity": "INFO", "message": "RSI unter 55 – Momentum schwächer"}
+    {"severity": "WARN", "message": "Kurs < EMA20"}
   ]
 }

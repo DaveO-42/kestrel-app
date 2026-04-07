@@ -34,13 +34,13 @@ class _ShortlistScreenState extends State<ShortlistScreen> {
         _loading = false;
         _error   = null;
       });
-      KestrelNav.of(context)?.setConnectionError(false);
+      if (!ApiService.useMock) KestrelNav.of(context)?.setConnectionError(false);
     } catch (e) {
       setState(() {
         _error   = e.toString();
         _loading = false;
       });
-      KestrelNav.of(context)?.setConnectionError(true);
+      if (!ApiService.useMock) KestrelNav.of(context)?.setConnectionError(true);
     }
   }
 

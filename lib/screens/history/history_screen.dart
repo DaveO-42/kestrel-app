@@ -37,11 +37,11 @@ class _HistoryScreenState extends State<HistoryScreen> {
         _system  = results[2] as Map<String, dynamic>;
         _loading = false;
       });
-      KestrelNav.of(context)?.setConnectionError(false);
+      if (!ApiService.useMock) KestrelNav.of(context)?.setConnectionError(false);
     } catch (e) {
       if (!mounted) return;
       setState(() => _loading = false);
-      KestrelNav.of(context)?.setConnectionError(true);
+      if (!ApiService.useMock) KestrelNav.of(context)?.setConnectionError(true);
     }
   }
 

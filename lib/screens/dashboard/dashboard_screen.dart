@@ -35,21 +35,21 @@ class _DashboardScreenState extends State<DashboardScreen> {
         _loading   = false;
         _connError = false;
       });
-      KestrelNav.of(context)?.setConnectionError(false);
+      if (!ApiService.useMock) KestrelNav.of(context)?.setConnectionError(false);
     } catch (e) {
       if (!mounted) return;
       setState(() {
         _loading   = false;
         _connError = true;
       });
-      KestrelNav.of(context)?.setConnectionError(true);
+      if (!ApiService.useMock) KestrelNav.of(context)?.setConnectionError(true);
     }
   }
 
   @override
   Widget build(BuildContext context) {
     // Kombination: lokaler Ladefehler ODER globaler Verbindungsfehler aus Settings
-    final globalError = KestrelNav.of(context)?.connectionError ?? false;
+    final globalError = !ApiService.useMock && (KestrelNav.of(context)?.connectionError ?? false);
     final showError   = _connError || globalError;
 
     return Scaffold(
