@@ -43,14 +43,12 @@ class ApiService {
 
   static Future<Map<String, dynamic>> getPosition(String ticker) async {
     if (useMock) {
-      // Im Mock-Modus immer NVDA-Daten zurückgeben,
-      // ticker wird ins JSON geschrieben damit der Screen den richtigen Ticker zeigt
       final data = await _loadAsset('assets/mock/position_nvda.json')
-          as Map<String, dynamic>;
+      as Map<String, dynamic>;
       return {...data, 'ticker': ticker};
     }
     final response =
-        await http.get(Uri.parse('$baseUrl/positions/$ticker'));
+    await http.get(Uri.parse('$baseUrl/positions/$ticker'));
     if (response.statusCode == 200) return jsonDecode(response.body);
     throw Exception('Position $ticker nicht gefunden');
   }
@@ -73,8 +71,21 @@ class ApiService {
       return list.take(limit).toList();
     }
     final response =
-        await http.get(Uri.parse('$baseUrl/runs?limit=$limit'));
+    await http.get(Uri.parse('$baseUrl/runs?limit=$limit'));
     if (response.statusCode == 200) return jsonDecode(response.body);
     throw Exception('Runs konnten nicht geladen werden');
+  }
+
+  // ── Verbindungstest (immer echter HTTP-Call, auch im Mock-Modus) ──
+  // Wirft Exception wenn Server nicht erreichbar.
+  // Gibt Antwortzeit in ms zurück.
+  static Future<int> testConnection() async {
+    final stopwatch = Stopwatch()..start();
+    final response = await http
+        .get(Uri.parse('$baseUrl/dashboard'))
+        .timeout(const Duration(seconds: 5));
+    stopwatch.stop();
+    if (response.statusCode == 200) return stopwatch.elapsedMilliseconds;
+    throw Exception('Server antwortete mit ${response.statusCode}');
   }
 }

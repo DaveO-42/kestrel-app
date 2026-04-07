@@ -231,29 +231,43 @@ class _RangeBar extends StatelessWidget {
     const pricePos = 0.92;
 
     final priceColor = isPositive ? KestrelColors.green : KestrelColors.orange;
-    final priceLabel = fmtPrice(price);
+
+    // Labels: immer Stop links, Entry Mitte, Kurs rechts
+    // Farben je nach Plus/Minus-Zustand
+    final stopLabel  = stop  != null ? 'Stop ${fmtPrice(stop)}'   : '–';
     final entryLabel = entry != null ? 'Entry ${fmtPrice(entry)}' : '–';
-    final stopLabel  = stop  != null ? 'Stop ${fmtPrice(stop)}' : '–';
+    final priceLabel = price != null ? 'Kurs ${fmtPrice(price)}'  : 'Kurs –';
 
     return Container(
       color: KestrelColors.appBarBg,
       padding: const EdgeInsets.fromLTRB(13, 10, 13, 14),
       child: Column(
         children: [
+          // Labels: Stop links | Entry Mitte | Kurs rechts — immer in dieser Reihenfolge
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              Text(stopLabel,
-                  style: const TextStyle(
-                      color: KestrelColors.red, fontSize: 10, fontWeight: FontWeight.w600)),
-              Text(isPositive ? priceLabel : entryLabel,
-                  style: TextStyle(
-                      color: isPositive ? priceColor : KestrelColors.textGrey,
-                      fontSize: 10, fontWeight: FontWeight.w600)),
-              Text(isPositive ? entryLabel : priceLabel,
-                  style: TextStyle(
-                      color: isPositive ? KestrelColors.textGrey : priceColor,
-                      fontSize: 10, fontWeight: FontWeight.w600)),
+              Text(
+                stopLabel,
+                style: const TextStyle(
+                    color: KestrelColors.red,
+                    fontSize: 10,
+                    fontWeight: FontWeight.w600),
+              ),
+              Text(
+                entryLabel,
+                style: const TextStyle(
+                    color: KestrelColors.textGrey,
+                    fontSize: 10,
+                    fontWeight: FontWeight.w600),
+              ),
+              Text(
+                priceLabel,
+                style: TextStyle(
+                    color: priceColor,
+                    fontSize: 10,
+                    fontWeight: FontWeight.w600),
+              ),
             ],
           ),
           const SizedBox(height: 8),
@@ -277,15 +291,17 @@ class _RangeBar extends StatelessWidget {
                     ),
                     // Zonen
                     if (isPositive) ...[
-                      _Zone(left: 0,                  width: w * stopPos,                color: _kRedFull,   roundLeft: true),
-                      _Zone(left: w * stopPos,         width: w * (entryPos - stopPos),   color: _kRedDim),
-                      _Zone(left: w * entryPos,        width: w * (pricePos - entryPos),  color: _kGreenFull),
+                      _Zone(left: 0,            width: w * stopPos,                color: _kRedFull,   roundLeft: true),
+                      _Zone(left: w * stopPos,  width: w * (entryPos - stopPos),   color: _kRedDim),
+                      _Zone(left: w * entryPos, width: w * (pricePos - entryPos),  color: _kGreenFull),
                     ] else ...[
-                      _Zone(left: 0,                  width: w * stopPos,                color: _kRedFull,   roundLeft: true),
-                      _Zone(left: w * stopPos,         width: w * (entryPos - stopPos),   color: _kRedMid),
-                      _Zone(left: w * entryPos,        width: w * (pricePos - entryPos),  color: _kOrangeDim),
+                      _Zone(left: 0,            width: w * stopPos,                color: _kRedFull,   roundLeft: true),
+                      _Zone(left: w * stopPos,  width: w * (entryPos - stopPos),   color: _kRedMid),
+                      _Zone(left: w * entryPos, width: w * (pricePos - entryPos),  color: _kOrangeDim),
                     ],
-                    // Dots
+                    // Dots: Stop links, Entry Mitte, Kurs/Price rechts
+                    // Plus:  Stop=Rot, Entry=Grau(Mitte), Kurs=Grün(rechts)
+                    // Minus: Stop=Rot, Kurs=Orange(Mitte=entryPos), Entry=Grau(rechts=pricePos)
                     _Dot(left: w * stopPos,  color: KestrelColors.red,         glow: false),
                     if (isPositive) ...[
                       _Dot(left: w * entryPos,  color: KestrelColors.textDimmed, glow: false),
@@ -338,7 +354,6 @@ class _Dot extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    // Glow ebenfalls ohne withOpacity: feste ARGB-Werte
     final glowColor = glow
         ? Color((0x66000000 | (color.value & 0x00FFFFFF)))
         : null;
