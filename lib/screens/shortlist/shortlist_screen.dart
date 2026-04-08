@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import '../../services/api_service.dart';
 import '../../theme/kestrel_theme.dart';
 import '../../main_screen.dart';
+import '../../widgets/info_sheet.dart';
 
 class ShortlistScreen extends StatefulWidget {
   const ShortlistScreen({super.key});
@@ -15,6 +16,14 @@ class _ShortlistScreenState extends State<ShortlistScreen> {
   Map<String, dynamic>? _system;
   bool _loading = true;
   String? _error;
+  bool _infoOpen = false;
+
+  void _openInfo() {
+    setState(() => _infoOpen = true);
+    showKestrelInfoSheet(context).then((_) {
+      if (mounted) setState(() => _infoOpen = false);
+    });
+  }
 
   @override
   void initState() {
@@ -36,11 +45,9 @@ class _ShortlistScreenState extends State<ShortlistScreen> {
       });
       if (!ApiService.useMock) KestrelNav.of(context)?.setConnectionError(false);
     } catch (e) {
-      setState(() {
-        _error   = e.toString();
-        _loading = false;
-      });
-      if (!ApiService.useMock) KestrelNav.of(context)?.setConnectionError(true);
+      if (!mounted) return;
+      setState(() => _loading = false);
+      KestrelNav.of(context)?.setConnectionError(true);
     }
   }
 
@@ -53,6 +60,14 @@ class _ShortlistScreenState extends State<ShortlistScreen> {
       );
     }
     final connError = KestrelNav.of(context)?.connectionError ?? false;
+
+    if (_data == null) {
+      return Scaffold(
+        backgroundColor: KestrelColors.screenBg,
+        appBar: _buildAppBar('–'),
+        body: const Column(children: [ErrorBanner()]),
+      );
+    }
 
     final status       = _data!['status']        as String? ?? 'pending';
     final runId        = _data!['run_id']         as String? ?? '';
@@ -135,9 +150,10 @@ class _ShortlistScreenState extends State<ShortlistScreen> {
       ),
       actions: [
         Padding(
-          padding: const EdgeInsets.only(right: 12),
+          padding: const EdgeInsets.only(right: 4),
           child: _StatusBadge(status: status),
         ),
+        InfoButton(active: _infoOpen, onTap: _openInfo),
       ],
       bottom: PreferredSize(
         preferredSize: const Size.fromHeight(1),

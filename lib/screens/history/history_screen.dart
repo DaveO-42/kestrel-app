@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import '../../services/api_service.dart';
 import '../../theme/kestrel_theme.dart';
 import '../../main_screen.dart';
+import '../../widgets/info_sheet.dart';
 
 // ── Formatter Helpers ─────────────────────────────────────────
 
@@ -31,6 +32,14 @@ class _HistoryScreenState extends State<HistoryScreen> {
   List<dynamic>?        _trades;
   Map<String, dynamic>? _system;
   bool _loading = true;
+  bool _infoOpen = false;
+
+  void _openInfo() {
+    setState(() => _infoOpen = true);
+    showKestrelInfoSheet(context).then((_) {
+      if (mounted) setState(() => _infoOpen = false);
+    });
+  }
 
   @override
   void initState() {
@@ -82,6 +91,8 @@ class _HistoryScreenState extends State<HistoryScreen> {
               drawdownPct: _system?['drawdown_pct'] as num?,
               reason:      _system?['pause_reason'] as String?,
             ),
+          if (KestrelNav.of(context)?.connectionError ?? false)
+            const ErrorBanner(),
           Expanded(
             child: RefreshIndicator(
               onRefresh: _load,
@@ -124,13 +135,7 @@ class _HistoryScreenState extends State<HistoryScreen> {
         ],
       ),
       actions: [
-        IconButton(
-          icon: const Icon(Icons.refresh, color: KestrelColors.textGrey, size: 20),
-          onPressed: () {
-            setState(() => _loading = true);
-            _load();
-          },
-        ),
+        InfoButton(active: _infoOpen, onTap: _openInfo),
       ],
       bottom: PreferredSize(
         preferredSize: const Size.fromHeight(1),

@@ -673,3 +673,20 @@ class _InfoRow extends StatelessWidget {
     );
   }
 }
+class InfoButton extends StatelessWidget {
+  final bool active;
+  final VoidCallback onTap;
+  const InfoButton({super.key, required this.active, required this.onTap});
+
+  @override
+  Widget build(BuildContext context) {
+    return IconButton(
+      icon: Icon(
+        Icons.info_outline,
+        color: active ? KestrelColors.gold : KestrelColors.textGrey,
+        size: 20,
+      ),
+      onPressed: onTap,
+    );
+  }
+}

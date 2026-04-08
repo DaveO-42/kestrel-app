@@ -10,6 +10,8 @@ class ApiService {
 
   static const String baseUrl = 'http://100.103.235.113:8000';
 
+  static const _timeout = Duration(seconds: 8);
+
   // ── Interner Helper ───────────────────────────────────────────
 
   static Future<dynamic> _loadAsset(String path) async {
@@ -20,7 +22,9 @@ class ApiService {
   static Future<Map<String, dynamic>> _getMap(
       String mockPath, String endpoint) async {
     if (useMock) return await _loadAsset(mockPath) as Map<String, dynamic>;
-    final response = await http.get(Uri.parse('$baseUrl$endpoint'));
+    final response = await http
+        .get(Uri.parse('$baseUrl$endpoint'))
+        .timeout(_timeout);
     if (response.statusCode == 200) return jsonDecode(response.body);
     throw Exception('Fehler beim Laden von $endpoint');
   }
@@ -28,7 +32,9 @@ class ApiService {
   static Future<List<dynamic>> _getList(
       String mockPath, String endpoint) async {
     if (useMock) return await _loadAsset(mockPath) as List<dynamic>;
-    final response = await http.get(Uri.parse('$baseUrl$endpoint'));
+    final response = await http
+        .get(Uri.parse('$baseUrl$endpoint'))
+        .timeout(_timeout);
     if (response.statusCode == 200) return jsonDecode(response.body);
     throw Exception('Fehler beim Laden von $endpoint');
   }
@@ -47,8 +53,9 @@ class ApiService {
       as Map<String, dynamic>;
       return {...data, 'ticker': ticker};
     }
-    final response =
-    await http.get(Uri.parse('$baseUrl/positions/$ticker'));
+    final response = await http
+        .get(Uri.parse('$baseUrl/positions/$ticker'))
+        .timeout(_timeout);
     if (response.statusCode == 200) return jsonDecode(response.body);
     throw Exception('Position $ticker nicht gefunden');
   }
@@ -70,15 +77,14 @@ class ApiService {
       final list = await _loadAsset('assets/mock/runs.json') as List<dynamic>;
       return list.take(limit).toList();
     }
-    final response =
-    await http.get(Uri.parse('$baseUrl/runs?limit=$limit'));
+    final response = await http
+        .get(Uri.parse('$baseUrl/runs?limit=$limit'))
+        .timeout(_timeout);
     if (response.statusCode == 200) return jsonDecode(response.body);
     throw Exception('Runs konnten nicht geladen werden');
   }
 
-  // ── Verbindungstest (immer echter HTTP-Call, auch im Mock-Modus) ──
-  // Wirft Exception wenn Server nicht erreichbar.
-  // Gibt Antwortzeit in ms zurück.
+  // ── Verbindungstest ───────────────────────────────────────────
   static Future<int> testConnection() async {
     final stopwatch = Stopwatch()..start();
     final response = await http

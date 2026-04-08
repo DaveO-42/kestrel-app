@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import '../../services/api_service.dart';
 import '../../theme/kestrel_theme.dart';
 import '../../main_screen.dart';
+import '../../widgets/info_sheet.dart';
 
 class SystemScreen extends StatefulWidget {
   const SystemScreen({super.key});
@@ -14,6 +15,14 @@ class _SystemScreenState extends State<SystemScreen> {
   Map<String, dynamic>? _status;
   List<dynamic>? _runs;
   bool _loading = true;
+  bool _infoOpen = false;
+
+  void _openInfo() {
+    setState(() => _infoOpen = true);
+    showKestrelInfoSheet(context).then((_) {
+      if (mounted) setState(() => _infoOpen = false);
+    });
+  }
 
   @override
   void initState() {
@@ -47,36 +56,42 @@ class _SystemScreenState extends State<SystemScreen> {
     if (_loading) {
       return const Scaffold(
         backgroundColor: KestrelColors.screenBg,
-        body: Center(
-            child: CircularProgressIndicator(color: KestrelColors.gold)),
+        body: Center(child: CircularProgressIndicator(color: KestrelColors.gold)),
       );
     }
 
-    // is_paused ist der neue Key (entspricht drawdown-Struktur)
-    final paused = _status?['is_paused'] as bool? ?? false;
+    final connError = KestrelNav.of(context)?.connectionError ?? false;
+    final paused    = _status?['is_paused'] as bool? ?? false;
 
     return Scaffold(
       backgroundColor: KestrelColors.screenBg,
       appBar: _buildAppBar(paused),
-      body: RefreshIndicator(
-        onRefresh: _load,
-        color: KestrelColors.gold,
-        backgroundColor: KestrelColors.cardBg,
-        child: ListView(
-          padding: const EdgeInsets.fromLTRB(12, 10, 12, 24),
-          children: [
-            if (paused && _status != null) ...[
-              _PauseCard(status: _status!),
-              const SizedBox(height: 8),
-            ],
-            if (_status != null) ...[
-              _DrawdownCard(status: _status!),
-              const SizedBox(height: 8),
-            ],
-            if (_runs != null && _runs!.isNotEmpty)
-              _RunLogCard(runs: _runs!),
-          ],
-        ),
+      body: Column(
+        children: [
+          if (connError) const ErrorBanner(),
+          Expanded(
+            child: RefreshIndicator(
+              onRefresh: _load,
+              color: KestrelColors.gold,
+              backgroundColor: KestrelColors.cardBg,
+              child: ListView(
+                padding: const EdgeInsets.fromLTRB(12, 10, 12, 24),
+                children: [
+                  if (paused && _status != null) ...[
+                    _PauseCard(status: _status!),
+                    const SizedBox(height: 8),
+                  ],
+                  if (_status != null) ...[
+                    _DrawdownCard(status: _status!),
+                    const SizedBox(height: 8),
+                  ],
+                  if (_runs != null && _runs!.isNotEmpty)
+                    _RunLogCard(runs: _runs!),
+                ],
+              ),
+            ),
+          ),
+        ],
       ),
     );
   }
@@ -124,10 +139,7 @@ class _SystemScreenState extends State<SystemScreen> {
             ),
           ),
         ),
-        IconButton(
-          icon: const Icon(Icons.refresh, color: KestrelColors.textGrey, size: 20),
-          onPressed: _load,
-        ),
+        InfoButton(active: _infoOpen, onTap: _openInfo),
       ],
       bottom: PreferredSize(
         preferredSize: const Size.fromHeight(1),

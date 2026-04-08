@@ -3,6 +3,7 @@ import '../../services/api_service.dart';
 import '../../theme/kestrel_theme.dart';
 import '../../main_screen.dart';
 import '../positions/position_detail_screen.dart';
+import '../../widgets/info_sheet.dart';
 
 class DashboardScreen extends StatefulWidget {
   const DashboardScreen({super.key});
@@ -15,6 +16,14 @@ class _DashboardScreenState extends State<DashboardScreen> {
   Map<String, dynamic>? _data;
   bool _loading = true;
   bool _connError = false;
+  bool _infoOpen = false;
+
+  void _openInfo() {
+    setState(() => _infoOpen = true);
+    showKestrelInfoSheet(context).then((_) {
+      if (mounted) setState(() => _infoOpen = false);
+    });
+  }
 
   @override
   void initState() {
@@ -69,13 +78,11 @@ class _DashboardScreenState extends State<DashboardScreen> {
       ),
       actions: [
         IconButton(
-          icon: const Icon(Icons.refresh, color: KestrelColors.textGrey, size: 20),
-          onPressed: _load,
-        ),
-        IconButton(
-          icon: const Icon(Icons.settings_outlined, color: KestrelColors.textGrey, size: 20),
+          icon: const Icon(Icons.settings_outlined,
+              color: KestrelColors.textGrey, size: 20),
           onPressed: () => KestrelNav.of(context)?.goToSettings(),
         ),
+        InfoButton(active: _infoOpen, onTap: _openInfo),
       ],
       bottom: PreferredSize(
         preferredSize: const Size.fromHeight(1),
