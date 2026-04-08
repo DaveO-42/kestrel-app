@@ -16,8 +16,6 @@ class _SplashScreenState extends State<SplashScreen>
   late Animation<double> _progressAnim;
 
   // Gecachte Daten die nach dem Splash an MainScreen übergeben werden
-  Map<String, dynamic>? _dashboardData;
-  String? _loadError;
 
   @override
   void initState() {
@@ -52,14 +50,9 @@ class _SplashScreenState extends State<SplashScreen>
     // Stufe 1: App gestartet
     await _setProgress(0.4, ms: 500);
 
-    // Stufe 2: API-Call
-    try {
-      _dashboardData = await ApiService.getDashboard();
-    } catch (e) {
-      _loadError = e.toString();
-    }
-
-    // Stufe 3: Daten da → 100%
+    // Stufe 2: kurze Pause
+    await Future.delayed(const Duration(milliseconds: 300));
+    // Stufe 3: bereit → 100%
     await _setProgress(1.0, ms: 300);
 
     // Kurze Pause damit 100% sichtbar ist
@@ -71,7 +64,7 @@ class _SplashScreenState extends State<SplashScreen>
     Navigator.of(context).pushReplacement(
       PageRouteBuilder(
         pageBuilder: (_, __, ___) =>
-            MainScreen(preloadedDashboard: _dashboardData),
+            const MainScreen(),
         transitionsBuilder: (_, anim, __, child) =>
             FadeTransition(opacity: anim, child: child),
         transitionDuration: const Duration(milliseconds: 400),

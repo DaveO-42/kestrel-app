@@ -42,8 +42,7 @@ class KestrelNav extends InheritedWidget {
 // ── Main Screen ───────────────────────────────────────────────
 
 class MainScreen extends StatefulWidget {
-  final Map<String, dynamic>? preloadedDashboard;
-  const MainScreen({super.key, this.preloadedDashboard});
+  const MainScreen({super.key});
 
   @override
   State<MainScreen> createState() => _MainScreenState();
@@ -65,7 +64,7 @@ class _MainScreenState extends State<MainScreen> {
         body: IndexedStack(
           index: _index,
           children: [
-            DashboardScreen(preloadedData: widget.preloadedDashboard),
+            const DashboardScreen(),
             const ShortlistScreen(),
             const HistoryScreen(),
             const SystemScreen(),

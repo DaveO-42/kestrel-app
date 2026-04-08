@@ -66,7 +66,7 @@ class _ShortlistScreenState extends State<ShortlistScreen> {
         ? '${runId.substring(9, 11)}:${runId.substring(11, 13)}'
         : runId;
 
-    final paused = _system?['paused'] as bool? ?? false;
+    final paused = _system?['is_paused'] as bool? ?? false;
 
     return Scaffold(
       backgroundColor: KestrelColors.screenBg,

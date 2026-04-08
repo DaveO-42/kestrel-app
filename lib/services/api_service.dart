@@ -6,9 +6,9 @@ class ApiService {
   // ── Mock-Flag ─────────────────────────────────────────────────
   // true  → Daten aus assets/mock/*.json (kein Server nötig)
   // false → Echter Server (Pi oder lokaler Mock)
-  static const bool useMock = true;
+  static const bool useMock = false;
 
-  static const String baseUrl = 'http://10.0.2.2:8000';
+  static const String baseUrl = 'http://100.103.235.113:8000';
 
   // ── Interner Helper ───────────────────────────────────────────
 

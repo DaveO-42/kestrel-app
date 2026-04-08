@@ -3,6 +3,22 @@ import '../../services/api_service.dart';
 import '../../theme/kestrel_theme.dart';
 import '../../main_screen.dart';
 
+// ── Formatter Helpers ─────────────────────────────────────────
+
+String fmtPrice(num? val, {bool showSign = false}) {
+  if (val == null) return '–';
+  final sign = showSign && val >= 0 ? '+' : '';
+  return '$sign${val.toStringAsFixed(2)} €';
+}
+
+String fmtPct(num? val, {bool showSign = true}) {
+  if (val == null) return '–';
+  final sign = showSign && val >= 0 ? '+' : '';
+  return '$sign${val.toStringAsFixed(1)} %';
+}
+
+// ── Screen ────────────────────────────────────────────────────
+
 class HistoryScreen extends StatefulWidget {
   const HistoryScreen({super.key});
 
@@ -12,7 +28,7 @@ class HistoryScreen extends StatefulWidget {
 
 class _HistoryScreenState extends State<HistoryScreen> {
   Map<String, dynamic>? _summary;
-  List<dynamic>? _trades;
+  List<dynamic>?        _trades;
   Map<String, dynamic>? _system;
   bool _loading = true;
 
@@ -37,11 +53,11 @@ class _HistoryScreenState extends State<HistoryScreen> {
         _system  = results[2] as Map<String, dynamic>;
         _loading = false;
       });
-      if (!ApiService.useMock) KestrelNav.of(context)?.setConnectionError(false);
+      KestrelNav.of(context)?.setConnectionError(false);
     } catch (e) {
       if (!mounted) return;
       setState(() => _loading = false);
-      if (!ApiService.useMock) KestrelNav.of(context)?.setConnectionError(true);
+      KestrelNav.of(context)?.setConnectionError(true);
     }
   }
 
@@ -50,13 +66,11 @@ class _HistoryScreenState extends State<HistoryScreen> {
     if (_loading) {
       return const Scaffold(
         backgroundColor: KestrelColors.screenBg,
-        body: Center(
-            child: CircularProgressIndicator(color: KestrelColors.gold)),
+        body: Center(child: CircularProgressIndicator(color: KestrelColors.gold)),
       );
     }
 
-    final connError = KestrelNav.of(context)?.connectionError ?? false;
-    final paused    = _system?['paused'] as bool? ?? false;
+    final paused = _system?['is_paused'] as bool? ?? false;
 
     return Scaffold(
       backgroundColor: KestrelColors.screenBg,
@@ -66,71 +80,25 @@ class _HistoryScreenState extends State<HistoryScreen> {
           if (paused)
             PauseBanner(
               drawdownPct: _system?['drawdown_pct'] as num?,
-              reason: _system?['pause_reason'] as String?,
+              reason:      _system?['pause_reason'] as String?,
             ),
-          if (connError) const ErrorBanner(),
           Expanded(
-            child: connError
-                ? _buildErrorBody()
-                : RefreshIndicator(
+            child: RefreshIndicator(
               onRefresh: _load,
               color: KestrelColors.gold,
               backgroundColor: KestrelColors.cardBg,
               child: ListView(
                 padding: const EdgeInsets.fromLTRB(12, 10, 12, 24),
                 children: [
-                  if (_summary != null)
-                    _PnlHero(summary: _summary!),
+                  if (_summary != null) _PnlHero(summary: _summary!),
                   const SizedBox(height: 8),
-                  if (_trades != null)
-                    _TradeList(trades: _trades!),
+                  if (_trades != null) _TradeList(trades: _trades!),
                 ],
               ),
             ),
           ),
         ],
       ),
-    );
-  }
-
-  Widget _buildErrorBody() {
-    return ListView(
-      padding: const EdgeInsets.fromLTRB(12, 10, 12, 24),
-      children: [
-        Opacity(
-          opacity: 0.25,
-          child: _GoldTopCard(
-            child: Padding(
-              padding: const EdgeInsets.fromLTRB(13, 11, 13, 13),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  const Text('TOTAL P&L', style: kCardLabelStyle),
-                  const SizedBox(height: 4),
-                  const Text('–',
-                      style: TextStyle(
-                        color: KestrelColors.textPrimary,
-                        fontSize: 28,
-                        fontWeight: FontWeight.w700,
-                      )),
-                ],
-              ),
-            ),
-          ),
-        ),
-        const SizedBox(height: 8),
-        Opacity(
-          opacity: 0.25,
-          child: Container(
-            height: 80,
-            decoration: BoxDecoration(
-              color: KestrelColors.cardBg,
-              borderRadius: BorderRadius.circular(12),
-              border: Border.all(color: KestrelColors.cardBorder),
-            ),
-          ),
-        ),
-      ],
     );
   }
 
@@ -157,8 +125,11 @@ class _HistoryScreenState extends State<HistoryScreen> {
       ),
       actions: [
         IconButton(
-          icon: const Icon(Icons.refresh, color: KestrelColors.textDimmed),
-          onPressed: _load,
+          icon: const Icon(Icons.refresh, color: KestrelColors.textGrey, size: 20),
+          onPressed: () {
+            setState(() => _loading = true);
+            _load();
+          },
         ),
       ],
       bottom: PreferredSize(
@@ -180,8 +151,7 @@ class _PnlHero extends StatelessWidget {
     final totalPnl   = (summary['total_pnl_eur']   as num?) ?? 0;
     final winRate    = (summary['win_rate_pct']     as num?) ?? 0;
     final avgReturn  = (summary['avg_return_pct']   as num?) ?? 0;
-    final avgHold    = (summary['avg_hold_days']    as num?) ?? 0;
-    final maxDD      = (summary['max_drawdown_pct'] as num?) ?? 0;
+    final avgHold    = summary['avg_hold_days']     as num?;
     final sharpe     = summary['sharpe_ratio']      as num?;
     final tradeCount = ((summary['trade_count']     as num?) ?? 0).toInt();
     final isPos      = totalPnl >= 0;
@@ -192,7 +162,15 @@ class _PnlHero extends StatelessWidget {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            const Text('TOTAL P&L', style: kCardLabelStyle),
+            const Text(
+              'TOTAL P&L',
+              style: TextStyle(
+                color: KestrelColors.gold,
+                fontSize: 10,
+                fontWeight: FontWeight.w700,
+                letterSpacing: 0.8,
+              ),
+            ),
             const SizedBox(height: 4),
             Text(
               fmtPrice(totalPnl, showSign: true),
@@ -206,59 +184,36 @@ class _PnlHero extends StatelessWidget {
             const SizedBox(height: 10),
             Row(
               children: [
-                Expanded(
-                    child: _StatCell(
-                      value:
-                      '${winRate.toStringAsFixed(0).replaceAll('.', ',')} %',
-                      label: 'Win-Rate',
-                    )),
+                Expanded(child: _StatCell(
+                  value: '${winRate.toStringAsFixed(0)} %',
+                  label: 'Win-Rate',
+                )),
                 const SizedBox(width: 6),
-                Expanded(
-                    child: _StatCell(
-                      value: fmtPct(avgReturn, showSign: true),
-                      label: 'Ø Return',
-                      valueColor: avgReturn >= 0
-                          ? KestrelColors.green
-                          : KestrelColors.red,
-                    )),
+                Expanded(child: _StatCell(
+                  value: fmtPct(avgReturn, showSign: true),
+                  label: 'Ø Return',
+                  valueColor: avgReturn >= 0 ? KestrelColors.green : KestrelColors.red,
+                )),
                 const SizedBox(width: 6),
-                Expanded(
-                    child: _StatCell(
-                      value: '${avgHold.toStringAsFixed(0)}d',
-                      label: 'Ø Haltedauer',
-                    )),
-              ],
-            ),
-            const SizedBox(height: 8),
-            Container(
-              decoration: BoxDecoration(
-                color: KestrelColors.screenBg,
-                borderRadius: BorderRadius.circular(7),
-                border: Border.all(color: KestrelColors.cardBorder),
-              ),
-              padding:
-              const EdgeInsets.symmetric(horizontal: 10, vertical: 7),
-              child: Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
-                  Text(
-                    'Max DD  ${maxDD.toStringAsFixed(1)} %',
-                    style: const TextStyle(
-                        color: KestrelColors.textGrey, fontSize: 10),
-                  ),
-                  if (sharpe != null)
-                    Text(
-                      'Sharpe  ${sharpe.toStringAsFixed(2)}',
-                      style: const TextStyle(
-                          color: KestrelColors.textGrey, fontSize: 10),
-                    ),
-                  Text(
-                    '$tradeCount Trades',
-                    style: const TextStyle(
-                        color: KestrelColors.textDimmed, fontSize: 10),
-                  ),
+                Expanded(child: _StatCell(
+                  value: '$tradeCount',
+                  label: 'Trades',
+                )),
+                if (sharpe != null) ...[
+                  const SizedBox(width: 6),
+                  Expanded(child: _StatCell(
+                    value: sharpe.toStringAsFixed(2),
+                    label: 'Sharpe',
+                  )),
                 ],
-              ),
+                if (avgHold != null) ...[
+                  const SizedBox(width: 6),
+                  Expanded(child: _StatCell(
+                    value: '${avgHold.toStringAsFixed(0)}d',
+                    label: 'Ø Hold',
+                  )),
+                ],
+              ],
             ),
           ],
         ),
@@ -266,6 +221,132 @@ class _PnlHero extends StatelessWidget {
     );
   }
 }
+
+// ── Trade List ────────────────────────────────────────────────
+
+class _TradeList extends StatelessWidget {
+  final List trades;
+  const _TradeList({required this.trades});
+
+  @override
+  Widget build(BuildContext context) {
+    if (trades.isEmpty) {
+      return Container(
+        decoration: BoxDecoration(
+          color: KestrelColors.cardBg,
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(color: KestrelColors.cardBorder),
+        ),
+        padding: const EdgeInsets.all(24),
+        child: const Center(
+          child: Text(
+            'Noch keine abgeschlossenen Trades',
+            style: TextStyle(color: KestrelColors.textGrey, fontSize: 13),
+          ),
+        ),
+      );
+    }
+
+    return Container(
+      decoration: BoxDecoration(
+        color: KestrelColors.cardBg,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: KestrelColors.cardBorder),
+      ),
+      padding: const EdgeInsets.fromLTRB(13, 11, 13, 4),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            'TRADES (${trades.length})',
+            style: const TextStyle(
+              color: KestrelColors.gold,
+              fontSize: 10,
+              fontWeight: FontWeight.w700,
+              letterSpacing: 0.8,
+            ),
+          ),
+          const SizedBox(height: 4),
+          ...trades.map((t) => _TradeRow(trade: t as Map<String, dynamic>)),
+        ],
+      ),
+    );
+  }
+}
+
+// ── Trade Row ─────────────────────────────────────────────────
+
+class _TradeRow extends StatelessWidget {
+  final Map<String, dynamic> trade;
+  const _TradeRow({required this.trade});
+
+  String _fmtDate(String? iso) {
+    if (iso == null || iso.length < 10) return '–';
+    final parts = iso.substring(0, 10).split('-');
+    if (parts.length != 3) return iso;
+    return '${parts[2]}.${parts[1]}.${parts[0]}';
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    // API liefert pnl_abs_eur (nicht pnl_eur)
+    final pnl    = trade['pnl_abs_eur'] as num?;
+    final pnlPct = trade['pnl_pct']     as num?;
+    final isPos  = (pnl ?? 0) >= 0;
+
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 9),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        children: [
+          Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                trade['ticker'] as String? ?? '–',
+                style: const TextStyle(
+                  color: KestrelColors.textPrimary,
+                  fontSize: 13,
+                  fontWeight: FontWeight.w700,
+                ),
+              ),
+              const SizedBox(height: 2),
+              Text(
+                _fmtDate(trade['exit_date'] as String?),
+                style: const TextStyle(
+                    color: KestrelColors.textGrey, fontSize: 10),
+              ),
+            ],
+          ),
+          if (pnl != null)
+            Column(
+              crossAxisAlignment: CrossAxisAlignment.end,
+              children: [
+                Text(
+                  fmtPrice(pnl, showSign: true),
+                  style: TextStyle(
+                    color: isPos ? KestrelColors.green : KestrelColors.red,
+                    fontSize: 13,
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
+                const SizedBox(height: 2),
+                Text(
+                  fmtPct(pnlPct),
+                  style: TextStyle(
+                    color: isPos ? KestrelColors.green : KestrelColors.red,
+                    fontSize: 10,
+                  ),
+                ),
+              ],
+            ),
+        ],
+      ),
+    );
+  }
+}
+
+// ── Stat Cell ─────────────────────────────────────────────────
 
 class _StatCell extends StatelessWidget {
   final String value;
@@ -294,130 +375,10 @@ class _StatCell extends StatelessWidget {
             textAlign: TextAlign.center,
           ),
           const SizedBox(height: 2),
-          Text(label,
-              style: const TextStyle(
-                  color: KestrelColors.textGrey, fontSize: 9)),
-        ],
-      ),
-    );
-  }
-}
-
-// ── Trade List ────────────────────────────────────────────────
-
-class _TradeList extends StatelessWidget {
-  final List trades;
-  const _TradeList({required this.trades});
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      decoration: BoxDecoration(
-        color: KestrelColors.cardBg,
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: KestrelColors.cardBorder),
-      ),
-      padding: const EdgeInsets.fromLTRB(13, 11, 13, 4),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
           Text(
-            'ABGESCHLOSSENE TRADES (${trades.length})',
-            style: kCardLabelStyle,
+            label,
+            style: const TextStyle(color: KestrelColors.textGrey, fontSize: 9),
           ),
-          const SizedBox(height: 8),
-          if (trades.isEmpty)
-            const Padding(
-              padding: EdgeInsets.only(bottom: 8),
-              child: Text(
-                'Noch keine abgeschlossenen Trades',
-                style: TextStyle(
-                    color: KestrelColors.textGrey, fontSize: 12),
-              ),
-            )
-          else
-            ...trades.asMap().entries.map((entry) {
-              final isLast = entry.key == trades.length - 1;
-              return Column(
-                children: [
-                  _TradeRow(trade: entry.value as Map<String, dynamic>),
-                  if (!isLast)
-                    const Divider(
-                        height: 1, color: KestrelColors.cardBorder),
-                ],
-              );
-            }),
-        ],
-      ),
-    );
-  }
-}
-
-class _TradeRow extends StatelessWidget {
-  final Map<String, dynamic> trade;
-  const _TradeRow({required this.trade});
-
-  String _fmtDate(String? iso) {
-    if (iso == null || iso.length < 10) return '–';
-    final parts = iso.substring(0, 10).split('-');
-    if (parts.length != 3) return iso;
-    return '${parts[2]}.${parts[1]}.${parts[0]}';
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    final pnl    = trade['pnl_eur'] as num?;
-    final pnlPct = trade['pnl_pct'] as num?;
-    final isPos  = (pnl ?? 0) >= 0;
-
-    return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 9),
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-        children: [
-          Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                trade['ticker'] as String,
-                style: const TextStyle(
-                  color: KestrelColors.textPrimary,
-                  fontSize: 13,
-                  fontWeight: FontWeight.w700,
-                ),
-              ),
-              const SizedBox(height: 2),
-              Text(
-                _fmtDate(trade['exit_date'] as String?),
-                style: const TextStyle(
-                    color: KestrelColors.textGrey, fontSize: 10),
-              ),
-            ],
-          ),
-          if (pnl != null)
-            Column(
-              crossAxisAlignment: CrossAxisAlignment.end,
-              children: [
-                Text(
-                  fmtPrice(pnl, showSign: true),
-                  style: TextStyle(
-                    color:
-                    isPos ? KestrelColors.green : KestrelColors.red,
-                    fontSize: 13,
-                    fontWeight: FontWeight.w700,
-                  ),
-                ),
-                const SizedBox(height: 2),
-                Text(
-                  fmtPct(pnlPct),
-                  style: TextStyle(
-                    color:
-                    isPos ? KestrelColors.green : KestrelColors.red,
-                    fontSize: 10,
-                  ),
-                ),
-              ],
-            ),
         ],
       ),
     );
@@ -435,16 +396,16 @@ class _GoldTopCard extends StatelessWidget {
     return ClipRRect(
       borderRadius: BorderRadius.circular(12),
       child: Container(
-        decoration: BoxDecoration(
+        decoration: const BoxDecoration(
           color: KestrelColors.cardBg,
-          border: Border.all(color: KestrelColors.cardBorder),
+          border: Border(
+            top:    BorderSide(color: KestrelColors.gold, width: 2),
+            left:   BorderSide(color: KestrelColors.cardBorder),
+            right:  BorderSide(color: KestrelColors.cardBorder),
+            bottom: BorderSide(color: KestrelColors.cardBorder),
+          ),
         ),
-        child: Column(
-          children: [
-            Container(height: 2, color: KestrelColors.gold),
-            child,
-          ],
-        ),
+        child: child,
       ),
     );
   }
