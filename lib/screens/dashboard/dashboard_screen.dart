@@ -74,7 +74,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
         ),
         IconButton(
           icon: const Icon(Icons.settings_outlined, color: KestrelColors.textGrey, size: 20),
-          onPressed: () => KestrelNav.of(context)?.goToSystem(),
+          onPressed: () => KestrelNav.of(context)?.goToSettings(),
         ),
       ],
       bottom: PreferredSize(
