@@ -5,6 +5,7 @@ import 'screens/dashboard/dashboard_screen.dart';
 import 'screens/shortlist/shortlist_screen.dart';
 import 'screens/history/history_screen.dart';
 import 'screens/system/system_screen.dart';
+import 'package:package_info_plus/package_info_plus.dart';
 
 // ── KestrelNav – InheritedWidget ──────────────────────────────
 // Stellt app-weite Callbacks bereit:
@@ -253,7 +254,29 @@ class _SettingsScreenState extends State<SettingsScreen> {
   _ConnStatus _connStatus = _ConnStatus.idle;
   String? _connMessage;
   String? _connTimestamp;
-  bool? _lastConnError;  // wird beim Pop an MainScreen zurückgegeben
+  bool? _lastConnError;
+
+  // Versionen
+  String _appVersion     = '…';
+  String _apiVersion     = '…';
+  String _backendVersion = '…';
+
+  @override
+  void initState() {
+    super.initState();
+    _loadVersions();
+  }
+
+  Future<void> _loadVersions() async {
+    final info     = await PackageInfo.fromPlatform();
+    final versions = await ApiService.getVersion();
+    if (!mounted) return;
+    setState(() {
+      _appVersion     = info.version;
+      _apiVersion     = versions?['api']     as String? ?? '–';
+      _backendVersion = versions?['backend'] as String? ?? '–';
+    });
+  }
 
   Future<void> _testConnection() async {
     setState(() {
@@ -469,9 +492,10 @@ class _SettingsScreenState extends State<SettingsScreen> {
           _SectionHeader(label: 'App-Info'),
           _SettingsCard(
             children: [
-              _InfoRow(label: 'App-Version', value: '1.0.0'),
-              _InfoRow(label: 'API-Version',  value: 'v1.0.0'),
-              _InfoRow(label: 'Pi-Hostname',  value: ApiService.baseUrl.replaceAll('http://', '').replaceAll(':8000', '')),
+              _InfoRow(label: 'App-Version',     value: _appVersion),
+              _InfoRow(label: 'API-Version',      value: _apiVersion),
+              _InfoRow(label: 'Backend-Version',  value: _backendVersion),
+              _InfoRow(label: 'Pi-Hostname',      value: ApiService.baseUrl.replaceAll('http://', '').replaceAll(':8000', '')),
             ],
           ),
         ],

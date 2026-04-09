@@ -14,13 +14,13 @@ class ApiService {
   static const _timeout = Duration(seconds: 8);
 
   // ── Cache-Keys ────────────────────────────────────────────────
-  static const String _keyDashboard = 'cache_dashboard';
-  static const String _keyPositions = 'cache_positions';
-  static const String _keyShortlist = 'cache_shortlist';
-  static const String _keyHistory = 'cache_history';
+  static const String _keyDashboard      = 'cache_dashboard';
+  static const String _keyPositions      = 'cache_positions';
+  static const String _keyShortlist      = 'cache_shortlist';
+  static const String _keyHistory        = 'cache_history';
   static const String _keyHistorySummary = 'cache_history_summary';
-  static const String _keySystemStatus = 'cache_system_status';
-  static const String _keyRuns = 'cache_runs';
+  static const String _keySystemStatus   = 'cache_system_status';
+  static const String _keyRuns           = 'cache_runs';
 
   static String _positionKey(String ticker) => 'cache_position_$ticker';
 
@@ -165,6 +165,24 @@ class ApiService {
       }
       throw Exception('Runs konnten nicht geladen werden');
     }
+  }
+
+  // ── Version ───────────────────────────────────────────────────
+
+  /// Gibt { "backend": "0.5.0", "api": "1.0.0" } zurück.
+  /// Kein Caching – wird nur beim Öffnen des Settings-Screens geladen.
+  /// Gibt null zurück wenn Server nicht erreichbar.
+  static Future<Map<String, dynamic>?> getVersion() async {
+    if (useMock) return {'backend': '0.0.0-mock', 'api': '1.0.0'};
+    try {
+      final response = await http
+          .get(Uri.parse('$baseUrl/system/version'))
+          .timeout(const Duration(seconds: 5));
+      if (response.statusCode == 200) {
+        return jsonDecode(response.body) as Map<String, dynamic>;
+      }
+    } catch (_) {}
+    return null;
   }
 
   // ── Verbindungstest ───────────────────────────────────────────

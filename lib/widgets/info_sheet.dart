@@ -111,9 +111,14 @@ class _InfoSheet extends StatelessWidget {
 
               // Scrollbarer Inhalt
               Expanded(
-                child: ListView(
-                  controller: scrollController,
-                  padding: const EdgeInsets.only(bottom: 32),
+                child: MediaQuery.removePadding(
+                  context: context,
+                  removeTop: true,
+                  child: ListView(
+                    controller: scrollController,
+                    padding: EdgeInsets.only(
+                    bottom: 32 + MediaQuery.of(context).padding.bottom,
+                  ),
                   children: const [
                     _SectionTitle('Screening Gates'),
                     _GateRow('G1', 'Earnings Beat', 'EPS-Überraschung ≤ 30 Tage'),
@@ -145,6 +150,7 @@ class _InfoSheet extends StatelessWidget {
                     _RuleRow('Resume nur manuell via Telegram: /resume'),
                   ],
                 ),
+              ),
               ),
             ],
           ),
