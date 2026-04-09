@@ -1,6 +1,7 @@
 import 'dart:convert';
 import 'package:flutter/services.dart';
 import 'package:http/http.dart' as http;
+import 'cache_service.dart';
 
 class ApiService {
   // ── Mock-Flag ─────────────────────────────────────────────────
@@ -12,6 +13,17 @@ class ApiService {
 
   static const _timeout = Duration(seconds: 8);
 
+  // ── Cache-Keys ────────────────────────────────────────────────
+  static const String _keyDashboard = 'cache_dashboard';
+  static const String _keyPositions = 'cache_positions';
+  static const String _keyShortlist = 'cache_shortlist';
+  static const String _keyHistory = 'cache_history';
+  static const String _keyHistorySummary = 'cache_history_summary';
+  static const String _keySystemStatus = 'cache_system_status';
+  static const String _keyRuns = 'cache_runs';
+
+  static String _positionKey(String ticker) => 'cache_position_$ticker';
+
   // ── Interner Helper ───────────────────────────────────────────
 
   static Future<dynamic> _loadAsset(String path) async {
@@ -19,69 +31,140 @@ class ApiService {
     return jsonDecode(str);
   }
 
-  static Future<Map<String, dynamic>> _getMap(
-      String mockPath, String endpoint) async {
-    if (useMock) return await _loadAsset(mockPath) as Map<String, dynamic>;
-    final response = await http
-        .get(Uri.parse('$baseUrl$endpoint'))
-        .timeout(_timeout);
-    if (response.statusCode == 200) return jsonDecode(response.body);
-    throw Exception('Fehler beim Laden von $endpoint');
+  /// Führt GET-Request durch. Bei Erfolg: Cache schreiben.
+  /// Bei Fehler: Cache lesen und isOffline=true setzen.
+  /// Wirft Exception nur wenn auch kein Cache vorhanden.
+  static Future<CachedResult<Map<String, dynamic>>> getMapCached(
+      String mockPath,
+      String endpoint,
+      String cacheKey,
+      ) async {
+    if (useMock) {
+      final data = await _loadAsset(mockPath) as Map<String, dynamic>;
+      return CachedResult(data: data);
+    }
+
+    try {
+      final response = await http
+          .get(Uri.parse('$baseUrl$endpoint'))
+          .timeout(_timeout);
+      if (response.statusCode == 200) {
+        final data = jsonDecode(response.body) as Map<String, dynamic>;
+        await CacheService.write(cacheKey, data);
+        return CachedResult(data: data, isOffline: false);
+      }
+      throw Exception('HTTP ${response.statusCode}');
+    } catch (_) {
+      final cached = await CacheService.read<Map<String, dynamic>>(cacheKey);
+      if (cached != null) return cached;
+      rethrow;
+    }
   }
 
-  static Future<List<dynamic>> _getList(
-      String mockPath, String endpoint) async {
-    if (useMock) return await _loadAsset(mockPath) as List<dynamic>;
-    final response = await http
-        .get(Uri.parse('$baseUrl$endpoint'))
-        .timeout(_timeout);
-    if (response.statusCode == 200) return jsonDecode(response.body);
-    throw Exception('Fehler beim Laden von $endpoint');
+  static Future<CachedResult<List<dynamic>>> getListCached(
+      String mockPath,
+      String endpoint,
+      String cacheKey,
+      ) async {
+    if (useMock) {
+      final data = await _loadAsset(mockPath) as List<dynamic>;
+      return CachedResult(data: data);
+    }
+
+    try {
+      final response = await http
+          .get(Uri.parse('$baseUrl$endpoint'))
+          .timeout(_timeout);
+      if (response.statusCode == 200) {
+        final data = jsonDecode(response.body) as List<dynamic>;
+        await CacheService.write(cacheKey, data);
+        return CachedResult(data: data, isOffline: false);
+      }
+      throw Exception('HTTP ${response.statusCode}');
+    } catch (_) {
+      final cached = await CacheService.read<List<dynamic>>(cacheKey);
+      if (cached != null) return cached;
+      rethrow;
+    }
   }
 
   // ── Endpoints ─────────────────────────────────────────────────
 
-  static Future<Map<String, dynamic>> getDashboard() =>
-      _getMap('assets/mock/dashboard.json', '/dashboard');
+  static Future<CachedResult<Map<String, dynamic>>> getDashboard() =>
+      getMapCached('assets/mock/dashboard.json', '/dashboard', _keyDashboard);
 
-  static Future<List<dynamic>> getPositions() =>
-      _getList('assets/mock/dashboard.json', '/positions');
+  static Future<CachedResult<List<dynamic>>> getPositions() =>
+      getListCached('assets/mock/dashboard.json', '/positions', _keyPositions);
 
-  static Future<Map<String, dynamic>> getPosition(String ticker) async {
+  static Future<CachedResult<Map<String, dynamic>>> getPosition(
+      String ticker) async {
     if (useMock) {
       final data = await _loadAsset('assets/mock/position_nvda.json')
       as Map<String, dynamic>;
-      return {...data, 'ticker': ticker};
+      return CachedResult(data: {...data, 'ticker': ticker});
     }
-    final response = await http
-        .get(Uri.parse('$baseUrl/positions/$ticker'))
-        .timeout(_timeout);
-    if (response.statusCode == 200) return jsonDecode(response.body);
-    throw Exception('Position $ticker nicht gefunden');
+
+    final key = _positionKey(ticker);
+    try {
+      final response = await http
+          .get(Uri.parse('$baseUrl/positions/$ticker'))
+          .timeout(_timeout);
+      if (response.statusCode == 200) {
+        final data = jsonDecode(response.body) as Map<String, dynamic>;
+        await CacheService.write(key, data);
+        return CachedResult(data: data, isOffline: false);
+      }
+      throw Exception('HTTP ${response.statusCode}');
+    } catch (_) {
+      final cached = await CacheService.read<Map<String, dynamic>>(key);
+      if (cached != null) return cached;
+      throw Exception('Position $ticker nicht gefunden');
+    }
   }
 
-  static Future<Map<String, dynamic>> getShortlist() =>
-      _getMap('assets/mock/shortlist.json', '/shortlist');
+  static Future<CachedResult<Map<String, dynamic>>> getShortlist() =>
+      getMapCached('assets/mock/shortlist.json', '/shortlist', _keyShortlist);
 
-  static Future<Map<String, dynamic>> getHistory() =>
-      _getMap('assets/mock/history.json', '/history');
+  static Future<CachedResult<Map<String, dynamic>>> getHistory() =>
+      getMapCached('assets/mock/history.json', '/history', _keyHistory);
 
-  static Future<Map<String, dynamic>> getHistorySummary() =>
-      _getMap('assets/mock/history_summary.json', '/history/summary');
+  static Future<CachedResult<Map<String, dynamic>>> getHistorySummary() =>
+      getMapCached('assets/mock/history_summary.json', '/history/summary',
+          _keyHistorySummary);
 
-  static Future<Map<String, dynamic>> getSystemStatus() =>
-      _getMap('assets/mock/system_status.json', '/system/status');
+  static Future<CachedResult<Map<String, dynamic>>> getSystemStatus() =>
+      getMapCached(
+          'assets/mock/system_status.json', '/system/status', _keySystemStatus);
 
-  static Future<List<dynamic>> getRuns({int limit = 20}) async {
+  static Future<CachedResult<List<dynamic>>> getRuns({int limit = 20}) async {
     if (useMock) {
       final list = await _loadAsset('assets/mock/runs.json') as List<dynamic>;
-      return list.take(limit).toList();
+      return CachedResult(data: list.take(limit).toList());
     }
-    final response = await http
-        .get(Uri.parse('$baseUrl/runs?limit=$limit'))
-        .timeout(_timeout);
-    if (response.statusCode == 200) return jsonDecode(response.body);
-    throw Exception('Runs konnten nicht geladen werden');
+
+    try {
+      final response = await http
+          .get(Uri.parse('$baseUrl/runs?limit=$limit'))
+          .timeout(_timeout);
+      if (response.statusCode == 200) {
+        final data = (jsonDecode(response.body) as List<dynamic>)
+            .take(limit)
+            .toList();
+        await CacheService.write(_keyRuns, data);
+        return CachedResult(data: data, isOffline: false);
+      }
+      throw Exception('HTTP ${response.statusCode}');
+    } catch (_) {
+      final cached = await CacheService.read<List<dynamic>>(_keyRuns);
+      if (cached != null) {
+        return CachedResult(
+          data: cached.data.take(limit).toList(),
+          cachedAt: cached.cachedAt,
+          isOffline: true,
+        );
+      }
+      throw Exception('Runs konnten nicht geladen werden');
+    }
   }
 
   // ── Verbindungstest ───────────────────────────────────────────

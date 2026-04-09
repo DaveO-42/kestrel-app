@@ -1,8 +1,10 @@
 import 'package:flutter/material.dart';
 import '../../services/api_service.dart';
+import '../../services/cache_service.dart';
 import '../../theme/kestrel_theme.dart';
 import '../../main_screen.dart';
 import '../../widgets/info_sheet.dart';
+import '../../widgets/offline_banner.dart';
 
 // ── Formatter Helpers ─────────────────────────────────────────
 
@@ -28,11 +30,17 @@ class HistoryScreen extends StatefulWidget {
 }
 
 class _HistoryScreenState extends State<HistoryScreen> {
-  Map<String, dynamic>? _summary;
-  List<dynamic>?        _trades;
-  Map<String, dynamic>? _system;
+  CachedResult<Map<String, dynamic>>? _summaryResult;
+  CachedResult<Map<String, dynamic>>? _historyResult;
+  CachedResult<Map<String, dynamic>>? _systemResult;
   bool _loading = true;
   bool _infoOpen = false;
+
+  bool get _isOffline =>
+      (_summaryResult?.isOffline ?? false) ||
+          (_historyResult?.isOffline ?? false);
+
+  DateTime? get _cachedAt => _summaryResult?.cachedAt;
 
   void _openInfo() {
     setState(() => _infoOpen = true);
@@ -57,12 +65,12 @@ class _HistoryScreenState extends State<HistoryScreen> {
       ]);
       if (!mounted) return;
       setState(() {
-        _summary = results[0] as Map<String, dynamic>;
-        _trades  = (results[1] as Map<String, dynamic>)['trades'] as List;
-        _system  = results[2] as Map<String, dynamic>;
+        _summaryResult = results[0] as CachedResult<Map<String, dynamic>>;
+        _historyResult = results[1] as CachedResult<Map<String, dynamic>>;
+        _systemResult  = results[2] as CachedResult<Map<String, dynamic>>;
         _loading = false;
       });
-      KestrelNav.of(context)?.setConnectionError(false);
+      KestrelNav.of(context)?.setConnectionError(_isOffline);
     } catch (e) {
       if (!mounted) return;
       setState(() => _loading = false);
@@ -79,20 +87,23 @@ class _HistoryScreenState extends State<HistoryScreen> {
       );
     }
 
-    final paused = _system?['is_paused'] as bool? ?? false;
+    final summary = _summaryResult?.data;
+    final trades  = (_historyResult?.data)?['trades'] as List?;
+    final system  = _systemResult?.data;
+    final paused  = system?['is_paused'] as bool? ?? false;
 
     return Scaffold(
       backgroundColor: KestrelColors.screenBg,
       appBar: _buildAppBar(),
       body: Column(
         children: [
+          if (_isOffline)
+            OfflineBanner(cachedAt: _cachedAt),
           if (paused)
             PauseBanner(
-              drawdownPct: _system?['drawdown_pct'] as num?,
-              reason:      _system?['pause_reason'] as String?,
+              drawdownPct: system?['drawdown_pct'] as num?,
+              reason:      system?['pause_reason'] as String?,
             ),
-          if (KestrelNav.of(context)?.connectionError ?? false)
-            const ErrorBanner(),
           Expanded(
             child: RefreshIndicator(
               onRefresh: _load,
@@ -101,9 +112,9 @@ class _HistoryScreenState extends State<HistoryScreen> {
               child: ListView(
                 padding: const EdgeInsets.fromLTRB(12, 10, 12, 24),
                 children: [
-                  if (_summary != null) _PnlHero(summary: _summary!),
+                  if (summary != null) _PnlHero(summary: summary),
                   const SizedBox(height: 8),
-                  if (_trades != null) _TradeList(trades: _trades!),
+                  if (trades != null) _TradeList(trades: trades),
                 ],
               ),
             ),
@@ -123,15 +134,9 @@ class _HistoryScreenState extends State<HistoryScreen> {
         children: [
           KestrelLogo(size: 26),
           const SizedBox(width: 8),
-          const Text(
-            'History',
-            style: TextStyle(
-              color: KestrelColors.goldLight,
-              fontSize: 16,
-              fontWeight: FontWeight.w700,
-              letterSpacing: 0.8,
-            ),
-          ),
+          const Text('History',
+              style: TextStyle(color: KestrelColors.goldLight, fontSize: 16,
+                  fontWeight: FontWeight.w700, letterSpacing: 0.8)),
         ],
       ),
       actions: [
@@ -161,30 +166,21 @@ class _PnlHero extends StatelessWidget {
     final tradeCount = ((summary['trade_count']     as num?) ?? 0).toInt();
     final isPos      = totalPnl >= 0;
 
-    return _GoldTopCard(
+    return GoldTopCard(
       child: Padding(
         padding: const EdgeInsets.fromLTRB(13, 11, 13, 13),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            const Text(
-              'TOTAL P&L',
-              style: TextStyle(
-                color: KestrelColors.gold,
-                fontSize: 10,
-                fontWeight: FontWeight.w700,
-                letterSpacing: 0.8,
-              ),
-            ),
-            const SizedBox(height: 4),
+            const Text('TOTAL P&L',
+                style: TextStyle(color: KestrelColors.gold, fontSize: 10,
+                    fontWeight: FontWeight.w700, letterSpacing: 0.8)),
+            const SizedBox(height: 6),
             Text(
-              fmtPrice(totalPnl, showSign: true),
+              '${isPos ? '+' : ''}${totalPnl.toStringAsFixed(2)} €',
               style: TextStyle(
-                color: isPos ? KestrelColors.green : KestrelColors.red,
-                fontSize: 28,
-                fontWeight: FontWeight.w700,
-                height: 1.0,
-              ),
+                  color: isPos ? KestrelColors.green : KestrelColors.red,
+                  fontSize: 28, fontWeight: FontWeight.w700),
             ),
             const SizedBox(height: 10),
             Row(
@@ -192,31 +188,25 @@ class _PnlHero extends StatelessWidget {
                 Expanded(child: _StatCell(
                   value: '${winRate.toStringAsFixed(0)} %',
                   label: 'Win-Rate',
+                  valueColor: winRate >= 50 ? KestrelColors.green : KestrelColors.red,
                 )),
                 const SizedBox(width: 6),
                 Expanded(child: _StatCell(
-                  value: fmtPct(avgReturn, showSign: true),
+                  value: fmtPct(avgReturn),
                   label: 'Ø Return',
                   valueColor: avgReturn >= 0 ? KestrelColors.green : KestrelColors.red,
                 )),
                 const SizedBox(width: 6),
-                Expanded(child: _StatCell(
-                  value: '$tradeCount',
-                  label: 'Trades',
-                )),
+                Expanded(child: _StatCell(value: '$tradeCount', label: 'Trades')),
                 if (sharpe != null) ...[
                   const SizedBox(width: 6),
                   Expanded(child: _StatCell(
-                    value: sharpe.toStringAsFixed(2),
-                    label: 'Sharpe',
-                  )),
+                      value: sharpe.toStringAsFixed(2), label: 'Sharpe')),
                 ],
                 if (avgHold != null) ...[
                   const SizedBox(width: 6),
                   Expanded(child: _StatCell(
-                    value: '${avgHold.toStringAsFixed(0)}d',
-                    label: 'Ø Hold',
-                  )),
+                      value: '${avgHold.toStringAsFixed(0)}d', label: 'Ø Hold')),
                 ],
               ],
             ),
@@ -244,10 +234,8 @@ class _TradeList extends StatelessWidget {
         ),
         padding: const EdgeInsets.all(24),
         child: const Center(
-          child: Text(
-            'Noch keine abgeschlossenen Trades',
-            style: TextStyle(color: KestrelColors.textGrey, fontSize: 13),
-          ),
+          child: Text('Noch keine abgeschlossenen Trades',
+              style: TextStyle(color: KestrelColors.textGrey, fontSize: 13)),
         ),
       );
     }
@@ -262,15 +250,9 @@ class _TradeList extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text(
-            'TRADES (${trades.length})',
-            style: const TextStyle(
-              color: KestrelColors.gold,
-              fontSize: 10,
-              fontWeight: FontWeight.w700,
-              letterSpacing: 0.8,
-            ),
-          ),
+          Text('TRADES (${trades.length})',
+              style: const TextStyle(color: KestrelColors.gold, fontSize: 10,
+                  fontWeight: FontWeight.w700, letterSpacing: 0.8)),
           const SizedBox(height: 4),
           ...trades.map((t) => _TradeRow(trade: t as Map<String, dynamic>)),
         ],
@@ -294,7 +276,6 @@ class _TradeRow extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    // API liefert pnl_abs_eur (nicht pnl_eur)
     final pnl    = trade['pnl_abs_eur'] as num?;
     final pnlPct = trade['pnl_pct']     as num?;
     final isPos  = (pnl ?? 0) >= 0;
@@ -307,42 +288,27 @@ class _TradeRow extends StatelessWidget {
           Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Text(
-                trade['ticker'] as String? ?? '–',
-                style: const TextStyle(
-                  color: KestrelColors.textPrimary,
-                  fontSize: 13,
-                  fontWeight: FontWeight.w700,
-                ),
-              ),
+              Text(trade['ticker'] as String? ?? '–',
+                  style: const TextStyle(color: KestrelColors.textPrimary,
+                      fontSize: 13, fontWeight: FontWeight.w700)),
               const SizedBox(height: 2),
-              Text(
-                _fmtDate(trade['exit_date'] as String?),
-                style: const TextStyle(
-                    color: KestrelColors.textGrey, fontSize: 10),
-              ),
+              Text(_fmtDate(trade['exit_date'] as String?),
+                  style: const TextStyle(color: KestrelColors.textGrey, fontSize: 10)),
             ],
           ),
           if (pnl != null)
             Column(
               crossAxisAlignment: CrossAxisAlignment.end,
               children: [
-                Text(
-                  fmtPrice(pnl, showSign: true),
-                  style: TextStyle(
-                    color: isPos ? KestrelColors.green : KestrelColors.red,
-                    fontSize: 13,
-                    fontWeight: FontWeight.w700,
-                  ),
-                ),
+                Text(fmtPrice(pnl, showSign: true),
+                    style: TextStyle(
+                        color: isPos ? KestrelColors.green : KestrelColors.red,
+                        fontSize: 13, fontWeight: FontWeight.w700)),
                 const SizedBox(height: 2),
-                Text(
-                  fmtPct(pnlPct),
-                  style: TextStyle(
-                    color: isPos ? KestrelColors.green : KestrelColors.red,
-                    fontSize: 10,
-                  ),
-                ),
+                Text(fmtPct(pnlPct),
+                    style: TextStyle(
+                        color: isPos ? KestrelColors.green : KestrelColors.red,
+                        fontSize: 10)),
               ],
             ),
         ],
@@ -370,47 +336,15 @@ class _StatCell extends StatelessWidget {
       padding: const EdgeInsets.symmetric(vertical: 7, horizontal: 4),
       child: Column(
         children: [
-          Text(
-            value,
-            style: TextStyle(
-              color: valueColor ?? KestrelColors.textPrimary,
-              fontSize: 12,
-              fontWeight: FontWeight.w600,
-            ),
-            textAlign: TextAlign.center,
-          ),
+          Text(value,
+              style: TextStyle(
+                  color: valueColor ?? KestrelColors.textPrimary,
+                  fontSize: 12, fontWeight: FontWeight.w600),
+              textAlign: TextAlign.center),
           const SizedBox(height: 2),
-          Text(
-            label,
-            style: const TextStyle(color: KestrelColors.textGrey, fontSize: 9),
-          ),
+          Text(label,
+              style: const TextStyle(color: KestrelColors.textGrey, fontSize: 9)),
         ],
-      ),
-    );
-  }
-}
-
-// ── Gold Top Card ─────────────────────────────────────────────
-
-class _GoldTopCard extends StatelessWidget {
-  final Widget child;
-  const _GoldTopCard({required this.child});
-
-  @override
-  Widget build(BuildContext context) {
-    return ClipRRect(
-      borderRadius: BorderRadius.circular(12),
-      child: Container(
-        decoration: const BoxDecoration(
-          color: KestrelColors.cardBg,
-          border: Border(
-            top:    BorderSide(color: KestrelColors.gold, width: 2),
-            left:   BorderSide(color: KestrelColors.cardBorder),
-            right:  BorderSide(color: KestrelColors.cardBorder),
-            bottom: BorderSide(color: KestrelColors.cardBorder),
-          ),
-        ),
-        child: child,
       ),
     );
   }

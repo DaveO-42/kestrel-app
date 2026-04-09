@@ -1,8 +1,10 @@
 import 'package:flutter/material.dart';
 import '../../services/api_service.dart';
+import '../../services/cache_service.dart';
 import '../../theme/kestrel_theme.dart';
 import '../../main_screen.dart';
 import '../../widgets/info_sheet.dart';
+import '../../widgets/offline_banner.dart';
 
 class SystemScreen extends StatefulWidget {
   const SystemScreen({super.key});
@@ -12,10 +14,13 @@ class SystemScreen extends StatefulWidget {
 }
 
 class _SystemScreenState extends State<SystemScreen> {
-  Map<String, dynamic>? _status;
-  List<dynamic>? _runs;
+  CachedResult<Map<String, dynamic>>? _statusResult;
+  CachedResult<List<dynamic>>?        _runsResult;
   bool _loading = true;
   bool _infoOpen = false;
+
+  bool get _isOffline => _statusResult?.isOffline ?? false;
+  DateTime? get _cachedAt => _statusResult?.cachedAt;
 
   void _openInfo() {
     setState(() => _infoOpen = true);
@@ -39,11 +44,11 @@ class _SystemScreenState extends State<SystemScreen> {
       ]);
       if (!mounted) return;
       setState(() {
-        _status  = results[0] as Map<String, dynamic>;
-        _runs    = results[1] as List<dynamic>;
+        _statusResult = results[0] as CachedResult<Map<String, dynamic>>;
+        _runsResult   = results[1] as CachedResult<List<dynamic>>;
         _loading = false;
       });
-      KestrelNav.of(context)?.setConnectionError(false);
+      KestrelNav.of(context)?.setConnectionError(_isOffline);
     } catch (e) {
       if (!mounted) return;
       setState(() => _loading = false);
@@ -60,15 +65,17 @@ class _SystemScreenState extends State<SystemScreen> {
       );
     }
 
-    final connError = KestrelNav.of(context)?.connectionError ?? false;
-    final paused    = _status?['is_paused'] as bool? ?? false;
+    final status = _statusResult?.data;
+    final runs   = _runsResult?.data;
+    final paused = status?['is_paused'] as bool? ?? false;
 
     return Scaffold(
       backgroundColor: KestrelColors.screenBg,
       appBar: _buildAppBar(paused),
       body: Column(
         children: [
-          if (connError) const ErrorBanner(),
+          if (_isOffline)
+            OfflineBanner(cachedAt: _cachedAt),
           Expanded(
             child: RefreshIndicator(
               onRefresh: _load,
@@ -77,16 +84,16 @@ class _SystemScreenState extends State<SystemScreen> {
               child: ListView(
                 padding: const EdgeInsets.fromLTRB(12, 10, 12, 24),
                 children: [
-                  if (paused && _status != null) ...[
-                    _PauseCard(status: _status!),
+                  if (paused && status != null) ...[
+                    _PauseCard(status: status),
                     const SizedBox(height: 8),
                   ],
-                  if (_status != null) ...[
-                    _DrawdownCard(status: _status!),
+                  if (status != null) ...[
+                    _DrawdownCard(status: status),
                     const SizedBox(height: 8),
                   ],
-                  if (_runs != null && _runs!.isNotEmpty)
-                    _RunLogCard(runs: _runs!),
+                  if (runs != null && runs.isNotEmpty)
+                    _RunLogCard(runs: runs),
                 ],
               ),
             ),
@@ -106,15 +113,9 @@ class _SystemScreenState extends State<SystemScreen> {
         children: [
           KestrelLogo(size: 26),
           const SizedBox(width: 8),
-          const Text(
-            'System',
-            style: TextStyle(
-              color: KestrelColors.goldLight,
-              fontSize: 16,
-              fontWeight: FontWeight.w700,
-              letterSpacing: 0.8,
-            ),
-          ),
+          const Text('System',
+              style: TextStyle(color: KestrelColors.goldLight, fontSize: 16,
+                  fontWeight: FontWeight.w700, letterSpacing: 0.8)),
         ],
       ),
       actions: [
@@ -126,16 +127,13 @@ class _SystemScreenState extends State<SystemScreen> {
               color: paused ? KestrelColors.redBg : KestrelColors.greenBg,
               borderRadius: BorderRadius.circular(5),
               border: Border.all(
-                color: paused ? KestrelColors.redBorder : KestrelColors.greenBorder,
-              ),
+                  color: paused ? KestrelColors.redBorder : KestrelColors.greenBorder),
             ),
             child: Text(
               paused ? 'Pausiert' : 'Aktiv',
               style: TextStyle(
-                color: paused ? KestrelColors.red : KestrelColors.green,
-                fontSize: 10,
-                fontWeight: FontWeight.w700,
-              ),
+                  color: paused ? KestrelColors.red : KestrelColors.green,
+                  fontSize: 10, fontWeight: FontWeight.w700),
             ),
           ),
         ),
@@ -179,32 +177,20 @@ class _PauseCard extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Text(
-            'SYSTEM PAUSIERT',
-            style: TextStyle(
-              color: KestrelColors.red,
-              fontSize: 10,
-              fontWeight: FontWeight.w700,
-              letterSpacing: 0.8,
-            ),
-          ),
+          const Text('SYSTEM PAUSIERT',
+              style: TextStyle(color: KestrelColors.red, fontSize: 10,
+                  fontWeight: FontWeight.w700, letterSpacing: 0.8)),
           const SizedBox(height: 8),
-          Text(
-            reason,
-            style: const TextStyle(color: KestrelColors.textPrimary, fontSize: 13),
-          ),
+          Text(reason,
+              style: const TextStyle(color: KestrelColors.textPrimary, fontSize: 13)),
           if (since != null) ...[
             const SizedBox(height: 4),
-            Text(
-              'seit ${_fmtDateTime(since)}',
-              style: const TextStyle(color: KestrelColors.textGrey, fontSize: 11),
-            ),
+            Text('seit ${_fmtDateTime(since)}',
+                style: const TextStyle(color: KestrelColors.textGrey, fontSize: 11)),
           ],
           const SizedBox(height: 12),
-          const Text(
-            'Resume via Telegram: /resume',
-            style: TextStyle(color: KestrelColors.textGrey, fontSize: 11),
-          ),
+          const Text('Resume via Telegram: /resume',
+              style: TextStyle(color: KestrelColors.textGrey, fontSize: 11)),
         ],
       ),
     );
@@ -235,15 +221,9 @@ class _DrawdownCard extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Text(
-            'DRAWDOWN',
-            style: TextStyle(
-              color: KestrelColors.gold,
-              fontSize: 10,
-              fontWeight: FontWeight.w700,
-              letterSpacing: 0.8,
-            ),
-          ),
+          const Text('DRAWDOWN',
+              style: TextStyle(color: KestrelColors.gold, fontSize: 10,
+                  fontWeight: FontWeight.w700, letterSpacing: 0.8)),
           const SizedBox(height: 10),
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
@@ -251,15 +231,11 @@ class _DrawdownCard extends StatelessWidget {
               Text(
                 '${drawdown.toStringAsFixed(1).replaceAll('.', ',')} %',
                 style: TextStyle(
-                  color: isWarn ? KestrelColors.orange : KestrelColors.textPrimary,
-                  fontSize: 24,
-                  fontWeight: FontWeight.w700,
-                ),
+                    color: isWarn ? KestrelColors.orange : KestrelColors.textPrimary,
+                    fontSize: 24, fontWeight: FontWeight.w700),
               ),
-              Text(
-                'Limit ${limit.toStringAsFixed(0)} %',
-                style: const TextStyle(color: KestrelColors.textGrey, fontSize: 12),
-              ),
+              Text('Limit ${limit.toStringAsFixed(0)} %',
+                  style: const TextStyle(color: KestrelColors.textGrey, fontSize: 12)),
             ],
           ),
           const SizedBox(height: 8),
@@ -312,33 +288,25 @@ class _RunLogCard extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Text(
-            'RUN-LOG',
-            style: TextStyle(
-              color: KestrelColors.gold,
-              fontSize: 10,
-              fontWeight: FontWeight.w700,
-              letterSpacing: 0.8,
-            ),
-          ),
+          const Text('RUN-LOG',
+              style: TextStyle(color: KestrelColors.gold, fontSize: 10,
+                  fontWeight: FontWeight.w700, letterSpacing: 0.8)),
           const SizedBox(height: 8),
           ...runs.map((r) {
             final run    = r as Map<String, dynamic>;
             final runId  = run['run_id']          as String? ?? '';
             final count  = run['shortlist_count'] as int?    ?? 0;
             final status = run['order_status']    as String? ?? '–';
-            final ticker = run['order_ticker']    as String?;
 
-            final statusStr = switch (status) {
-              'filled'  => ticker != null ? '✓ $ticker' : '✓ Kauf',
-              'skipped' => '– kein Signal',
-              'pending' => 'pending',
-              _         => status,
-            };
             final statusColor = switch (status) {
               'filled'  => KestrelColors.green,
-              'pending' => KestrelColors.gold,
-              _         => KestrelColors.textDimmed,
+              'skipped' => KestrelColors.textDimmed,
+              _         => KestrelColors.textGrey,
+            };
+            final statusStr = switch (status) {
+              'filled'  => '✓ Kauf',
+              'skipped' => '– kein Signal',
+              _         => status,
             };
 
             return Padding(
@@ -346,34 +314,21 @@ class _RunLogCard extends StatelessWidget {
               child: Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
-                  Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        _fmtRunTime(runId),
+                  Text(_fmtRunTime(runId),
+                      style: const TextStyle(
+                          color: KestrelColors.textGrey, fontSize: 11)),
+                  Row(children: [
+                    Text('$count Kand.',
                         style: const TextStyle(
-                          color: KestrelColors.textPrimary,
-                          fontSize: 12,
-                          fontWeight: FontWeight.w500,
-                        ),
-                      ),
-                      Text(
-                        '$count Kandidat${count == 1 ? '' : 'en'}',
-                        style: const TextStyle(
-                            color: KestrelColors.textGrey, fontSize: 10),
-                      ),
-                    ],
-                  ),
-                  Text(
-                    statusStr,
-                    style: TextStyle(
-                      color: statusColor,
-                      fontSize: 11,
-                      fontWeight: status == 'filled'
-                          ? FontWeight.w600
-                          : FontWeight.normal,
-                    ),
-                  ),
+                            color: KestrelColors.textDimmed, fontSize: 11)),
+                    const Text(' · ',
+                        style: TextStyle(
+                            color: KestrelColors.textHint, fontSize: 11)),
+                    Text(statusStr,
+                        style: TextStyle(color: statusColor, fontSize: 11,
+                            fontWeight: status == 'filled'
+                                ? FontWeight.w600 : FontWeight.normal)),
+                  ]),
                 ],
               ),
             );
