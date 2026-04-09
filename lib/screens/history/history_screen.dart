@@ -58,16 +58,17 @@ class _HistoryScreenState extends State<HistoryScreen> {
   Future<void> _load() async {
     setState(() => _loading = true);
     try {
-      final results = await Future.wait([
-        ApiService.getHistorySummary(),
-        ApiService.getHistory(),
-        ApiService.getSystemStatus(),
-      ]);
+      final summaryFuture = ApiService.getHistorySummary();
+      final historyFuture = ApiService.getHistory();
+      final systemFuture  = ApiService.getSystemStatus();
+      final summary = await summaryFuture;
+      final history = await historyFuture;
+      final system  = await systemFuture;
       if (!mounted) return;
       setState(() {
-        _summaryResult = results[0] as CachedResult<Map<String, dynamic>>;
-        _historyResult = results[1] as CachedResult<Map<String, dynamic>>;
-        _systemResult  = results[2] as CachedResult<Map<String, dynamic>>;
+        _summaryResult = summary;
+        _historyResult = history;
+        _systemResult  = system;
         _loading = false;
       });
       KestrelNav.of(context)?.setConnectionError(_isOffline);

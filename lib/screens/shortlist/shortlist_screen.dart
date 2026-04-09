@@ -38,14 +38,14 @@ class _ShortlistScreenState extends State<ShortlistScreen> {
   Future<void> _load() async {
     setState(() => _loading = true);
     try {
-      final results = await Future.wait([
-        ApiService.getShortlist(),
-        ApiService.getSystemStatus(),
-      ]);
+      final dataFuture   = ApiService.getShortlist();
+      final systemFuture = ApiService.getSystemStatus();
+      final data   = await dataFuture;
+      final system = await systemFuture;
       if (!mounted) return;
       setState(() {
-        _dataResult   = results[0] as CachedResult<Map<String, dynamic>>;
-        _systemResult = results[1] as CachedResult<Map<String, dynamic>>;
+        _dataResult   = data;
+        _systemResult = system;
         _loading = false;
       });
       KestrelNav.of(context)?.setConnectionError(_isOffline);

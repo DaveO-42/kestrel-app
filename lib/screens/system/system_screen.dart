@@ -38,14 +38,14 @@ class _SystemScreenState extends State<SystemScreen> {
   Future<void> _load() async {
     setState(() => _loading = true);
     try {
-      final results = await Future.wait([
-        ApiService.getSystemStatus(),
-        ApiService.getRuns(limit: 10),
-      ]);
+      final statusFuture = ApiService.getSystemStatus();
+      final runsFuture   = ApiService.getRuns(limit: 10);
+      final status = await statusFuture;
+      final runs   = await runsFuture;
       if (!mounted) return;
       setState(() {
-        _statusResult = results[0] as CachedResult<Map<String, dynamic>>;
-        _runsResult   = results[1] as CachedResult<List<dynamic>>;
+        _statusResult = status;
+        _runsResult   = runs;
         _loading = false;
       });
       KestrelNav.of(context)?.setConnectionError(_isOffline);
