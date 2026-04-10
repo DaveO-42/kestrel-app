@@ -118,7 +118,6 @@ class _PositionDetailScreenState extends State<PositionDetailScreen> {
               bottom: 88 + MediaQuery.of(context).padding.bottom,
             ),
             children: [
-              // Offline-Banner direkt unter AppBar
               if (_result!.isOffline)
                 OfflineBanner(cachedAt: _result!.cachedAt),
               if (hasHard) const _HardBanner(),
@@ -134,7 +133,7 @@ class _PositionDetailScreenState extends State<PositionDetailScreen> {
                       const SizedBox(height: 8),
                       _SignalsCard(signals: signals, hasWarn: hasWarn, hasHard: hasHard),
                     ],
-                    if (p['notes'] != null) ...[
+                    if (p['notes'] != null && (p['notes'] as String).isNotEmpty) ...[
                       const SizedBox(height: 8),
                       _KatalysatorCard(notes: p['notes'] as String),
                     ],
@@ -175,11 +174,11 @@ class _PriceHero extends StatelessWidget {
     final dt = DateTime.tryParse(iso);
     if (dt == null) return iso;
     final l = dt.toLocal();
-    return '${l.day.toString().padLeft(2,'0')}.'
-        '${l.month.toString().padLeft(2,'0')}.'
+    return '${l.day.toString().padLeft(2, '0')}.'
+        '${l.month.toString().padLeft(2, '0')}.'
         '${l.year}, '
-        '${l.hour.toString().padLeft(2,'0')}:'
-        '${l.minute.toString().padLeft(2,'0')} Uhr';
+        '${l.hour.toString().padLeft(2, '0')}:'
+        '${l.minute.toString().padLeft(2, '0')} Uhr';
   }
 
   @override
@@ -268,85 +267,120 @@ class _RangeBar extends StatelessWidget {
     final entry = (position['entry_price_eur']      as num?)?.toDouble() ?? 0;
     final stop  = (position['current_stop_eur']     as num?)?.toDouble() ?? 0;
     final price = (position['last_known_price_eur'] as num?)?.toDouble() ?? entry;
-    final lo    = stop  * 0.98;
-    final hi    = (price > entry ? price : entry) * 1.02;
-    if (hi <= lo) return 0.5;
-    return ((entry - lo) / (hi - lo)).clamp(0.0, 1.0);
-  }
-
-  double _pricePos() {
-    final entry = (position['entry_price_eur']      as num?)?.toDouble() ?? 0;
-    final stop  = (position['current_stop_eur']     as num?)?.toDouble() ?? 0;
-    final price = (position['last_known_price_eur'] as num?)?.toDouble() ?? entry;
-    final lo    = stop  * 0.98;
-    final hi    = (price > entry ? price : entry) * 1.02;
-    if (hi <= lo) return 0.5;
-    return ((price - lo) / (hi - lo)).clamp(0.0, 1.0);
+    final spanne = price - stop;
+    if (spanne <= 0) return 0.5;
+    final rel = (entry - stop) / spanne;
+    return (0.08 + rel * 0.84).clamp(0.09, 0.91);
   }
 
   @override
   Widget build(BuildContext context) {
-    final stop  = position['current_stop_eur']     as num?;
-    final entry = position['entry_price_eur']      as num?;
-    final price = position['last_known_price_eur'] as num?;
+    final entry    = position['entry_price_eur']      as num?;
+    final stop     = position['current_stop_eur']     as num?;
+    final price    = position['last_known_price_eur'] as num?;
+    final entryPos = _entryPos();
+
+    const stopPos  = 0.08;
+    const pricePos = 0.92;
+
+    final priceColor = isPositive ? KestrelColors.green : KestrelColors.orange;
+
+    final stopLabel  = stop  != null ? 'Stop ${fmtPrice(stop)}'   : '–';
+    final entryLabel = entry != null ? 'Entry ${fmtPrice(entry)}' : '–';
+    final priceLabel = price != null ? 'Kurs ${fmtPrice(price)}'  : 'Kurs –';
 
     return Container(
       color: KestrelColors.appBarBg,
-      padding: const EdgeInsets.fromLTRB(14, 0, 14, 14),
-      child: LayoutBuilder(builder: (ctx, bc) {
-        final w = bc.maxWidth;
-        final ep = _entryPos() * w;
-        final pp = _pricePos() * w;
-
-        return Column(
-          children: [
-            SizedBox(
-              height: 24,
-              child: Stack(
-                clipBehavior: Clip.none,
-                children: [
-                  Positioned.fill(
-                    child: ClipRRect(
-                      borderRadius: BorderRadius.circular(4),
-                      child: Row(
-                        children: [
-                          Expanded(
-                            flex: (_entryPos() * 100).round(),
-                            child: Container(color: _kRedDim),
-                          ),
-                          Expanded(
-                            flex: 100 - (_entryPos() * 100).round(),
-                            child: Container(
-                              color: isPositive ? _kGreenFull : _kOrangeDim,
-                            ),
-                          ),
-                        ],
+      padding: const EdgeInsets.fromLTRB(13, 10, 13, 14),
+      child: Column(
+        children: [
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Text(stopLabel,
+                  style: const TextStyle(
+                      color: KestrelColors.red,
+                      fontSize: 10,
+                      fontWeight: FontWeight.w600)),
+              Text(entryLabel,
+                  style: const TextStyle(
+                      color: KestrelColors.textGrey,
+                      fontSize: 10,
+                      fontWeight: FontWeight.w600)),
+              Text(priceLabel,
+                  style: TextStyle(
+                      color: priceColor,
+                      fontSize: 10,
+                      fontWeight: FontWeight.w600)),
+            ],
+          ),
+          const SizedBox(height: 8),
+          SizedBox(
+            height: 20,
+            child: LayoutBuilder(
+              builder: (context, constraints) {
+                final w = constraints.maxWidth;
+                return Stack(
+                  alignment: Alignment.center,
+                  children: [
+                    Positioned.fill(
+                      child: Container(
+                        height: 8,
+                        decoration: BoxDecoration(
+                          color: KestrelColors.cardBorder,
+                          borderRadius: BorderRadius.circular(4),
+                        ),
                       ),
                     ),
-                  ),
-                  _Dot(left: 0, color: _kRedFull, glow: false),
-                  _Dot(left: ep, color: KestrelColors.gold, glow: false),
-                  _Dot(left: pp, color: isPositive ? _kGreenFull : _kRedMid, glow: true),
-                ],
-              ),
+                    if (isPositive) ...[
+                      _Zone(left: 0,            width: w * stopPos,               color: _kRedFull, roundLeft: true),
+                      _Zone(left: w * stopPos,  width: w * (entryPos - stopPos),  color: _kRedDim),
+                      _Zone(left: w * entryPos, width: w * (pricePos - entryPos), color: _kGreenFull),
+                    ] else ...[
+                      _Zone(left: 0,            width: w * stopPos,               color: _kRedFull, roundLeft: true),
+                      _Zone(left: w * stopPos,  width: w * (entryPos - stopPos),  color: _kRedMid),
+                      _Zone(left: w * entryPos, width: w * (pricePos - entryPos), color: _kOrangeDim),
+                    ],
+                    _Dot(left: w * stopPos,  color: KestrelColors.red,          glow: false),
+                    if (isPositive) ...[
+                      _Dot(left: w * entryPos, color: KestrelColors.textDimmed, glow: false),
+                      _Dot(left: w * pricePos, color: KestrelColors.green,      glow: true),
+                    ] else ...[
+                      _Dot(left: w * entryPos, color: KestrelColors.orange,     glow: true),
+                      _Dot(left: w * pricePos, color: KestrelColors.textDimmed, glow: false),
+                    ],
+                  ],
+                );
+              },
             ),
-            const SizedBox(height: 6),
-            Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                Text(stop  != null ? fmtPrice(stop)  : '–',
-                    style: const TextStyle(color: _kRedFull,           fontSize: 10)),
-                Text(entry != null ? fmtPrice(entry) : '–',
-                    style: const TextStyle(color: KestrelColors.gold,  fontSize: 10)),
-                Text(price != null ? fmtPrice(price) : '–',
-                    style: TextStyle(
-                        color: isPositive ? _kGreenFull : _kRedMid,    fontSize: 10,
-                        fontWeight: FontWeight.w600)),
-              ],
-            ),
-          ],
-        );
-      }),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _Zone extends StatelessWidget {
+  final double left;
+  final double width;
+  final Color color;
+  final bool roundLeft;
+  const _Zone({required this.left, required this.width, required this.color, this.roundLeft = false});
+
+  @override
+  Widget build(BuildContext context) {
+    return Positioned(
+      left: left,
+      width: width.clamp(0.0, double.infinity),
+      height: 8,
+      child: Container(
+        decoration: BoxDecoration(
+          color: color,
+          borderRadius: roundLeft
+              ? const BorderRadius.horizontal(left: Radius.circular(4))
+              : null,
+        ),
+      ),
     );
   }
 }
@@ -541,7 +575,8 @@ class _StopModeBadge extends StatelessWidget {
         isWarn ? 'WARN ATR×1.0' : 'Normal ATR×2.0',
         style: TextStyle(
           color: isWarn ? KestrelColors.orange : KestrelColors.gold,
-          fontSize: 9, fontWeight: FontWeight.w700,
+          fontSize: 9,
+          fontWeight: FontWeight.w700,
         ),
       ),
     );
@@ -560,24 +595,6 @@ class _SignalsCard extends StatelessWidget {
     this.hasHard = false,
   });
 
-  Color _color(String sev) => switch (sev) {
-    'HARD' => KestrelColors.red,
-    'WARN' => KestrelColors.orange,
-    _      => KestrelColors.textGrey,
-  };
-
-  Color _bg(String sev) => switch (sev) {
-    'HARD' => KestrelColors.redBg,
-    'WARN' => KestrelColors.orangeBg,
-    _      => KestrelColors.screenBg,
-  };
-
-  Color _border(String sev) => switch (sev) {
-    'HARD' => KestrelColors.redBorder,
-    'WARN' => KestrelColors.orangeBorder,
-    _      => KestrelColors.cardBorder,
-  };
-
   @override
   Widget build(BuildContext context) {
     final borderColor = hasHard
@@ -590,7 +607,10 @@ class _SignalsCard extends StatelessWidget {
       decoration: BoxDecoration(
         color: KestrelColors.cardBg,
         borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: borderColor),
+        border: Border.all(
+          color: borderColor,
+          width: (hasHard || hasWarn) ? 1.5 : 1.0,
+        ),
       ),
       padding: const EdgeInsets.fromLTRB(13, 11, 13, 13),
       child: Column(
@@ -598,37 +618,72 @@ class _SignalsCard extends StatelessWidget {
         children: [
           Text('SIGNALE', style: kCardLabelStyle),
           const SizedBox(height: 10),
-          ...signals.map((s) {
-            final signal = s as Map<String, dynamic>;
-            final sev = signal['severity'] as String? ?? '';
-            return Padding(
-              padding: const EdgeInsets.only(bottom: 8),
-              child: Row(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                    decoration: BoxDecoration(
-                      color: _bg(sev),
-                      borderRadius: BorderRadius.circular(4),
-                      border: Border.all(color: _border(sev)),
-                    ),
-                    child: Text(sev,
-                        style: TextStyle(
-                            color: _color(sev), fontSize: 9,
-                            fontWeight: FontWeight.w700)),
-                  ),
-                  const SizedBox(width: 8),
-                  Expanded(
-                    child: Text(signal['message'] as String,
-                        style: const TextStyle(
-                            color: KestrelColors.textGrey,
-                            fontSize: 11, height: 1.4)),
-                  ),
+          ...signals.asMap().entries.map((entry) {
+            return Column(
+              children: [
+                if (entry.key > 0) ...[
+                  const Divider(height: 1, color: KestrelColors.cardBorder),
+                  const SizedBox(height: 8),
                 ],
-              ),
+                _SignalRow(signal: entry.value as Map<String, dynamic>),
+              ],
             );
           }),
+        ],
+      ),
+    );
+  }
+}
+
+class _SignalRow extends StatelessWidget {
+  final Map<String, dynamic> signal;
+  const _SignalRow({required this.signal});
+
+  Color _color(String sev) => switch (sev) {
+    'HARD' => KestrelColors.red,
+    'WARN' => KestrelColors.orange,
+    _      => KestrelColors.textGrey,
+  };
+  Color _bg(String sev) => switch (sev) {
+    'HARD' => KestrelColors.redBg,
+    'WARN' => KestrelColors.orangeBg,
+    _      => KestrelColors.screenBg,
+  };
+  Color _border(String sev) => switch (sev) {
+    'HARD' => KestrelColors.redBorder,
+    'WARN' => KestrelColors.orangeBorder,
+    _      => KestrelColors.cardBorder,
+  };
+
+  @override
+  Widget build(BuildContext context) {
+    final sev = signal['severity'] as String? ?? 'INFO';
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 4),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+            decoration: BoxDecoration(
+              color: _bg(sev),
+              borderRadius: BorderRadius.circular(4),
+              border: Border.all(color: _border(sev)),
+            ),
+            child: Text(sev,
+                style: TextStyle(
+                    color: _color(sev),
+                    fontSize: 9,
+                    fontWeight: FontWeight.w700)),
+          ),
+          const SizedBox(width: 8),
+          Expanded(
+            child: Text(signal['message'] as String? ?? '',
+                style: const TextStyle(
+                    color: KestrelColors.textGrey,
+                    fontSize: 11,
+                    height: 1.4)),
+          ),
         ],
       ),
     );
@@ -698,8 +753,11 @@ class _HardBanner extends StatelessWidget {
           Expanded(
             child: Text(
               'HARD-Signal aktiv – sofortiger Handlungsbedarf',
-              style: TextStyle(color: KestrelColors.red, fontSize: 10,
-                  fontWeight: FontWeight.w600),
+              style: TextStyle(
+                color: KestrelColors.red,
+                fontSize: 10,
+                fontWeight: FontWeight.w600,
+              ),
             ),
           ),
         ],
@@ -721,13 +779,18 @@ class _SellButton extends StatelessWidget {
         gradient: LinearGradient(
           begin: Alignment.topCenter,
           end: Alignment.bottomCenter,
-          colors: [Color(0x000F1822), Color(0xFF0F1822)],
+          colors: [
+            Color(0x000F1822),
+            Color(0xFF0F1822),
+          ],
           stops: [0.0, 0.45],
         ),
       ),
       padding: EdgeInsets.fromLTRB(16, 16, 16, 12 + bottomInset),
       child: GestureDetector(
-        onTap: () { /* V2: Verkauf-Flow */ },
+        onTap: () {
+          // V2: Verkauf-Flow
+        },
         child: Container(
           width: double.infinity,
           padding: const EdgeInsets.symmetric(vertical: 14),
@@ -736,9 +799,15 @@ class _SellButton extends StatelessWidget {
             borderRadius: BorderRadius.circular(10),
           ),
           alignment: Alignment.center,
-          child: const Text('Verkaufen →',
-              style: TextStyle(color: Color(0xFF080E16), fontSize: 15,
-                  fontWeight: FontWeight.w700, letterSpacing: 0.3)),
+          child: const Text(
+            'Verkaufen →',
+            style: TextStyle(
+              color: Color(0xFF080E16),
+              fontSize: 15,
+              fontWeight: FontWeight.w700,
+              letterSpacing: 0.3,
+            ),
+          ),
         ),
       ),
     );

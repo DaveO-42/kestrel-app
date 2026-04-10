@@ -108,10 +108,10 @@ class _KestrelNavBar extends StatelessWidget {
           height: 56,
           child: Row(
             children: [
-              _NavItem(icon: Icons.dashboard_outlined, label: 'Dashboard', active: currentIndex == 0, onTap: () => onTap(0)),
-              _NavItem(icon: Icons.list_alt_outlined,  label: 'Shortlist',  active: currentIndex == 1, onTap: () => onTap(1)),
-              _NavItem(icon: Icons.bar_chart_outlined, label: 'History',    active: currentIndex == 2, onTap: () => onTap(2)),
-              _NavItem(icon: Icons.person_outline,     label: 'System',     active: currentIndex == 3, onTap: () => onTap(3)),
+              _NavItem(icon: Icons.dashboard_outlined,    label: 'Dashboard', active: currentIndex == 0, onTap: () => onTap(0)),
+              _NavItem(icon: Icons.list_alt_outlined,     label: 'Shortlist', active: currentIndex == 1, onTap: () => onTap(1)),
+              _NavItem(icon: Icons.storage_outlined,      label: 'History',   active: currentIndex == 2, onTap: () => onTap(2)),
+              _NavItem(icon: Icons.monitor_heart_outlined,label: 'Status',    active: currentIndex == 3, onTap: () => onTap(3)),
             ],
           ),
         ),
@@ -134,7 +134,7 @@ class _NavItem extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final color = active ? KestrelColors.gold : KestrelColors.textHint;
+    final color = active ? KestrelColors.gold : KestrelColors.textGrey;
     return Expanded(
       child: GestureDetector(
         onTap: onTap,
