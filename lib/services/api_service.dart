@@ -120,6 +120,19 @@ class ApiService {
       getMapCached('assets/mock/system_status.json', '/system/status',
           _keySystemStatus);
 
+  static Future<Map<String, dynamic>?> getSystemHealth() async {
+    if (useMock) return null;
+    try {
+      final response = await http
+          .get(Uri.parse('$baseUrl/system/health'))
+          .timeout(_timeout);
+      if (response.statusCode == 200) {
+        return jsonDecode(response.body) as Map<String, dynamic>;
+      }
+    } catch (_) {}
+    return null;
+  }
+
   static Future<CachedResult<List<dynamic>>> getRuns({int limit = 10}) =>
       getListCached('assets/mock/runs.json', '/runs?limit=$limit', _keyRuns);
 

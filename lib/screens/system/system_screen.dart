@@ -16,6 +16,7 @@ class SystemScreen extends StatefulWidget {
 class _SystemScreenState extends State<SystemScreen> {
   CachedResult<Map<String, dynamic>>? _statusResult;
   CachedResult<List<dynamic>>?        _runsResult;
+  Map<String, dynamic>?               _healthData;
   bool _loading      = true;
   bool _infoOpen     = false;
   bool _resumeLoading = false;
@@ -41,12 +42,15 @@ class _SystemScreenState extends State<SystemScreen> {
     try {
       final statusFuture = ApiService.getSystemStatus();
       final runsFuture   = ApiService.getRuns(limit: 10);
+      final healthFuture = ApiService.getSystemHealth();
       final status = await statusFuture;
       final runs   = await runsFuture;
+      final health = await healthFuture;
       if (!mounted) return;
       setState(() {
         _statusResult = status;
         _runsResult   = runs;
+        _healthData   = health;
         _loading      = false;
       });
       KestrelNav.of(context)?.setConnectionError(_isOffline);
@@ -113,7 +117,7 @@ class _SystemScreenState extends State<SystemScreen> {
                     const SizedBox(height: 8),
                   ],
                   if (status != null) ...[
-                    _ServicesCard(status: status),
+                    _ServicesCard(status: status, health: _healthData),
                     const SizedBox(height: 8),
                   ],
                   if (runs != null && runs.isNotEmpty)
@@ -305,7 +309,8 @@ class _CheckItem extends StatelessWidget {
 
 class _ServicesCard extends StatelessWidget {
   final Map<String, dynamic> status;
-  const _ServicesCard({required this.status});
+  final Map<String, dynamic>? health;
+  const _ServicesCard({required this.status, this.health});
 
   String _fmtTime(String? iso) {
     if (iso == null) return '–';
@@ -325,10 +330,23 @@ class _ServicesCard extends StatelessWidget {
     final consLosses  = ((status['consecutive_losses']     as num?) ?? 0).toInt();
     final consLimit   = ((status['consecutive_loss_limit'] as num?) ?? 6).toInt();
 
-    final pingTime       = _fmtTime(lastPing);
     final pingOk         = lastPing != null;
     final drawdownWarn   = limit > 0 && (drawdown / limit) >= 0.8;
     final consLossesWarn = consLimit > 0 && (consLosses / consLimit) >= 0.8;
+
+    // Service-Map aus /system/health aufbauen
+    final svcList = (health?['services'] as List?)
+        ?.map((e) => e as Map<String, dynamic>)
+        .toList() ?? [];
+    final svcMap = <String, Map<String, dynamic>>{
+      for (final s in svcList) s['name'] as String: s,
+    };
+
+    String? svcStatus(String key) => svcMap[key]?['status'] as String?;
+    String? svcDetail(String key) {
+      final ms = (svcMap[key]?['latency_ms'] as num?)?.toInt();
+      return ms != null ? '${ms}ms' : null;
+    }
 
     return Container(
       decoration: BoxDecoration(
@@ -360,19 +378,18 @@ class _ServicesCard extends StatelessWidget {
           const Divider(height: 16, color: KestrelColors.cardBorder),
           const Text('SERVICES', style: kCardLabelStyle),
           const SizedBox(height: 8),
-          _ServiceRow(name: 'Pi',           ok: pingOk,  detail: pingOk ? pingTime : null),
-          _ServiceRow(name: 'FMP',          ok: null),
-          _ServiceRow(name: 'Claude',       ok: null),
-          _ServiceRow(name: 'SEC EDGAR',    ok: null),
-          _ServiceRow(name: 'Healthchecks', ok: pingOk,  detail: pingOk ? pingTime : null),
-          const SizedBox(height: 4),
-          const Padding(
-            padding: EdgeInsets.only(bottom: 8),
-            child: Text(
-              'Service-Details verfügbar ab /system/health (V2)',
-              style: TextStyle(color: KestrelColors.textHint, fontSize: 9),
-            ),
+          _ServiceRow(
+            name:   'Pi',
+            status: health != null ? svcStatus('pi')
+                                   : (pingOk ? 'ok' : null),
+            detail: health != null ? svcDetail('pi')
+                                   : (pingOk ? _fmtTime(lastPing) : null),
           ),
+          _ServiceRow(name: 'FMP',          status: svcStatus('fmp'),          detail: svcDetail('fmp')),
+          _ServiceRow(name: 'Claude',       status: svcStatus('claude'),       detail: svcDetail('claude')),
+          _ServiceRow(name: 'SEC EDGAR',    status: svcStatus('sec_edgar'),    detail: svcDetail('sec_edgar')),
+          _ServiceRow(name: 'Healthchecks', status: svcStatus('healthchecks'), detail: svcDetail('healthchecks')),
+          const SizedBox(height: 8),
         ],
       ),
     );
@@ -403,18 +420,20 @@ class _StatRow extends StatelessWidget {
 }
 
 class _ServiceRow extends StatelessWidget {
-  final String name;
-  final bool? ok;
-  final String? detail;
-  const _ServiceRow({required this.name, required this.ok, this.detail});
+  final String  name;
+  final String? status;   // 'ok' | 'degraded' | 'error' | null → grau
+  final String? detail;   // z.B. '142ms' oder Uhrzeit
+  const _ServiceRow({required this.name, this.status, this.detail});
 
   @override
   Widget build(BuildContext context) {
-    final dotColor   = ok == null ? KestrelColors.textHint
-        : ok! ? KestrelColors.green : KestrelColors.red;
-    final statusText = ok == null ? '–' : ok! ? 'ok' : 'error';
-    final statusColor = ok == null ? KestrelColors.textHint
-        : ok! ? KestrelColors.green : KestrelColors.red;
+    final dotColor = switch (status) {
+      'ok'       => KestrelColors.green,
+      'degraded' => KestrelColors.orange,
+      'error'    => KestrelColors.red,
+      _          => KestrelColors.textHint,
+    };
+    final statusText = status ?? '–';
 
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 7),
@@ -433,7 +452,7 @@ class _ServiceRow extends StatelessWidget {
           crossAxisAlignment: CrossAxisAlignment.end,
           children: [
             Text(statusText,
-                style: TextStyle(color: statusColor,
+                style: TextStyle(color: dotColor,
                     fontSize: 10, fontWeight: FontWeight.w600)),
             if (detail != null)
               Text(detail!,
