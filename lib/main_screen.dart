@@ -6,6 +6,7 @@ import 'screens/shortlist/shortlist_screen.dart';
 import 'screens/history/history_screen.dart';
 import 'screens/system/system_screen.dart';
 import 'package:package_info_plus/package_info_plus.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 // ── KestrelNav – InheritedWidget ──────────────────────────────
 // Stellt app-weite Callbacks bereit:
@@ -284,14 +285,39 @@ class _SettingsScreenState extends State<SettingsScreen> {
   }
 
   Future<void> _loadVersions() async {
-    final info     = await PackageInfo.fromPlatform();
-    final versions = await ApiService.getVersion();
+    // 1. Gecachte API-Versionen + PackageInfo parallel laden und sofort anzeigen
+    final results = await Future.wait([
+      SharedPreferences.getInstance(),
+      PackageInfo.fromPlatform(),
+    ]);
+    final prefs = results[0] as SharedPreferences;
+    final info  = results[1] as PackageInfo;
+
     if (!mounted) return;
     setState(() {
       _appVersion     = info.version;
-      _apiVersion     = versions?['api']     as String? ?? '–';
-      _backendVersion = versions?['backend'] as String? ?? '–';
+      _apiVersion     = prefs.getString('version_api')     ?? '…';
+      _backendVersion = prefs.getString('version_backend') ?? '…';
     });
+
+    // 2. Frische Versionen vom Server holen
+    try {
+      final versions = await ApiService.getVersion();
+      if (versions != null) {
+        final api     = versions['api']     as String? ?? '–';
+        final backend = versions['backend'] as String? ?? '–';
+        // Zuerst in Cache schreiben – unabhängig vom mounted-Status
+        await prefs.setString('version_api',     api);
+        await prefs.setString('version_backend', backend);
+        if (!mounted) return;
+        setState(() {
+          _apiVersion     = api;
+          _backendVersion = backend;
+        });
+      }
+    } catch (_) {
+      // Fehler: gecachte Werte bleiben stehen
+    }
   }
 
   Future<void> _testConnection() async {

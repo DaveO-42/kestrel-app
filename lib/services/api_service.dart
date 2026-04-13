@@ -127,14 +127,13 @@ class ApiService {
 
   static Future<Map<String, dynamic>?> getVersion() async {
     if (useMock) return {'backend': '0.0.0-mock', 'api': '1.0.0'};
-    try {
-      final response = await http
-          .get(Uri.parse('$baseUrl/version'))
-          .timeout(const Duration(seconds: 5));
-      if (response.statusCode == 200) {
-        return jsonDecode(response.body) as Map<String, dynamic>;
-      }
-    } catch (_) {}
+    final response = await http
+        .get(Uri.parse('$baseUrl/version'))
+        .timeout(const Duration(seconds: 5));
+    print('[version] status=${response.statusCode} body=${response.body}');
+    if (response.statusCode == 200) {
+      return jsonDecode(response.body) as Map<String, dynamic>;
+    }
     return null;
   }
 
