@@ -5,12 +5,8 @@ import 'cache_service.dart';
 
 class ApiService {
   // ── Mock-Flag ─────────────────────────────────────────────────
-  // true  → Daten aus assets/mock/*.json (kein Server nötig)
-  // false → Echter Server (Pi oder lokaler Mock)
   static const bool useMock = false;
-
   static const String baseUrl = 'http://100.103.235.113:8000';
-
   static const _timeout = Duration(seconds: 8);
 
   // ── Cache-Keys ────────────────────────────────────────────────
@@ -31,64 +27,53 @@ class ApiService {
     return jsonDecode(str);
   }
 
-  /// Führt GET-Request durch. Bei Erfolg: Cache schreiben.
-  /// Bei Fehler: Cache lesen und isOffline=true setzen.
-  /// Wirft Exception nur wenn auch kein Cache vorhanden.
-  static Future<CachedResult<Map<String, dynamic>>> getMapCached(
-      String mockPath,
-      String endpoint,
-      String cacheKey,
-      ) async {
+  static Future<CachedResult<T>> getMapCached<T>(
+      String mockPath, String endpoint, String cacheKey) async {
     if (useMock) {
-      final data = await _loadAsset(mockPath) as Map<String, dynamic>;
-      return CachedResult(data: data);
+      final data = await _loadAsset(mockPath);
+      return CachedResult(data: data as T);
     }
-
     try {
       final response = await http
           .get(Uri.parse('$baseUrl$endpoint'))
           .timeout(_timeout);
       if (response.statusCode == 200) {
-        final data = jsonDecode(response.body) as Map<String, dynamic>;
+        final data = jsonDecode(response.body) as T;
         await CacheService.write(cacheKey, data);
         return CachedResult(data: data, isOffline: false);
       }
       throw Exception('HTTP ${response.statusCode}');
     } catch (_) {
-      final cached = await CacheService.read<Map<String, dynamic>>(cacheKey);
+      final cached = await CacheService.read<T>(cacheKey);
       if (cached != null) return cached;
       rethrow;
     }
   }
 
-  static Future<CachedResult<List<dynamic>>> getListCached(
-      String mockPath,
-      String endpoint,
-      String cacheKey,
-      ) async {
+  static Future<CachedResult<T>> getListCached<T>(
+      String mockPath, String endpoint, String cacheKey) async {
     if (useMock) {
-      final data = await _loadAsset(mockPath) as List<dynamic>;
-      return CachedResult(data: data);
+      final data = await _loadAsset(mockPath);
+      return CachedResult(data: data as T);
     }
-
     try {
       final response = await http
           .get(Uri.parse('$baseUrl$endpoint'))
           .timeout(_timeout);
       if (response.statusCode == 200) {
-        final data = jsonDecode(response.body) as List<dynamic>;
+        final data = jsonDecode(response.body) as T;
         await CacheService.write(cacheKey, data);
         return CachedResult(data: data, isOffline: false);
       }
       throw Exception('HTTP ${response.statusCode}');
     } catch (_) {
-      final cached = await CacheService.read<List<dynamic>>(cacheKey);
+      final cached = await CacheService.read<T>(cacheKey);
       if (cached != null) return cached;
       rethrow;
     }
   }
 
-  // ── Endpoints ─────────────────────────────────────────────────
+  // ── GET Endpoints ─────────────────────────────────────────────
 
   static Future<CachedResult<Map<String, dynamic>>> getDashboard() =>
       getMapCached('assets/mock/dashboard.json', '/dashboard', _keyDashboard);
@@ -103,7 +88,6 @@ class ApiService {
       as Map<String, dynamic>;
       return CachedResult(data: {...data, 'ticker': ticker});
     }
-
     final key = _positionKey(ticker);
     try {
       final response = await http
@@ -133,50 +117,19 @@ class ApiService {
           _keyHistorySummary);
 
   static Future<CachedResult<Map<String, dynamic>>> getSystemStatus() =>
-      getMapCached(
-          'assets/mock/system_status.json', '/system/status', _keySystemStatus);
+      getMapCached('assets/mock/system_status.json', '/system/status',
+          _keySystemStatus);
 
-  static Future<CachedResult<List<dynamic>>> getRuns({int limit = 20}) async {
-    if (useMock) {
-      final list = await _loadAsset('assets/mock/runs.json') as List<dynamic>;
-      return CachedResult(data: list.take(limit).toList());
-    }
-
-    try {
-      final response = await http
-          .get(Uri.parse('$baseUrl/runs?limit=$limit'))
-          .timeout(_timeout);
-      if (response.statusCode == 200) {
-        final data = (jsonDecode(response.body) as List<dynamic>)
-            .take(limit)
-            .toList();
-        await CacheService.write(_keyRuns, data);
-        return CachedResult(data: data, isOffline: false);
-      }
-      throw Exception('HTTP ${response.statusCode}');
-    } catch (_) {
-      final cached = await CacheService.read<List<dynamic>>(_keyRuns);
-      if (cached != null) {
-        return CachedResult(
-          data: cached.data.take(limit).toList(),
-          cachedAt: cached.cachedAt,
-          isOffline: true,
-        );
-      }
-      throw Exception('Runs konnten nicht geladen werden');
-    }
-  }
+  static Future<CachedResult<List<dynamic>>> getRuns({int limit = 10}) =>
+      getListCached('assets/mock/runs.json', '/runs?limit=$limit', _keyRuns);
 
   // ── Version ───────────────────────────────────────────────────
 
-  /// Gibt { "backend": "0.5.0", "api": "1.0.0" } zurück.
-  /// Kein Caching – wird nur beim Öffnen des Settings-Screens geladen.
-  /// Gibt null zurück wenn Server nicht erreichbar.
   static Future<Map<String, dynamic>?> getVersion() async {
     if (useMock) return {'backend': '0.0.0-mock', 'api': '1.0.0'};
     try {
       final response = await http
-          .get(Uri.parse('$baseUrl/system/version'))
+          .get(Uri.parse('$baseUrl/version'))
           .timeout(const Duration(seconds: 5));
       if (response.statusCode == 200) {
         return jsonDecode(response.body) as Map<String, dynamic>;
@@ -186,13 +139,95 @@ class ApiService {
   }
 
   // ── Verbindungstest ───────────────────────────────────────────
+
   static Future<int> testConnection() async {
     final stopwatch = Stopwatch()..start();
     final response = await http
-        .get(Uri.parse('$baseUrl/dashboard'))
+        .get(Uri.parse('$baseUrl/health'))
         .timeout(const Duration(seconds: 5));
     stopwatch.stop();
     if (response.statusCode == 200) return stopwatch.elapsedMilliseconds;
     throw Exception('Server antwortete mit ${response.statusCode}');
   }
+
+  // ── POST Action Endpoints ─────────────────────────────────────
+
+  static Future<Map<String, dynamic>> postBought({
+    required String ticker,
+    required int quantity,
+    required double fillPriceEur,
+    required double stopEur,
+    required double atrEur,
+    String notes = '',
+  }) async {
+    final body = jsonEncode({
+      'ticker': ticker,
+      'quantity': quantity,
+      'fill_price_eur': fillPriceEur,
+      'stop_eur': stopEur,
+      'atr_eur': atrEur,
+      'notes': notes,
+    });
+    return _postAction('/actions/bought', body);
+  }
+
+  static Future<Map<String, dynamic>> postSold({
+    required String ticker,
+    required double fillPriceEur,
+  }) async {
+    final body = jsonEncode({
+      'ticker': ticker,
+      'fill_price_eur': fillPriceEur,
+    });
+    return _postAction('/actions/sold', body);
+  }
+
+  static Future<Map<String, dynamic>> postSkip(String ticker) async {
+    final body = jsonEncode({'ticker': ticker});
+    return _postAction('/actions/skip', body);
+  }
+
+  static Future<Map<String, dynamic>> postResume() async {
+    return _postAction('/actions/resume', '{}');
+  }
+
+  static Future<Map<String, dynamic>> _postAction(
+      String endpoint, String body) async {
+    // Im Mock-Modus: sofort Erfolg zurückgeben ohne Netzwerkzugriff
+    if (useMock) {
+      await Future.delayed(const Duration(milliseconds: 400)); // realistisches Feedback
+      return {'ok': true};
+    }
+    try {
+      final response = await http
+          .post(
+        Uri.parse('$baseUrl$endpoint'),
+        headers: {'Content-Type': 'application/json'},
+        body: body,
+      )
+          .timeout(_timeout);
+
+      final data = jsonDecode(response.body) as Map<String, dynamic>;
+
+      if (response.statusCode == 200) return data;
+
+      final detail = data['detail'] as String? ?? 'Unbekannter Fehler';
+      throw ActionException(detail, statusCode: response.statusCode);
+    } on ActionException {
+      rethrow;
+    } catch (e) {
+      throw ActionException('Verbindungsfehler: $e');
+    }
+  }
+}
+
+// ── ActionException ───────────────────────────────────────────
+
+class ActionException implements Exception {
+  final String message;
+  final int? statusCode;
+  const ActionException(this.message, {this.statusCode});
+
+  @override
+  String toString() => message;
 }

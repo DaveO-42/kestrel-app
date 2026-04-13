@@ -7,7 +7,9 @@ import '../positions/position_detail_screen.dart';
 import '../../widgets/info_sheet.dart';
 
 class DashboardScreen extends StatefulWidget {
-  const DashboardScreen({super.key});
+  final ValueNotifier<int>? refreshNotifier;
+
+  const DashboardScreen({super.key, this.refreshNotifier});
 
   @override
   State<DashboardScreen> createState() => _DashboardScreenState();
@@ -31,7 +33,14 @@ class _DashboardScreenState extends State<DashboardScreen> {
   @override
   void initState() {
     super.initState();
+    widget.refreshNotifier?.addListener(_load);
     _load();
+  }
+
+  @override
+  void dispose() {
+    widget.refreshNotifier?.removeListener(_load);
+    super.dispose();
   }
 
   Future<void> _load() async {
@@ -149,9 +158,9 @@ class _DashboardScreenState extends State<DashboardScreen> {
   // ── Hauptinhalt (online oder aus Cache) ──────────────────────
   Widget _buildBody() {
     final data         = _result!.data;
-    final budget       = data['budget']   as Map<String, dynamic>;
+    final budget       = (data['budget']   as Map<String, dynamic>?) ?? {};
     final positions    = data['positions'] as List? ?? [];
-    final drawdownData = data['drawdown']  as Map<String, dynamic>;
+    final drawdownData = (data['drawdown'] as Map<String, dynamic>?) ?? {};
     final latestRun    = data['last_run']  as Map<String, dynamic>?;
     final paused       = drawdownData['is_paused'] as bool? ?? false;
 

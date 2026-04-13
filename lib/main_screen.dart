@@ -14,16 +14,21 @@ import 'package:package_info_plus/package_info_plus.dart';
 //   KestrelNav.of(context)?.setConnectionError(true/false)
 //   KestrelNav.of(context)?.connectionError  → bool
 
+// nachher
 class KestrelNav extends InheritedWidget {
+  final VoidCallback goToDashboard;
   final VoidCallback goToSystem;
   final VoidCallback goToSettings;
+  final VoidCallback refreshDashboard;
   final ValueChanged<bool> setConnectionError;
   final bool connectionError;
 
   const KestrelNav({
     super.key,
+    required this.goToDashboard,
     required this.goToSystem,
     required this.goToSettings,
+    required this.refreshDashboard,
     required this.setConnectionError,
     required this.connectionError,
     required super.child,
@@ -36,8 +41,10 @@ class KestrelNav extends InheritedWidget {
   @override
   bool updateShouldNotify(KestrelNav old) =>
       connectionError != old.connectionError ||
+          goToDashboard != old.goToDashboard ||
           goToSystem != old.goToSystem ||
           goToSettings != old.goToSettings;
+
 }
 
 // ── Main Screen ───────────────────────────────────────────────
@@ -52,12 +59,21 @@ class MainScreen extends StatefulWidget {
 class _MainScreenState extends State<MainScreen> {
   int _index          = 0;
   bool _connError     = false;
+  final _dashboardRefresh = ValueNotifier<int>(0);
+
+  @override
+  void dispose() {
+    _dashboardRefresh.dispose();
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) {
     return KestrelNav(
+      goToDashboard:      () => setState(() => _index = 0),
       goToSystem:         () => setState(() => _index = 3),
       goToSettings:       _openSettings,
+      refreshDashboard:   () => _dashboardRefresh.value++,
       setConnectionError: (v) => setState(() => _connError = v),
       connectionError:    _connError,
       child: Scaffold(
@@ -65,7 +81,7 @@ class _MainScreenState extends State<MainScreen> {
         body: IndexedStack(
           index: _index,
           children: [
-            const DashboardScreen(),
+            DashboardScreen(refreshNotifier: _dashboardRefresh),
             const ShortlistScreen(),
             const HistoryScreen(),
             const SystemScreen(),

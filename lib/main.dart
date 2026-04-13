@@ -2,7 +2,8 @@ import 'package:flutter/material.dart';
 import 'screens/splash/splash_screen.dart';
 import 'theme/kestrel_theme.dart';
 
-void main() {
+void main() async {
+  WidgetsFlutterBinding.ensureInitialized();
   runApp(const KestrelApp());
 }
 

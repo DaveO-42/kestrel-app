@@ -2,7 +2,9 @@ import 'package:flutter/material.dart';
 import '../../services/api_service.dart';
 import '../../services/cache_service.dart';
 import '../../theme/kestrel_theme.dart';
+import '../../main_screen.dart';
 import '../../widgets/offline_banner.dart';
+import '../../widgets/sold_sheet.dart';
 
 class PositionDetailScreen extends StatefulWidget {
   final String ticker;
@@ -32,6 +34,21 @@ class _PositionDetailScreenState extends State<PositionDetailScreen> {
       if (!mounted) return;
       setState(() { _result = null; _loading = false; });
     }
+  }
+
+  void _openSoldSheet(Map<String, dynamic> position) {
+    SoldSheet.show(
+      context,
+      ticker:              position['ticker'] as String,
+      entryPriceEur:       (position['entry_price_eur']      as num).toDouble(),
+      quantity:            (position['quantity']             as num).toInt(),
+      lastKnownPriceEur:   (position['last_known_price_eur'] as num).toDouble(),
+      onSuccess: () {
+        // Position geschlossen → zurück zum Dashboard
+        Navigator.of(context).pop();
+        KestrelNav.of(context)?.goToDashboard();
+      },
+    );
   }
 
   @override
@@ -143,17 +160,50 @@ class _PositionDetailScreenState extends State<PositionDetailScreen> {
               ),
             ],
           ),
-          const Positioned(
+          // ── Sticky Sell Button ─────────────────────────────
+          Positioned(
             left: 0,
             right: 0,
             bottom: 0,
-            child: _SellButton(),
+            child: _SellButton(
+              onTap: () => _openSoldSheet(p),
+            ),
           ),
         ],
       ),
     );
   }
 }
+
+// ── Helpers ───────────────────────────────────────────────────
+
+String fmtPrice(num? v, {bool showSign = false}) {
+  if (v == null) return '–';
+  final sign = showSign && v > 0 ? '+' : '';
+  final abs = v.abs();
+  final parts = abs.toStringAsFixed(2).split('.');
+  final intPart = parts[0];
+  final decPart = parts[1];
+  final buf = StringBuffer();
+  for (int i = 0; i < intPart.length; i++) {
+    if (i > 0 && (intPart.length - i) % 3 == 0) buf.write('.');
+    buf.write(intPart[i]);
+  }
+  return '$sign${v < 0 ? '-' : ''}${buf.toString()},$decPart €';
+}
+
+String fmtPct(num? v, {bool showSign = true}) {
+  if (v == null) return '–';
+  final sign = showSign && v > 0 ? '+' : '';
+  return '$sign${v.toStringAsFixed(2).replaceAll('.', ',')} %';
+}
+
+const kCardLabelStyle = TextStyle(
+  color: KestrelColors.gold,
+  fontSize: 10,
+  fontWeight: FontWeight.w600,
+  letterSpacing: 0.8,
+);
 
 // ── Price Hero ────────────────────────────────────────────────
 
@@ -202,46 +252,56 @@ class _PriceHero extends StatelessWidget {
           ),
           const SizedBox(height: 4),
           Text(
-            price != null ? fmtPrice(price as num) : '– €',
+            price != null ? fmtPrice(price as num) : '–',
             style: const TextStyle(
               color: KestrelColors.textPrimary,
-              fontSize: 36,
+              fontSize: 32,
               fontWeight: FontWeight.w700,
-              height: 1.1,
+              letterSpacing: -0.5,
             ),
           ),
-          if (pnl != null) ...[
-            const SizedBox(height: 4),
-            Text(
-              '${fmtPrice(pnl, showSign: true)} · ${fmtPct(pnlPct)}',
-              style: TextStyle(
-                color: pnlColor,
-                fontSize: 15,
-                fontWeight: FontWeight.w600,
+          const SizedBox(height: 6),
+          Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Text(
+                'Entry ${fmtPrice(position['entry_price_eur'] as num?)}',
+                style: const TextStyle(
+                    color: KestrelColors.textDimmed, fontSize: 11),
               ),
-            ),
-          ],
-          if (updatedAt != null) ...[
-            const SizedBox(height: 8),
-            Container(
-              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-              decoration: BoxDecoration(
-                color: KestrelColors.cardBg,
-                borderRadius: BorderRadius.circular(5),
-                border: Border.all(color: KestrelColors.cardBorder),
-              ),
-              child: Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  const Icon(Icons.access_time_rounded,
-                      size: 11, color: Color(0xFF4A6A8A)),
-                  const SizedBox(width: 4),
-                  Text(
-                    'Kursdaten: ${_fmtTimestamp(updatedAt)}',
-                    style: const TextStyle(color: Color(0xFF4A6A8A), fontSize: 10),
+              if (pnl != null) ...[
+                const SizedBox(width: 12),
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                  decoration: BoxDecoration(
+                    color: isPositive
+                        ? KestrelColors.greenBg
+                        : KestrelColors.redBg,
+                    borderRadius: BorderRadius.circular(5),
+                    border: Border.all(
+                      color: isPositive
+                          ? KestrelColors.greenBorder
+                          : KestrelColors.redBorder,
+                    ),
                   ),
-                ],
-              ),
+                  child: Text(
+                    '${fmtPrice(pnl, showSign: true)}  ${fmtPct(pnlPct)}',
+                    style: TextStyle(
+                      color: pnlColor,
+                      fontSize: 11,
+                      fontWeight: FontWeight.w700,
+                    ),
+                  ),
+                ),
+              ],
+            ],
+          ),
+          if (updatedAt != null) ...[
+            const SizedBox(height: 6),
+            Text(
+              _fmtTimestamp(updatedAt),
+              style: const TextStyle(
+                  color: KestrelColors.textHint, fontSize: 10),
             ),
           ],
         ],
@@ -252,11 +312,11 @@ class _PriceHero extends StatelessWidget {
 
 // ── Range Bar ─────────────────────────────────────────────────
 
-const _kRedFull   = Color(0xBFE84040);
-const _kRedDim    = Color(0x38E84040);
-const _kRedMid    = Color(0x80E84040);
-const _kGreenFull = Color(0xD127C97A);
-const _kOrangeDim = Color(0x73E07820);
+const _kRedFull   = Color(0xFFE84040);
+const _kRedDim    = Color(0x33E84040);
+const _kRedMid    = Color(0x66E84040);
+const _kGreenFull = Color(0xFF27C97A);
+const _kOrangeDim = Color(0x55E07820);
 
 class _RangeBar extends StatelessWidget {
   final Map<String, dynamic> position;
@@ -298,20 +358,14 @@ class _RangeBar extends StatelessWidget {
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
               Text(stopLabel,
-                  style: const TextStyle(
-                      color: KestrelColors.red,
-                      fontSize: 10,
-                      fontWeight: FontWeight.w600)),
+                  style: const TextStyle(color: KestrelColors.red,
+                      fontSize: 10, fontWeight: FontWeight.w600)),
               Text(entryLabel,
-                  style: const TextStyle(
-                      color: KestrelColors.textGrey,
-                      fontSize: 10,
-                      fontWeight: FontWeight.w600)),
+                  style: const TextStyle(color: KestrelColors.textGrey,
+                      fontSize: 10, fontWeight: FontWeight.w600)),
               Text(priceLabel,
-                  style: TextStyle(
-                      color: priceColor,
-                      fontSize: 10,
-                      fontWeight: FontWeight.w600)),
+                  style: TextStyle(color: priceColor,
+                      fontSize: 10, fontWeight: FontWeight.w600)),
             ],
           ),
           const SizedBox(height: 8),
@@ -365,7 +419,8 @@ class _Zone extends StatelessWidget {
   final double width;
   final Color color;
   final bool roundLeft;
-  const _Zone({required this.left, required this.width, required this.color, this.roundLeft = false});
+  const _Zone({required this.left, required this.width,
+    required this.color, this.roundLeft = false});
 
   @override
   Widget build(BuildContext context) {
@@ -458,38 +513,34 @@ class _TradeParamsCard extends StatelessWidget {
       label: 'TRADE-PARAMETER',
       child: Column(
         children: [
-          Row(
-            children: [
-              Expanded(child: _ParamCell(
-                  value: fmtPrice(position['entry_price_eur'] as num?),
-                  label: 'Entry')),
-              const SizedBox(width: 6),
-              Expanded(child: _ParamCell(
-                  value: '${position['quantity']}',
-                  label: 'Stück')),
-              const SizedBox(width: 6),
-              Expanded(child: _ParamCell(
-                  value: _positionSize(position),
-                  label: 'Position')),
-            ],
-          ),
+          Row(children: [
+            Expanded(child: _ParamCell(
+                value: fmtPrice(position['entry_price_eur'] as num?),
+                label: 'Entry')),
+            const SizedBox(width: 6),
+            Expanded(child: _ParamCell(
+                value: '${position['quantity']}',
+                label: 'Stück')),
+            const SizedBox(width: 6),
+            Expanded(child: _ParamCell(
+                value: _positionSize(position),
+                label: 'Position')),
+          ]),
           const SizedBox(height: 6),
-          Row(
-            children: [
-              Expanded(child: _ParamCell(
-                  value: fmtPrice(position['current_stop_eur'] as num?),
-                  label: 'Stop akt.')),
-              const SizedBox(width: 6),
-              Expanded(child: _ParamCell(
-                  value: _stopDistanz(position),
-                  label: 'Stop-Distanz',
-                  dimmed: true)),
-              const SizedBox(width: 6),
-              Expanded(child: _ParamCell(
-                  value: fmtPrice(position['atr_at_entry_eur'] as num?),
-                  label: 'ATR')),
-            ],
-          ),
+          Row(children: [
+            Expanded(child: _ParamCell(
+                value: fmtPrice(position['current_stop_eur'] as num?),
+                label: 'Stop akt.')),
+            const SizedBox(width: 6),
+            Expanded(child: _ParamCell(
+                value: _stopDistanz(position),
+                label: 'Stop-Distanz',
+                dimmed: true)),
+            const SizedBox(width: 6),
+            Expanded(child: _ParamCell(
+                value: fmtPrice(position['atr_at_entry_eur'] as num?),
+                label: 'ATR')),
+          ]),
           const SizedBox(height: 10),
           Container(height: 1, color: KestrelColors.cardBorder),
           const SizedBox(height: 10),
@@ -540,18 +591,16 @@ class _ParamCell extends StatelessWidget {
         border: Border.all(color: KestrelColors.cardBorder),
       ),
       padding: const EdgeInsets.symmetric(vertical: 7, horizontal: 4),
-      child: Column(
-        children: [
-          Text(value,
-              style: TextStyle(
-                  color: dimmed ? KestrelColors.textGrey : KestrelColors.textPrimary,
-                  fontSize: 12, fontWeight: FontWeight.w600),
-              textAlign: TextAlign.center),
-          const SizedBox(height: 2),
-          Text(label,
-              style: const TextStyle(color: KestrelColors.textGrey, fontSize: 9)),
-        ],
-      ),
+      child: Column(children: [
+        Text(value,
+            style: TextStyle(
+                color: dimmed ? KestrelColors.textGrey : KestrelColors.textPrimary,
+                fontSize: 12, fontWeight: FontWeight.w600),
+            textAlign: TextAlign.center),
+        const SizedBox(height: 2),
+        Text(label,
+            style: const TextStyle(color: KestrelColors.textGrey, fontSize: 9)),
+      ]),
     );
   }
 }
@@ -575,8 +624,7 @@ class _StopModeBadge extends StatelessWidget {
         isWarn ? 'WARN ATR×1.0' : 'Normal ATR×2.0',
         style: TextStyle(
           color: isWarn ? KestrelColors.orange : KestrelColors.gold,
-          fontSize: 9,
-          fontWeight: FontWeight.w700,
+          fontSize: 9, fontWeight: FontWeight.w700,
         ),
       ),
     );
@@ -589,11 +637,7 @@ class _SignalsCard extends StatelessWidget {
   final List signals;
   final bool hasWarn;
   final bool hasHard;
-  const _SignalsCard({
-    required this.signals,
-    this.hasWarn = false,
-    this.hasHard = false,
-  });
+  const _SignalsCard({required this.signals, this.hasWarn = false, this.hasHard = false});
 
   @override
   Widget build(BuildContext context) {
@@ -607,10 +651,7 @@ class _SignalsCard extends StatelessWidget {
       decoration: BoxDecoration(
         color: KestrelColors.cardBg,
         borderRadius: BorderRadius.circular(12),
-        border: Border.all(
-          color: borderColor,
-          width: (hasHard || hasWarn) ? 1.5 : 1.0,
-        ),
+        border: Border.all(color: borderColor, width: (hasHard || hasWarn) ? 1.5 : 1),
       ),
       padding: const EdgeInsets.fromLTRB(13, 11, 13, 13),
       child: Column(
@@ -618,72 +659,52 @@ class _SignalsCard extends StatelessWidget {
         children: [
           Text('SIGNALE', style: kCardLabelStyle),
           const SizedBox(height: 10),
-          ...signals.asMap().entries.map((entry) {
-            return Column(
-              children: [
-                if (entry.key > 0) ...[
-                  const Divider(height: 1, color: KestrelColors.cardBorder),
-                  const SizedBox(height: 8),
+          ...signals.map((s) {
+            final sig      = s as Map<String, dynamic>;
+            final severity = sig['severity'] as String? ?? 'INFO';
+            final message  = sig['message']  as String? ?? '';
+            final color = switch (severity) {
+              'HARD' => KestrelColors.red,
+              'WARN' => KestrelColors.orange,
+              _      => KestrelColors.textDimmed,
+            };
+            final bg = switch (severity) {
+              'HARD' => KestrelColors.redBg,
+              'WARN' => KestrelColors.orangeBg,
+              _      => KestrelColors.screenBg,
+            };
+            final border = switch (severity) {
+              'HARD' => KestrelColors.redBorder,
+              'WARN' => KestrelColors.orangeBorder,
+              _      => KestrelColors.cardBorder,
+            };
+            return Padding(
+              padding: const EdgeInsets.only(bottom: 6),
+              child: Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                    decoration: BoxDecoration(
+                      color: bg,
+                      borderRadius: BorderRadius.circular(4),
+                      border: Border.all(color: border),
+                    ),
+                    child: Text(severity,
+                        style: TextStyle(color: color, fontSize: 9,
+                            fontWeight: FontWeight.w700)),
+                  ),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: Text(message,
+                        style: const TextStyle(
+                            color: KestrelColors.textGrey,
+                            fontSize: 11, height: 1.4)),
+                  ),
                 ],
-                _SignalRow(signal: entry.value as Map<String, dynamic>),
-              ],
+              ),
             );
           }),
-        ],
-      ),
-    );
-  }
-}
-
-class _SignalRow extends StatelessWidget {
-  final Map<String, dynamic> signal;
-  const _SignalRow({required this.signal});
-
-  Color _color(String sev) => switch (sev) {
-    'HARD' => KestrelColors.red,
-    'WARN' => KestrelColors.orange,
-    _      => KestrelColors.textGrey,
-  };
-  Color _bg(String sev) => switch (sev) {
-    'HARD' => KestrelColors.redBg,
-    'WARN' => KestrelColors.orangeBg,
-    _      => KestrelColors.screenBg,
-  };
-  Color _border(String sev) => switch (sev) {
-    'HARD' => KestrelColors.redBorder,
-    'WARN' => KestrelColors.orangeBorder,
-    _      => KestrelColors.cardBorder,
-  };
-
-  @override
-  Widget build(BuildContext context) {
-    final sev = signal['severity'] as String? ?? 'INFO';
-    return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 4),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-            decoration: BoxDecoration(
-              color: _bg(sev),
-              borderRadius: BorderRadius.circular(4),
-              border: Border.all(color: _border(sev)),
-            ),
-            child: Text(sev,
-                style: TextStyle(
-                    color: _color(sev),
-                    fontSize: 9,
-                    fontWeight: FontWeight.w700)),
-          ),
-          const SizedBox(width: 8),
-          Expanded(
-            child: Text(signal['message'] as String? ?? '',
-                style: const TextStyle(
-                    color: KestrelColors.textGrey,
-                    fontSize: 11,
-                    height: 1.4)),
-          ),
         ],
       ),
     );
@@ -746,22 +767,17 @@ class _HardBanner extends StatelessWidget {
       width: double.infinity,
       color: const Color(0xFF1E0808),
       padding: const EdgeInsets.symmetric(horizontal: 13, vertical: 6),
-      child: const Row(
-        children: [
-          Icon(Icons.warning_amber_rounded, color: KestrelColors.red, size: 13),
-          SizedBox(width: 6),
-          Expanded(
-            child: Text(
-              'HARD-Signal aktiv – sofortiger Handlungsbedarf',
-              style: TextStyle(
-                color: KestrelColors.red,
-                fontSize: 10,
-                fontWeight: FontWeight.w600,
-              ),
-            ),
+      child: const Row(children: [
+        Icon(Icons.warning_amber_rounded, color: KestrelColors.red, size: 13),
+        SizedBox(width: 6),
+        Expanded(
+          child: Text(
+            'HARD-Signal aktiv – sofortiger Handlungsbedarf',
+            style: TextStyle(color: KestrelColors.red,
+                fontSize: 10, fontWeight: FontWeight.w600),
           ),
-        ],
-      ),
+        ),
+      ]),
     );
   }
 }
@@ -769,7 +785,8 @@ class _HardBanner extends StatelessWidget {
 // ── Sticky Sell Button ────────────────────────────────────────
 
 class _SellButton extends StatelessWidget {
-  const _SellButton();
+  final VoidCallback onTap;
+  const _SellButton({required this.onTap});
 
   @override
   Widget build(BuildContext context) {
@@ -779,30 +796,25 @@ class _SellButton extends StatelessWidget {
         gradient: LinearGradient(
           begin: Alignment.topCenter,
           end: Alignment.bottomCenter,
-          colors: [
-            Color(0x000F1822),
-            Color(0xFF0F1822),
-          ],
+          colors: [Color(0x000F1822), Color(0xFF0F1822)],
           stops: [0.0, 0.45],
         ),
       ),
       padding: EdgeInsets.fromLTRB(16, 16, 16, 12 + bottomInset),
       child: GestureDetector(
-        onTap: () {
-          // V2: Verkauf-Flow
-        },
+        onTap: onTap,
         child: Container(
           width: double.infinity,
           padding: const EdgeInsets.symmetric(vertical: 14),
           decoration: BoxDecoration(
-            color: KestrelColors.gold,
+            color: KestrelColors.red,
             borderRadius: BorderRadius.circular(10),
           ),
           alignment: Alignment.center,
           child: const Text(
             'Verkaufen →',
             style: TextStyle(
-              color: Color(0xFF080E16),
+              color: Colors.white,
               fontSize: 15,
               fontWeight: FontWeight.w700,
               letterSpacing: 0.3,

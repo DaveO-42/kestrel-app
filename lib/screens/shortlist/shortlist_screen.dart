@@ -5,6 +5,7 @@ import '../../theme/kestrel_theme.dart';
 import '../../main_screen.dart';
 import '../../widgets/info_sheet.dart';
 import '../../widgets/offline_banner.dart';
+import '../../widgets/bought_sheet.dart';
 
 class ShortlistScreen extends StatefulWidget {
   const ShortlistScreen({super.key});
@@ -18,6 +19,11 @@ class _ShortlistScreenState extends State<ShortlistScreen> {
   CachedResult<Map<String, dynamic>>? _systemResult;
   bool _loading = true;
   bool _infoOpen = false;
+
+  // V2: Skip-State (lokal, bis nächstem Reload)
+  final Set<String> _skipped = {};
+  // V2: verfügbares Budget für BoughtSheet
+  double? _availableBudget;
 
   bool get _isOffline => _dataResult?.isOffline ?? false;
   DateTime? get _cachedAt => _dataResult?.cachedAt;
@@ -40,13 +46,21 @@ class _ShortlistScreenState extends State<ShortlistScreen> {
     try {
       final dataFuture   = ApiService.getShortlist();
       final systemFuture = ApiService.getSystemStatus();
+      // V2: Budget parallel laden
+      final dashFuture   = ApiService.getDashboard();
+
       final data   = await dataFuture;
       final system = await systemFuture;
+      final dash   = await dashFuture;
+
       if (!mounted) return;
       setState(() {
-        _dataResult   = data;
-        _systemResult = system;
-        _loading = false;
+        _dataResult      = data;
+        _systemResult    = system;
+        _availableBudget = (dash.data['budget']?['available_eur'] as num?)?.toDouble();
+        _loading         = false;
+        // Skip-State bei Reload zurücksetzen
+        _skipped.clear();
       });
       KestrelNav.of(context)?.setConnectionError(_isOffline);
     } catch (e) {
@@ -54,6 +68,17 @@ class _ShortlistScreenState extends State<ShortlistScreen> {
       setState(() => _loading = false);
       KestrelNav.of(context)?.setConnectionError(true);
     }
+  }
+
+  void _onSkip(String ticker) {
+    setState(() => _skipped.add(ticker));
+  }
+
+  void _onBought() {
+    // Nach Kauf Shortlist neu laden → Status wechselt auf confirmed
+    _load();
+    // Dashboard ebenfalls aktualisieren → neue Position erscheint sofort
+    KestrelNav.of(context)?.refreshDashboard();
   }
 
   @override
@@ -77,7 +102,9 @@ class _ShortlistScreenState extends State<ShortlistScreen> {
     final system       = _systemResult?.data;
     final status       = data['status']        as String? ?? 'pending';
     final runId        = data['run_id']         as String? ?? '';
-    final candidates   = data['candidates']     as List? ?? [];
+    final candidates   = (data['candidates']   as List? ?? [])
+        .where((c) => !_skipped.contains((c as Map<String, dynamic>)['ticker']))
+        .toList();
     final topCandidate = data['top_candidate'];
     final topTicker    = topCandidate != null
         ? (topCandidate as Map<String, dynamic>)['ticker'] as String?
@@ -115,10 +142,15 @@ class _ShortlistScreenState extends State<ShortlistScreen> {
                     return Padding(
                       padding: const EdgeInsets.only(bottom: 8),
                       child: isTop
-                          ? _CandidateCard(candidate: candidate)
+                          ? _CandidateCard(
+                        candidate:        candidate,
+                        availableBudget:  _availableBudget ?? 0,
+                        onSkip:           _onSkip,
+                        onBought:         _onBought,
+                      )
                           : _CandidateDimCard(
                         candidate: candidate,
-                        index: entry.key + 1,
+                        index:     entry.key + 1,
                       ),
                     );
                   }),
@@ -200,148 +232,26 @@ class _ShortlistScreenState extends State<ShortlistScreen> {
   }
 }
 
-// ── Empty State ───────────────────────────────────────────────
+// ── Helpers ───────────────────────────────────────────────────
 
-enum _EmptyVariant { pending, budget, none }
-
-class _ShortlistEmptyCard extends StatelessWidget {
-  final _EmptyVariant variant;
-  final String? subText;
-  final String? runTime;
-  const _ShortlistEmptyCard({required this.variant, this.subText, this.runTime});
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      decoration: BoxDecoration(
-        color: KestrelColors.cardBg,
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: KestrelColors.cardBorder),
-      ),
-      padding: const EdgeInsets.fromLTRB(13, 11, 13, 13),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text('SHORTLIST', style: kCardLabelStyle),
-          Padding(
-            padding: const EdgeInsets.symmetric(vertical: 20),
-            child: Center(
-              child: Column(
-                children: [
-                  SizedBox(
-                    width: 32, height: 32,
-                    child: CustomPaint(
-                      painter: switch (variant) {
-                        _EmptyVariant.pending => _ClockIconPainter(),
-                        _EmptyVariant.budget  => _LockIconPainter(),
-                        _EmptyVariant.none    => _SearchIconPainter(),
-                      },
-                    ),
-                  ),
-                  const SizedBox(height: 10),
-                  Text(
-                    switch (variant) {
-                      _EmptyVariant.pending => 'Run steht noch aus',
-                      _EmptyVariant.budget  => 'Kein Budget verfügbar',
-                      _EmptyVariant.none    => 'Keine Kandidaten',
-                    },
-                    style: TextStyle(
-                      color: switch (variant) {
-                        _EmptyVariant.budget => KestrelColors.gold,
-                        _                   => const Color(0xFF6A8AAA),
-                      },
-                      fontSize: 12, fontWeight: FontWeight.w600,
-                    ),
-                  ),
-                  if (subText != null) ...[
-                    const SizedBox(height: 4),
-                    Text(subText!,
-                        style: const TextStyle(
-                            color: Color(0xFF8a6e2a), fontSize: 10),
-                        textAlign: TextAlign.center),
-                  ],
-                  if (runTime != null) ...[
-                    const SizedBox(height: 4),
-                    Text('Run $runTime',
-                        style: const TextStyle(
-                            color: Color(0xFF334d68), fontSize: 10)),
-                  ],
-                ],
-              ),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
+String fmtPrice(num? v, {bool showSign = false}) {
+  if (v == null) return '–';
+  final sign = showSign && v >= 0 ? '+' : '';
+  return '$sign€${v.toStringAsFixed(2)}';
 }
 
-// ── Icon Painters (unverändert) ───────────────────────────────
-
-class _ClockIconPainter extends CustomPainter {
-  @override
-  void paint(Canvas canvas, Size size) {
-    final p = Paint()
-      ..color = const Color(0xFF334d68)
-      ..strokeWidth = 1.5
-      ..style = PaintingStyle.stroke
-      ..strokeCap = StrokeCap.round;
-    final c = Offset(size.width / 2, size.height / 2);
-    final r = size.width / 2 - 1;
-    canvas.drawCircle(c, r, p);
-    canvas.drawLine(c, Offset(c.dx, c.dy - r * 0.55), p);
-    canvas.drawLine(c, Offset(c.dx + r * 0.4, c.dy), p);
-  }
-  @override bool shouldRepaint(covariant CustomPainter _) => false;
+String fmtPct(num? v) {
+  if (v == null) return '–';
+  final sign = v >= 0 ? '+' : '';
+  return '$sign${v.toStringAsFixed(1)}%';
 }
 
-class _LockIconPainter extends CustomPainter {
-  @override
-  void paint(Canvas canvas, Size size) {
-    final p = Paint()
-      ..color = const Color(0xFFc9a84c)
-      ..strokeWidth = 1.5
-      ..style = PaintingStyle.stroke
-      ..strokeCap = StrokeCap.round;
-    final w = size.width; final h = size.height;
-    final rrect = RRect.fromRectAndRadius(
-        Rect.fromLTWH(w * 0.2, h * 0.45, w * 0.6, h * 0.45),
-        const Radius.circular(3));
-    canvas.drawRRect(rrect, p);
-    final arcPaint = Paint()
-      ..color = const Color(0xFFc9a84c)
-      ..strokeWidth = 1.5
-      ..style = PaintingStyle.stroke;
-    canvas.drawArc(
-        Rect.fromLTWH(w * 0.28, h * 0.1, w * 0.44, h * 0.45),
-        3.14, 3.14, false, arcPaint);
-    final dotPaint = Paint()..color = const Color(0xFFc9a84c);
-    canvas.drawCircle(Offset(w / 2, h * 0.68), 2, dotPaint);
-  }
-  @override bool shouldRepaint(covariant CustomPainter _) => false;
-}
-
-class _SearchIconPainter extends CustomPainter {
-  @override
-  void paint(Canvas canvas, Size size) {
-    final p = Paint()
-      ..color = const Color(0xFF6a8aaa)
-      ..strokeWidth = 1.5
-      ..style = PaintingStyle.stroke
-      ..strokeCap = StrokeCap.round;
-    final w = size.width; final h = size.height;
-    canvas.drawCircle(Offset(w * 0.44, h * 0.44), w * 0.28, p);
-    canvas.drawLine(
-        Offset(w * 0.64, h * 0.64), Offset(w * 0.84, h * 0.84), p);
-    final xp = Paint()
-      ..color = const Color(0xFFe84040)
-      ..strokeWidth = 1.5
-      ..strokeCap = StrokeCap.round;
-    canvas.drawLine(Offset(w * 0.32, h * 0.32), Offset(w * 0.56, h * 0.56), xp);
-    canvas.drawLine(Offset(w * 0.56, h * 0.32), Offset(w * 0.32, h * 0.56), xp);
-  }
-  @override bool shouldRepaint(covariant CustomPainter _) => false;
-}
+const kCardLabelStyle = TextStyle(
+  color: KestrelColors.gold,
+  fontSize: 10,
+  fontWeight: FontWeight.w600,
+  letterSpacing: 0.8,
+);
 
 // ── Status Badge ──────────────────────────────────────────────
 
@@ -371,12 +281,46 @@ class _StatusBadge extends StatelessWidget {
 
 // ── Kandidaten-Card (Top) ─────────────────────────────────────
 
-class _CandidateCard extends StatelessWidget {
+class _CandidateCard extends StatefulWidget {
   final Map<String, dynamic> candidate;
-  const _CandidateCard({required this.candidate});
+  final double availableBudget;
+  final void Function(String ticker) onSkip;
+  final VoidCallback onBought;
+
+  const _CandidateCard({
+    required this.candidate,
+    required this.availableBudget,
+    required this.onSkip,
+    required this.onBought,
+  });
+
+  @override
+  State<_CandidateCard> createState() => _CandidateCardState();
+}
+
+class _CandidateCardState extends State<_CandidateCard> {
+  bool _skipLoading = false;
+
+  Future<void> _handleSkip(String ticker) async {
+    setState(() => _skipLoading = true);
+    try {
+      await ApiService.postSkip(ticker);
+      widget.onSkip(ticker);
+    } on ActionException catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+          content: Text(e.message),
+          backgroundColor: KestrelColors.red,
+        ));
+      }
+    } finally {
+      if (mounted) setState(() => _skipLoading = false);
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
+    final candidate = widget.candidate;
     final ticker = candidate['ticker']             as String;
     final sector = candidate['sector']             as String? ?? '–';
     final score  = candidate['score']              as num?;
@@ -400,6 +344,7 @@ class _CandidateCard extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
+          // ── Header: Ticker + Score ─────────────────────────
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
@@ -425,6 +370,8 @@ class _CandidateCard extends StatelessWidget {
             ],
           ),
           const SizedBox(height: 10),
+
+          // ── Metriken ───────────────────────────────────────
           Row(
             children: [
               Expanded(child: _MetricCell(
@@ -440,14 +387,74 @@ class _CandidateCard extends StatelessWidget {
                   value: rsi != null ? rsi.toStringAsFixed(1) : '–', label: 'RSI')),
             ],
           ),
+
+          // ── Claude Box ─────────────────────────────────────
           if (claude != null) ...[
             const SizedBox(height: 10),
             _ClaudeBox(claude: claude),
           ],
+
+          // ── Trade-Parameter ────────────────────────────────
           if (params != null) ...[
             const SizedBox(height: 10),
             _TradeParamsRow(params: params),
           ],
+
+          // ── Trennlinie ─────────────────────────────────────
+          const SizedBox(height: 14),
+          Container(height: 1, color: KestrelColors.cardBorder),
+          const SizedBox(height: 12),
+
+          // ── Action-Buttons ─────────────────────────────────
+          Row(
+            children: [
+              // Überspringen
+              Expanded(
+                child: TextButton(
+                  onPressed: _skipLoading
+                      ? null
+                      : () => _handleSkip(ticker),
+                  style: TextButton.styleFrom(
+                    foregroundColor: KestrelColors.textDimmed,
+                    padding: const EdgeInsets.symmetric(vertical: 11),
+                  ),
+                  child: _skipLoading
+                      ? const SizedBox(
+                    width: 14, height: 14,
+                    child: CircularProgressIndicator(
+                      strokeWidth: 2,
+                      color: KestrelColors.textDimmed,
+                    ),
+                  )
+                      : const Text('Überspringen'),
+                ),
+              ),
+              const SizedBox(width: 10),
+              // Kaufen
+              Expanded(
+                flex: 2,
+                child: ElevatedButton(
+                  onPressed: () {
+                    BoughtSheet.show(
+                      context,
+                      candidate:         widget.candidate,
+                      availableBudgetEur: widget.availableBudget,
+                      onSuccess:         widget.onBought,
+                    );
+                  },
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: KestrelColors.gold,
+                    foregroundColor: const Color(0xFF0F1822),
+                    padding: const EdgeInsets.symmetric(vertical: 11),
+                    shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(8)),
+                  ),
+                  child: const Text('Kaufen →',
+                      style: TextStyle(fontWeight: FontWeight.w700, fontSize: 14)),
+                ),
+              ),
+            ],
+          ),
         ],
       ),
     );
@@ -558,13 +565,13 @@ class _TradeParamsRow extends StatelessWidget {
     return Row(
       children: [
         Expanded(child: _MetricCell(
-            value: params['entry_price'] != null
-                ? fmtPrice(params['entry_price'] as num) : '–',
+            value: params['entry_price_eur'] != null
+                ? fmtPrice(params['entry_price_eur'] as num) : '–',
             label: 'Entry')),
         const SizedBox(width: 6),
         Expanded(child: _MetricCell(
-            value: params['stop_price'] != null
-                ? fmtPrice(params['stop_price'] as num) : '–',
+            value: params['stop_level_eur'] != null
+                ? fmtPrice(params['stop_level_eur'] as num) : '–',
             label: 'Stop')),
         const SizedBox(width: 6),
         Expanded(child: _MetricCell(
@@ -634,4 +641,141 @@ class _ShortlistFooter extends StatelessWidget {
       ),
     );
   }
+}
+
+// ── Empty State ───────────────────────────────────────────────
+
+enum _EmptyVariant { pending, budget, none }
+
+class _ShortlistEmptyCard extends StatelessWidget {
+  final _EmptyVariant variant;
+  final String? subText;
+  final String? runTime;
+  const _ShortlistEmptyCard({required this.variant, this.subText, this.runTime});
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      decoration: BoxDecoration(
+        color: KestrelColors.cardBg,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: KestrelColors.cardBorder),
+      ),
+      padding: const EdgeInsets.fromLTRB(13, 11, 13, 13),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text('SHORTLIST', style: kCardLabelStyle),
+          Padding(
+            padding: const EdgeInsets.symmetric(vertical: 20),
+            child: Center(
+              child: Column(
+                children: [
+                  SizedBox(
+                    width: 32, height: 32,
+                    child: CustomPaint(
+                      painter: switch (variant) {
+                        _EmptyVariant.pending => _ClockIconPainter(),
+                        _EmptyVariant.budget  => _LockIconPainter(),
+                        _EmptyVariant.none    => _SearchIconPainter(),
+                      },
+                    ),
+                  ),
+                  const SizedBox(height: 10),
+                  Text(
+                    switch (variant) {
+                      _EmptyVariant.pending => 'Run steht noch aus',
+                      _EmptyVariant.budget  => 'Kein Budget verfügbar',
+                      _EmptyVariant.none    => 'Keine Kandidaten',
+                    },
+                    style: TextStyle(
+                      color: switch (variant) {
+                        _EmptyVariant.budget => KestrelColors.orange,
+                        _                   => const Color(0xFF6A8AAA),
+                      },
+                      fontSize: 12, fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                  if (subText != null) ...[
+                    const SizedBox(height: 4),
+                    Text(subText!,
+                        style: const TextStyle(
+                            color: Color(0xFF8a6e2a), fontSize: 10),
+                        textAlign: TextAlign.center),
+                  ],
+                  if (runTime != null) ...[
+                    const SizedBox(height: 4),
+                    Text('Run $runTime',
+                        style: const TextStyle(
+                            color: Color(0xFF334d68), fontSize: 10)),
+                  ],
+                ],
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+// ── Icon Painters ─────────────────────────────────────────────
+
+class _ClockIconPainter extends CustomPainter {
+  @override
+  void paint(Canvas canvas, Size size) {
+    final p = Paint()
+      ..color = const Color(0xFF334d68)
+      ..strokeWidth = 1.5
+      ..style = PaintingStyle.stroke
+      ..strokeCap = StrokeCap.round;
+    final c = Offset(size.width / 2, size.height / 2);
+    final r = size.width / 2 - 1;
+    canvas.drawCircle(c, r, p);
+    canvas.drawLine(c, Offset(c.dx, c.dy - r * 0.55), p);
+    canvas.drawLine(c, Offset(c.dx + r * 0.4, c.dy), p);
+  }
+  @override bool shouldRepaint(covariant CustomPainter _) => false;
+}
+
+class _LockIconPainter extends CustomPainter {
+  @override
+  void paint(Canvas canvas, Size size) {
+    final p = Paint()
+      ..color = const Color(0xFF334d68)
+      ..strokeWidth = 1.5
+      ..style = PaintingStyle.stroke
+      ..strokeCap = StrokeCap.round;
+    final cx = size.width / 2;
+    final bodyRect = RRect.fromRectAndRadius(
+      Rect.fromLTWH(cx - 7, size.height * 0.45, 14, 11),
+      const Radius.circular(2),
+    );
+    canvas.drawRRect(bodyRect, p);
+    final arcRect = Rect.fromCenter(
+      center: Offset(cx, size.height * 0.45),
+      width: 10, height: 10,
+    );
+    canvas.drawArc(arcRect, 3.14, 3.14, false, p);
+  }
+  @override bool shouldRepaint(covariant CustomPainter _) => false;
+}
+
+class _SearchIconPainter extends CustomPainter {
+  @override
+  void paint(Canvas canvas, Size size) {
+    final p = Paint()
+      ..color = const Color(0xFF334d68)
+      ..strokeWidth = 1.5
+      ..style = PaintingStyle.stroke
+      ..strokeCap = StrokeCap.round;
+    final c = Offset(size.width * 0.42, size.height * 0.42);
+    canvas.drawCircle(c, size.width * 0.28, p);
+    canvas.drawLine(
+      Offset(c.dx + size.width * 0.2, c.dy + size.height * 0.2),
+      Offset(size.width * 0.85, size.height * 0.85),
+      p,
+    );
+  }
+  @override bool shouldRepaint(covariant CustomPainter _) => false;
 }

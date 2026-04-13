@@ -16,8 +16,9 @@ class SystemScreen extends StatefulWidget {
 class _SystemScreenState extends State<SystemScreen> {
   CachedResult<Map<String, dynamic>>? _statusResult;
   CachedResult<List<dynamic>>?        _runsResult;
-  bool _loading = true;
-  bool _infoOpen = false;
+  bool _loading      = true;
+  bool _infoOpen     = false;
+  bool _resumeLoading = false;
 
   bool get _isOffline => _statusResult?.isOffline ?? false;
   DateTime? get _cachedAt => _statusResult?.cachedAt;
@@ -46,13 +47,32 @@ class _SystemScreenState extends State<SystemScreen> {
       setState(() {
         _statusResult = status;
         _runsResult   = runs;
-        _loading = false;
+        _loading      = false;
       });
       KestrelNav.of(context)?.setConnectionError(_isOffline);
     } catch (e) {
       if (!mounted) return;
       setState(() => _loading = false);
       KestrelNav.of(context)?.setConnectionError(true);
+    }
+  }
+
+  Future<void> _handleResume() async {
+    setState(() => _resumeLoading = true);
+    try {
+      await ApiService.postResume();
+      // Status neu laden – Pause-Card verschwindet
+      await _load();
+    } on ActionException catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+          content: Text(e.message),
+          backgroundColor: KestrelColors.red,
+          duration: const Duration(seconds: 3),
+        ));
+      }
+    } finally {
+      if (mounted) setState(() => _resumeLoading = false);
     }
   }
 
@@ -85,7 +105,11 @@ class _SystemScreenState extends State<SystemScreen> {
                 padding: const EdgeInsets.fromLTRB(12, 10, 12, 24),
                 children: [
                   if (paused && status != null) ...[
-                    _PauseCard(status: status),
+                    _PauseCard(
+                      status:         status,
+                      resumeLoading:  _resumeLoading,
+                      onResume:       _handleResume,
+                    ),
                     const SizedBox(height: 8),
                   ],
                   if (status != null) ...[
@@ -151,15 +175,25 @@ class _SystemScreenState extends State<SystemScreen> {
 
 class _PauseCard extends StatelessWidget {
   final Map<String, dynamic> status;
-  const _PauseCard({required this.status});
+  final bool resumeLoading;
+  final VoidCallback onResume;
+
+  const _PauseCard({
+    required this.status,
+    required this.resumeLoading,
+    required this.onResume,
+  });
 
   String _fmtDateTime(String? iso) {
     if (iso == null || iso.length < 16) return '–';
     final dt = DateTime.tryParse(iso);
     if (dt == null) return iso;
     final local = dt.toLocal();
-    return '${local.day.toString().padLeft(2, '0')}.${local.month.toString().padLeft(2, '0')}.${local.year}, '
-        '${local.hour.toString().padLeft(2, '0')}:${local.minute.toString().padLeft(2, '0')}';
+    return '${local.day.toString().padLeft(2, '0')}.'
+        '${local.month.toString().padLeft(2, '0')}.'
+        '${local.year}, '
+        '${local.hour.toString().padLeft(2, '0')}:'
+        '${local.minute.toString().padLeft(2, '0')}';
   }
 
   @override
@@ -182,15 +216,85 @@ class _PauseCard extends StatelessWidget {
                   fontWeight: FontWeight.w700, letterSpacing: 0.8)),
           const SizedBox(height: 8),
           Text(reason,
-              style: const TextStyle(color: KestrelColors.textPrimary, fontSize: 13)),
+              style: const TextStyle(
+                  color: KestrelColors.textPrimary, fontSize: 13)),
           if (since != null) ...[
             const SizedBox(height: 4),
             Text('seit ${_fmtDateTime(since)}',
-                style: const TextStyle(color: KestrelColors.textGrey, fontSize: 11)),
+                style: const TextStyle(
+                    color: KestrelColors.textGrey, fontSize: 11)),
           ],
+          const SizedBox(height: 14),
+          // ── Checkliste ──────────────────────────────────
+          Container(
+            padding: const EdgeInsets.all(10),
+            decoration: BoxDecoration(
+              color: const Color(0xFF0F0808),
+              borderRadius: BorderRadius.circular(8),
+              border: Border.all(color: KestrelColors.redBorder),
+            ),
+            child: const Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text('VOR RESUME PRÜFEN:',
+                    style: TextStyle(color: KestrelColors.red, fontSize: 9,
+                        fontWeight: FontWeight.w700, letterSpacing: 0.5)),
+                SizedBox(height: 6),
+                _CheckItem('Marktlage im gleichen Zeitraum geprüft?'),
+                _CheckItem('Strukturelle Fehler ausgeschlossen?'),
+                _CheckItem('Datenbasierte Entscheidung für Wiederstart?'),
+              ],
+            ),
+          ),
           const SizedBox(height: 12),
-          const Text('Resume via Telegram: /resume',
-              style: TextStyle(color: KestrelColors.textGrey, fontSize: 11)),
+          // ── Resume Button ────────────────────────────────
+          SizedBox(
+            width: double.infinity,
+            child: ElevatedButton(
+              onPressed: resumeLoading ? null : onResume,
+              style: ElevatedButton.styleFrom(
+                backgroundColor: KestrelColors.orange,
+                disabledBackgroundColor: KestrelColors.orange.withOpacity(0.4),
+                foregroundColor: Colors.white,
+                padding: const EdgeInsets.symmetric(vertical: 12),
+                shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(8)),
+              ),
+              child: resumeLoading
+                  ? const SizedBox(
+                width: 16, height: 16,
+                child: CircularProgressIndicator(
+                    strokeWidth: 2, color: Colors.white),
+              )
+                  : const Text('Pause aufheben',
+                  style: TextStyle(
+                      fontWeight: FontWeight.w700, fontSize: 14)),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _CheckItem extends StatelessWidget {
+  final String text;
+  const _CheckItem(this.text);
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 4),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Text('· ',
+              style: TextStyle(color: KestrelColors.textDimmed, fontSize: 11)),
+          Expanded(
+            child: Text(text,
+                style: const TextStyle(
+                    color: KestrelColors.textGrey, fontSize: 11)),
+          ),
         ],
       ),
     );
@@ -215,15 +319,14 @@ class _ServicesCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final lastPing   = status['last_ping_at']          as String?;
-    final drawdown   = (status['drawdown_pct']          as num?) ?? 0;
-    final limit      = (status['drawdown_limit_pct']    as num?) ?? 25;
-    final consLosses = ((status['consecutive_losses']   as num?) ?? 0).toInt();
-    final consLimit  = ((status['consecutive_loss_limit'] as num?) ?? 6).toInt();
+    final lastPing    = status['last_ping_at']            as String?;
+    final drawdown    = (status['drawdown_pct']            as num?) ?? 0;
+    final limit       = (status['drawdown_limit_pct']      as num?) ?? 25;
+    final consLosses  = ((status['consecutive_losses']     as num?) ?? 0).toInt();
+    final consLimit   = ((status['consecutive_loss_limit'] as num?) ?? 6).toInt();
 
-    final pingTime = _fmtTime(lastPing);
-    final pingOk   = lastPing != null;
-
+    final pingTime       = _fmtTime(lastPing);
+    final pingOk         = lastPing != null;
     final drawdownWarn   = limit > 0 && (drawdown / limit) >= 0.8;
     final consLossesWarn = consLimit > 0 && (consLosses / consLimit) >= 0.8;
 
@@ -239,46 +342,35 @@ class _ServicesCard extends StatelessWidget {
         children: [
           const Text('SYSTEM-STATUS', style: kCardLabelStyle),
           const SizedBox(height: 10),
-
-          // Drawdown + Verluste
-          Row(
-            children: [
-              Expanded(child: _StatRow(
-                label: 'Drawdown',
-                value: '${drawdown.toStringAsFixed(1).replaceAll('.', ',')} % / '
-                    '${limit.toStringAsFixed(0)} %',
-                valueColor: drawdownWarn
-                    ? KestrelColors.orange : KestrelColors.textPrimary,
-              )),
-              Expanded(child: _StatRow(
-                label: 'Konsek. Verluste',
-                value: '$consLosses / $consLimit',
-                valueColor: consLossesWarn
-                    ? KestrelColors.orange : KestrelColors.textPrimary,
-              )),
-            ],
-          ),
+          Row(children: [
+            Expanded(child: _StatRow(
+              label: 'Drawdown',
+              value: '${drawdown.toStringAsFixed(1).replaceAll('.', ',')} % / '
+                  '${limit.toStringAsFixed(0)} %',
+              valueColor: drawdownWarn
+                  ? KestrelColors.orange : KestrelColors.textPrimary,
+            )),
+            Expanded(child: _StatRow(
+              label: 'Konsek. Verluste',
+              value: '$consLosses / $consLimit',
+              valueColor: consLossesWarn
+                  ? KestrelColors.orange : KestrelColors.textPrimary,
+            )),
+          ]),
           const Divider(height: 16, color: KestrelColors.cardBorder),
-
-          // Services
           const Text('SERVICES', style: kCardLabelStyle),
           const SizedBox(height: 8),
-          _ServiceRow(
-            name: 'Pi',
-            ok: pingOk,
-            detail: pingOk ? pingTime : null,
-          ),
+          _ServiceRow(name: 'Pi',           ok: pingOk,  detail: pingOk ? pingTime : null),
           _ServiceRow(name: 'FMP',          ok: null),
           _ServiceRow(name: 'Claude',       ok: null),
           _ServiceRow(name: 'SEC EDGAR',    ok: null),
-          _ServiceRow(name: 'Healthchecks', ok: pingOk, detail: pingOk ? pingTime : null),
+          _ServiceRow(name: 'Healthchecks', ok: pingOk,  detail: pingOk ? pingTime : null),
           const SizedBox(height: 4),
-          Padding(
-            padding: const EdgeInsets.only(bottom: 8),
+          const Padding(
+            padding: EdgeInsets.only(bottom: 8),
             child: Text(
               'Service-Details verfügbar ab /system/health (V2)',
-              style: const TextStyle(
-                  color: KestrelColors.textHint, fontSize: 9),
+              style: TextStyle(color: KestrelColors.textHint, fontSize: 9),
             ),
           ),
         ],
@@ -304,8 +396,7 @@ class _StatRow extends StatelessWidget {
         Text(value,
             style: TextStyle(
                 color: valueColor ?? KestrelColors.textPrimary,
-                fontSize: 13,
-                fontWeight: FontWeight.w600)),
+                fontSize: 13, fontWeight: FontWeight.w600)),
       ],
     );
   }
@@ -313,59 +404,44 @@ class _StatRow extends StatelessWidget {
 
 class _ServiceRow extends StatelessWidget {
   final String name;
-  final bool? ok;       // null = unbekannt (kein Endpoint in V1)
+  final bool? ok;
   final String? detail;
   const _ServiceRow({required this.name, required this.ok, this.detail});
 
   @override
   Widget build(BuildContext context) {
-    final dotColor = ok == null
-        ? KestrelColors.textHint
+    final dotColor   = ok == null ? KestrelColors.textHint
         : ok! ? KestrelColors.green : KestrelColors.red;
-
-    final statusText = ok == null
-        ? '–'
-        : ok! ? 'ok' : 'error';
-
-    final statusColor = ok == null
-        ? KestrelColors.textHint
+    final statusText = ok == null ? '–' : ok! ? 'ok' : 'error';
+    final statusColor = ok == null ? KestrelColors.textHint
         : ok! ? KestrelColors.green : KestrelColors.red;
 
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 7),
-      child: Row(
-        children: [
-          Container(
-            width: 8, height: 8,
-            decoration: BoxDecoration(
-              color: dotColor,
-              shape: BoxShape.circle,
-            ),
-          ),
-          const SizedBox(width: 10),
-          Expanded(
-            child: Text(name,
-                style: const TextStyle(
-                    color: KestrelColors.textPrimary,
-                    fontSize: 12,
-                    fontWeight: FontWeight.w600)),
-          ),
-          Column(
-            crossAxisAlignment: CrossAxisAlignment.end,
-            children: [
-              Text(statusText,
-                  style: TextStyle(
-                      color: statusColor,
-                      fontSize: 10,
-                      fontWeight: FontWeight.w600)),
-              if (detail != null)
-                Text(detail!,
-                    style: const TextStyle(
-                        color: KestrelColors.textHint, fontSize: 9)),
-            ],
-          ),
-        ],
-      ),
+      child: Row(children: [
+        Container(
+          width: 8, height: 8,
+          decoration: BoxDecoration(color: dotColor, shape: BoxShape.circle),
+        ),
+        const SizedBox(width: 10),
+        Expanded(
+          child: Text(name,
+              style: const TextStyle(color: KestrelColors.textPrimary,
+                  fontSize: 12, fontWeight: FontWeight.w600)),
+        ),
+        Column(
+          crossAxisAlignment: CrossAxisAlignment.end,
+          children: [
+            Text(statusText,
+                style: TextStyle(color: statusColor,
+                    fontSize: 10, fontWeight: FontWeight.w600)),
+            if (detail != null)
+              Text(detail!,
+                  style: const TextStyle(
+                      color: KestrelColors.textHint, fontSize: 9)),
+          ],
+        ),
+      ]),
     );
   }
 }
@@ -402,27 +478,24 @@ class _RunLogCard extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Text('RUN-LOG',
-              style: TextStyle(color: KestrelColors.gold, fontSize: 10,
-                  fontWeight: FontWeight.w700, letterSpacing: 0.8)),
+          const Text('RUN-LOG', style: kCardLabelStyle),
           const SizedBox(height: 8),
           if (runs.isEmpty)
             const Padding(
               padding: EdgeInsets.only(bottom: 8),
               child: Text('Noch keine Runs',
-                  style: TextStyle(color: KestrelColors.textDimmed, fontSize: 13)),
+                  style: TextStyle(
+                      color: KestrelColors.textDimmed, fontSize: 13)),
             )
           else
             ...runs.take(10).toList().asMap().entries.map((entry) {
               final isLast = entry.key == runs.take(10).length - 1;
               final run = entry.value as Map<String, dynamic>;
-              return Column(
-                children: [
-                  _RunRow(run: run, fmtTime: _fmtRunTime),
-                  if (!isLast)
-                    const Divider(height: 1, color: KestrelColors.cardBorder),
-                ],
-              );
+              return Column(children: [
+                _RunRow(run: run, fmtTime: _fmtRunTime),
+                if (!isLast)
+                  const Divider(height: 1, color: KestrelColors.cardBorder),
+              ]);
             }),
         ],
       ),
@@ -437,10 +510,10 @@ class _RunRow extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final runId  = run['run_id']          as String?  ?? '';
+    final runId  = run['run_id']           as String? ?? '';
     final count  = (run['shortlist_count'] as num?)?.toInt() ?? 0;
-    final status = run['order_status']    as String?  ?? 'skipped';
-    final ticker = run['order_ticker']    as String?;
+    final status = run['order_status']     as String? ?? 'skipped';
+    final ticker = run['order_ticker']     as String?;
 
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 8),
@@ -451,10 +524,8 @@ class _RunRow extends StatelessWidget {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Text(fmtTime(runId),
-                  style: const TextStyle(
-                      color: KestrelColors.textPrimary,
-                      fontSize: 12,
-                      fontWeight: FontWeight.w600)),
+                  style: const TextStyle(color: KestrelColors.textPrimary,
+                      fontSize: 12, fontWeight: FontWeight.w600)),
               const SizedBox(height: 2),
               Text('$count ${count == 1 ? 'Kandidat' : 'Kandidaten'}',
                   style: const TextStyle(
@@ -511,3 +582,12 @@ class _OrderBadge extends StatelessWidget {
     );
   }
 }
+
+// ── Helpers ───────────────────────────────────────────────────
+
+const kCardLabelStyle = TextStyle(
+  color: KestrelColors.gold,
+  fontSize: 10,
+  fontWeight: FontWeight.w600,
+  letterSpacing: 0.8,
+);
