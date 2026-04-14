@@ -19,6 +19,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 class KestrelNav extends InheritedWidget {
   final VoidCallback goToDashboard;
   final VoidCallback goToSystem;
+  final VoidCallback goToHistory;
   final VoidCallback goToSettings;
   final VoidCallback refreshDashboard;
   final ValueChanged<bool> setConnectionError;
@@ -28,6 +29,7 @@ class KestrelNav extends InheritedWidget {
     super.key,
     required this.goToDashboard,
     required this.goToSystem,
+    required this.goToHistory,
     required this.goToSettings,
     required this.refreshDashboard,
     required this.setConnectionError,
@@ -44,6 +46,7 @@ class KestrelNav extends InheritedWidget {
       connectionError != old.connectionError ||
           goToDashboard != old.goToDashboard ||
           goToSystem != old.goToSystem ||
+          goToHistory != old.goToHistory ||
           goToSettings != old.goToSettings;
 
 }
@@ -73,6 +76,7 @@ class _MainScreenState extends State<MainScreen> {
     return KestrelNav(
       goToDashboard:      () => setState(() => _index = 0),
       goToSystem:         () => setState(() => _index = 3),
+      goToHistory:        () => setState(() => _index = 2),
       goToSettings:       _openSettings,
       refreshDashboard:   () => _dashboardRefresh.value++,
       setConnectionError: (v) => setState(() => _connError = v),
@@ -127,7 +131,7 @@ class _KestrelNavBar extends StatelessWidget {
             children: [
               _NavItem(icon: Icons.dashboard_outlined,    label: 'Dashboard', active: currentIndex == 0, onTap: () => onTap(0)),
               _NavItem(icon: Icons.list_alt_outlined,     label: 'Shortlist', active: currentIndex == 1, onTap: () => onTap(1)),
-              _NavItem(icon: Icons.storage_outlined,      label: 'History',   active: currentIndex == 2, onTap: () => onTap(2)),
+              _NavItem(icon: Icons.history,      label: 'History',   active: currentIndex == 2, onTap: () => onTap(2)),
               _NavItem(icon: Icons.monitor_heart_outlined,label: 'Status',    active: currentIndex == 3, onTap: () => onTap(3)),
             ],
           ),
@@ -159,7 +163,7 @@ class _NavItem extends StatelessWidget {
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            Icon(icon, color: color, size: 18),
+            Icon(icon, color: color, size: 25),
             const SizedBox(height: 3),
             Text(label, style: TextStyle(color: color, fontSize: 10)),
           ],

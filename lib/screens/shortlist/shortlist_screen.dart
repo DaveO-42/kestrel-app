@@ -1,4 +1,6 @@
+import 'dart:math' as math;
 import 'package:flutter/material.dart';
+import 'package:flutter_svg/flutter_svg.dart';
 import '../../services/api_service.dart';
 import '../../services/cache_service.dart';
 import '../../theme/kestrel_theme.dart';
@@ -6,6 +8,7 @@ import '../../main_screen.dart';
 import '../../widgets/info_sheet.dart';
 import '../../widgets/offline_banner.dart';
 import '../../widgets/bought_sheet.dart';
+import 'dart:ui' as ui;
 
 class ShortlistScreen extends StatefulWidget {
   const ShortlistScreen({super.key});
@@ -214,7 +217,7 @@ class _ShortlistScreenState extends State<ShortlistScreen> {
         const SizedBox(height: 16),
         Padding(
           padding: const EdgeInsets.symmetric(horizontal: 12),
-          child: _ShortlistEmptyCard(
+          child: _ShortlistEmptyState(
             variant: variant,
             subText: isBudget ? reason : null,
             runTime: runTime,
@@ -647,135 +650,192 @@ class _ShortlistFooter extends StatelessWidget {
 
 enum _EmptyVariant { pending, budget, none }
 
-class _ShortlistEmptyCard extends StatelessWidget {
+class _ShortlistEmptyState extends StatelessWidget {
   final _EmptyVariant variant;
   final String? subText;
   final String? runTime;
-  const _ShortlistEmptyCard({required this.variant, this.subText, this.runTime});
+  const _ShortlistEmptyState({required this.variant, this.subText, this.runTime});
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      decoration: BoxDecoration(
-        color: KestrelColors.cardBg,
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: KestrelColors.cardBorder),
-      ),
-      padding: const EdgeInsets.fromLTRB(13, 11, 13, 13),
+    final screenH = MediaQuery.of(context).size.height;
+    final screenW = MediaQuery.of(context).size.width;
+
+    final svgAsset = switch (variant) {
+      _EmptyVariant.pending => 'assets/images/kestrel_pending.svg',
+      _EmptyVariant.budget  => 'assets/images/kestrel_no_budget.svg',
+      _EmptyVariant.none    => 'assets/images/kestrel_falcon.svg',
+    };
+
+    final headline = switch (variant) {
+      _EmptyVariant.pending => 'SCAN AUSSTEHEND',
+      _EmptyVariant.budget  => 'NEST IST LEER',
+      _EmptyVariant.none    => 'HORIZONT LEER',
+    };
+
+    final subline = switch (variant) {
+      _EmptyVariant.pending => 'Kestrel positioniert sich',
+      _EmptyVariant.budget  => 'Kein Budget verfügbar',
+      _EmptyVariant.none    => 'Keine Kandidaten',
+    };
+
+    final description = switch (variant) {
+      _EmptyVariant.pending => 'Warten auf das zeitgesteuerte Signal.\n(Run ca. 15:00 Uhr)',
+      _EmptyVariant.budget  => 'Budget liegt unter der Mindestposition.\nPrüfe deine Liquidität.',
+      _EmptyVariant.none    => 'Weit und breit keine Beute.\nMarkt bietet gerade keine Signale.',
+    };
+
+    return SizedBox(
+      height: screenH * 0.75,
       child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
+        mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          Text('SHORTLIST', style: kCardLabelStyle),
-          Padding(
-            padding: const EdgeInsets.symmetric(vertical: 20),
-            child: Center(
-              child: Column(
-                children: [
-                  SizedBox(
-                    width: 32, height: 32,
-                    child: CustomPaint(
-                      painter: switch (variant) {
-                        _EmptyVariant.pending => _ClockIconPainter(),
-                        _EmptyVariant.budget  => _LockIconPainter(),
-                        _EmptyVariant.none    => _SearchIconPainter(),
-                      },
-                    ),
+          Stack(
+            alignment: Alignment.center,
+            children: [
+              // Sonnenstrahlen ganz hinten
+              // Sonnenstrahlen nur bei pending
+              if (variant == _EmptyVariant.pending)
+                CustomPaint(
+                  size: Size(screenW * 0.72, screenW * 0.72),
+                  painter: _SunRaysPainter(),
+                ),
+              // Kreisrahmen
+              Container(
+                width: screenW * 0.72,
+                height: screenW * 0.72,
+                decoration: BoxDecoration(
+                  shape: BoxShape.circle,
+                  border: Border.all(
+                    color: KestrelColors.gold.withOpacity(0.25),
+                    width: 1.5,
                   ),
-                  const SizedBox(height: 10),
-                  Text(
-                    switch (variant) {
-                      _EmptyVariant.pending => 'Run steht noch aus',
-                      _EmptyVariant.budget  => 'Kein Budget verfügbar',
-                      _EmptyVariant.none    => 'Keine Kandidaten',
-                    },
-                    style: TextStyle(
-                      color: switch (variant) {
-                        _EmptyVariant.budget => KestrelColors.orange,
-                        _                   => const Color(0xFF6A8AAA),
-                      },
-                      fontSize: 12, fontWeight: FontWeight.w600,
-                    ),
-                  ),
-                  if (subText != null) ...[
-                    const SizedBox(height: 4),
-                    Text(subText!,
-                        style: const TextStyle(
-                            color: Color(0xFF8a6e2a), fontSize: 10),
-                        textAlign: TextAlign.center),
-                  ],
-                  if (runTime != null) ...[
-                    const SizedBox(height: 4),
-                    Text('Run $runTime',
-                        style: const TextStyle(
-                            color: Color(0xFF334d68), fontSize: 10)),
-                  ],
-                ],
+                ),
               ),
+              // Falke vorne
+              SvgPicture.asset(
+                svgAsset,
+                width: screenW * 0.60,
+                colorFilter: const ColorFilter.mode(
+                  KestrelColors.gold,
+                  BlendMode.srcIn,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 28),
+          Text(
+            headline,
+            style: const TextStyle(
+              color: KestrelColors.goldLight,
+              fontSize: 18,
+              fontWeight: FontWeight.w700,
+              letterSpacing: 2.5,
             ),
           ),
+          const SizedBox(height: 6),
+          Text(
+            subline,
+            style: const TextStyle(
+              color: KestrelColors.textGrey,
+              fontSize: 13,
+              fontWeight: FontWeight.w500,
+            ),
+          ),
+          const SizedBox(height: 10),
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 40),
+            child: Text(
+              description,
+              style: const TextStyle(
+                color: KestrelColors.textDimmed,
+                fontSize: 12,
+                height: 1.5,
+              ),
+              textAlign: TextAlign.center,
+            ),
+          ),
+          if (runTime != null) ...[
+            const SizedBox(height: 16),
+            Text(
+              'Letzter Run: $runTime',
+              style: const TextStyle(
+                color: KestrelColors.textHint,
+                fontSize: 10,
+              ),
+            ),
+          ],
         ],
       ),
     );
   }
 }
 
-// ── Icon Painters ─────────────────────────────────────────────
+// ── Sun Rays Painter ──────────────────────────────────────────
 
-class _ClockIconPainter extends CustomPainter {
+class _SunRaysPainter extends CustomPainter {
   @override
   void paint(Canvas canvas, Size size) {
-    final p = Paint()
-      ..color = const Color(0xFF334d68)
-      ..strokeWidth = 1.5
-      ..style = PaintingStyle.stroke
-      ..strokeCap = StrokeCap.round;
-    final c = Offset(size.width / 2, size.height / 2);
-    final r = size.width / 2 - 1;
-    canvas.drawCircle(c, r, p);
-    canvas.drawLine(c, Offset(c.dx, c.dy - r * 0.55), p);
-    canvas.drawLine(c, Offset(c.dx + r * 0.4, c.dy), p);
-  }
-  @override bool shouldRepaint(covariant CustomPainter _) => false;
-}
+    final origin = Offset(size.width * 0.6, size.height * 0.47);
+    const rayCount = 12;
+    // Strahlen fächern nach oben: von -150° bis -30° (oben = -90°)
+    const startAngle = -170.0;
+    const sweepAngle = 160.0;
 
-class _LockIconPainter extends CustomPainter {
-  @override
-  void paint(Canvas canvas, Size size) {
-    final p = Paint()
-      ..color = const Color(0xFF334d68)
-      ..strokeWidth = 1.5
-      ..style = PaintingStyle.stroke
-      ..strokeCap = StrokeCap.round;
-    final cx = size.width / 2;
-    final bodyRect = RRect.fromRectAndRadius(
-      Rect.fromLTWH(cx - 7, size.height * 0.45, 14, 11),
-      const Radius.circular(2),
-    );
-    canvas.drawRRect(bodyRect, p);
-    final arcRect = Rect.fromCenter(
-      center: Offset(cx, size.height * 0.45),
-      width: 10, height: 10,
-    );
-    canvas.drawArc(arcRect, 3.14, 3.14, false, p);
-  }
-  @override bool shouldRepaint(covariant CustomPainter _) => false;
-}
+    for (int i = 0; i < rayCount; i++) {
+      final fraction = i / (rayCount - 1);
+      final angleDeg = startAngle + fraction * sweepAngle;
+      final angleRad = angleDeg * math.pi / 180.0;
 
-class _SearchIconPainter extends CustomPainter {
-  @override
-  void paint(Canvas canvas, Size size) {
-    final p = Paint()
-      ..color = const Color(0xFF334d68)
-      ..strokeWidth = 1.5
-      ..style = PaintingStyle.stroke
-      ..strokeCap = StrokeCap.round;
-    final c = Offset(size.width * 0.42, size.height * 0.42);
-    canvas.drawCircle(c, size.width * 0.28, p);
-    canvas.drawLine(
-      Offset(c.dx + size.width * 0.2, c.dy + size.height * 0.2),
-      Offset(size.width * 0.85, size.height * 0.85),
-      p,
-    );
+      // Mittlere Strahlen länger und heller
+      final centerFraction = 1.0 - (fraction - 0.5).abs() * 2;
+      final rayLength = size.height * (0.28 + centerFraction * 0.22);
+
+      final endX = origin.dx + math.cos(angleRad) * rayLength;
+      final endY = origin.dy + math.sin(angleRad) * rayLength;
+
+      // Strahl als Dreieck (breit am Ende, Punkt am Ursprung)
+      final perpAngle = angleRad + math.pi / 2;
+      final spreadWidth = rayLength * 0.08;
+      final end1 = Offset(
+        endX + math.cos(perpAngle) * spreadWidth,
+        endY + math.sin(perpAngle) * spreadWidth,
+      );
+      final end2 = Offset(
+        endX - math.cos(perpAngle) * spreadWidth,
+        endY - math.sin(perpAngle) * spreadWidth,
+      );
+
+      final path = Path()
+        ..moveTo(origin.dx, origin.dy)
+        ..lineTo(end1.dx, end1.dy)
+        ..lineTo(end2.dx, end2.dy)
+        ..close();
+
+      final paint = Paint()
+        ..shader = ui.Gradient.linear(
+          origin,
+          Offset(endX, endY),
+          [
+            const Color(0xFFC9A84C).withOpacity(0.18 + centerFraction * 0.12),
+            const Color(0xFFC9A84C).withOpacity(0.0),
+          ],
+        )
+        ..style = PaintingStyle.fill;
+
+      canvas.drawPath(path, paint);
+    }
+
+    // Kleiner Leuchtpunkt am Ursprung
+    final glowPaint = Paint()
+      ..color = const Color(0xFFC9A84C).withOpacity(0.20)
+      ..style = PaintingStyle.fill;
+    canvas.drawCircle(origin, 6, glowPaint);
+    canvas.drawCircle(origin, 3,
+        Paint()..color = const Color(0xFFC9A84C).withOpacity(0.50)
+          ..style = PaintingStyle.fill);
   }
-  @override bool shouldRepaint(covariant CustomPainter _) => false;
+
+  @override
+  bool shouldRepaint(_SunRaysPainter old) => false;
 }

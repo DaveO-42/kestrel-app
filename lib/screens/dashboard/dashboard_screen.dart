@@ -172,8 +172,10 @@ class _DashboardScreenState extends State<DashboardScreen> {
               .toDouble(),
     );
 
-    final drawdown = (drawdownData['drawdown_pct']       as num?) ?? 0;
-    final ddLimit  = (drawdownData['drawdown_limit_pct'] as num?) ?? 25;
+    final drawdown   = (drawdownData['drawdown_pct']          as num?) ?? 0;
+    final ddLimit    = (drawdownData['drawdown_limit_pct']    as num?) ?? 25;
+    final consLosses = ((drawdownData['consecutive_losses']   as num?) ?? 0).toInt();
+    final consLimit  = ((drawdownData['consecutive_loss_limit'] as num?) ?? 6).toInt();
 
     return RefreshIndicator(
       onRefresh: _load,
@@ -202,7 +204,13 @@ class _DashboardScreenState extends State<DashboardScreen> {
             totalPnl: positions.isEmpty ? null : totalPnl,
           ),
           const SizedBox(height: 6),
-          _DrawdownStrip(drawdown: drawdown, limit: ddLimit),
+          _DrawdownCard(
+            drawdown:   drawdown,
+            limit:      ddLimit,
+            consLosses: consLosses,
+            consLimit:  consLimit,
+            onTap:      () => KestrelNav.of(context)?.goToHistory(),
+          ),
           const SizedBox(height: 8),
           _PositionsCard(positions: positions),
           const SizedBox(height: 8),
@@ -402,56 +410,197 @@ class _BudgetHero extends StatelessWidget {
   }
 }
 
-// ── Drawdown Strip ────────────────────────────────────────────
+// ── Drawdown Card ─────────────────────────────────────────────
 
-class _DrawdownStrip extends StatelessWidget {
+class _DrawdownCard extends StatelessWidget {
   final num drawdown;
   final num limit;
-  const _DrawdownStrip({required this.drawdown, required this.limit});
+  final int consLosses;
+  final int consLimit;
+  final VoidCallback? onTap;
+
+  const _DrawdownCard({
+    required this.drawdown,
+    required this.limit,
+    required this.consLosses,
+    required this.consLimit,
+    this.onTap,
+  });
+
+  Color _accentColor(double pct) {
+    if (pct >= 0.9) return KestrelColors.red;
+    if (pct >= 0.7) return KestrelColors.orange;
+    return KestrelColors.green;
+  }
 
   @override
   Widget build(BuildContext context) {
-    final pct      = limit > 0 ? (drawdown / limit).clamp(0.0, 1.0) : 0.0;
-    final isWarn   = pct >= 0.7;
-    final barColor = isWarn ? KestrelColors.orange : KestrelColors.green;
-    final txtColor = isWarn ? KestrelColors.orange : KestrelColors.textDimmed;
+    final ddPct   = limit > 0
+        ? (drawdown / limit).clamp(0.0, 1.0).toDouble()
+        : 0.0;
+    final consPct = consLimit > 0
+        ? (consLosses / consLimit).clamp(0.0, 1.0).toDouble()
+        : 0.0;
 
-    return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 2),
+    final ddColor   = _accentColor(ddPct);
+    final consColor = _accentColor(consPct);
+
+    // Card accent = higher risk of the two
+    final Color cardAccent;
+    if (ddPct >= 0.9 || consPct >= 0.9) {
+      cardAccent = KestrelColors.red;
+    } else if (ddPct >= 0.7 || consPct >= 0.7) {
+      cardAccent = KestrelColors.orange;
+    } else {
+      cardAccent = KestrelColors.green;
+    }
+
+    final borderColor = cardAccent == KestrelColors.green
+        ? KestrelColors.cardBorder
+        : cardAccent.withOpacity(0.35);
+
+    final consStatusText = consPct >= 0.9
+        ? 'Gefahr'
+        : consPct >= 0.7
+        ? 'Warnung'
+        : 'kein Risiko';
+
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+      decoration: BoxDecoration(
+        color: KestrelColors.cardBg,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: borderColor),
+      ),
+      padding: const EdgeInsets.fromLTRB(13, 12, 13, 12),
       child: Column(
         children: [
+          // ── Oberer Bereich: Ring + Info ───────────────────────
           Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              Text(
-                'Drawdown  ${drawdown.toStringAsFixed(1).replaceAll('.', ',')} %'
-                    '  ·  Limit ${limit.toStringAsFixed(0)} %',
-                style: TextStyle(color: txtColor, fontSize: 10),
+              // Ring
+              SizedBox(
+                width: 64,
+                height: 64,
+                child: Stack(
+                  alignment: Alignment.center,
+                  children: [
+                    CircularProgressIndicator(
+                      value: ddPct,
+                      strokeWidth: 7,
+                      backgroundColor: KestrelColors.screenBg,
+                      valueColor: AlwaysStoppedAnimation<Color>(ddColor),
+                      strokeCap: StrokeCap.round,
+                    ),
+                    Text(
+                      '${drawdown.toStringAsFixed(1).replaceAll('.', ',')}%',
+                      style: TextStyle(
+                        color: ddColor,
+                        fontSize: 13,
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
+                  ],
+                ),
               ),
-              Text(
-                '${(pct * 100).toStringAsFixed(0)} %',
-                style: TextStyle(
-                  color: txtColor,
-                  fontSize: 10,
-                  fontWeight: FontWeight.w600,
+              const SizedBox(width: 14),
+              // Info-Spalte
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const Text(
+                      'DRAWDOWN',
+                      style: TextStyle(
+                        color: KestrelColors.gold,
+                        fontSize: 9,
+                        fontWeight: FontWeight.w700,
+                        letterSpacing: 0.8,
+                      ),
+                    ),
+                    const SizedBox(height: 3),
+                    Text(
+                      'Hard Stop  ${limit.toStringAsFixed(1).replaceAll('.', ',')} %',
+                      style: const TextStyle(
+                        color: KestrelColors.textDimmed,
+                        fontSize: 11,
+                      ),
+                    ),
+                    const SizedBox(height: 2),
+                    Text(
+                      'Auslastung  ${(ddPct * 100).toStringAsFixed(0)} %',
+                      style: TextStyle(
+                        color: ddColor,
+                        fontSize: 11,
+                      ),
+                    ),
+                  ],
                 ),
               ),
             ],
           ),
-          const SizedBox(height: 4),
-          ClipRRect(
-            borderRadius: BorderRadius.circular(2),
-            child: SizedBox(
-              height: 3,
-              child: LinearProgressIndicator(
-                value: pct.toDouble(),
-                backgroundColor: KestrelColors.cardBorder,
-                valueColor: AlwaysStoppedAnimation<Color>(barColor),
+
+          // ── Divider ───────────────────────────────────────────
+          const Padding(
+            padding: EdgeInsets.symmetric(vertical: 12),
+            child: Divider(height: 1, color: KestrelColors.cardBorder),
+          ),
+
+          // ── Unterer Bereich: Konsek. Verluste ─────────────────
+          Row(
+            children: [
+              // Label + Status
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const Text(
+                      'KONSEK. VERLUSTE',
+                      style: TextStyle(
+                        color: KestrelColors.gold,
+                        fontSize: 9,
+                        fontWeight: FontWeight.w700,
+                        letterSpacing: 0.8,
+                      ),
+                    ),
+                    const SizedBox(height: 3),
+                    Text(
+                      consStatusText,
+                      style: TextStyle(
+                        color: consColor,
+                        fontSize: 12,
+                        fontWeight: FontWeight.w500,
+                      ),
+                    ),
+                  ],
+                ),
               ),
-            ),
+              // Punkte-Reihe
+              Row(
+                children: List.generate(consLimit, (i) {
+                  final filled = i < consLosses;
+                  return Padding(
+                    padding: const EdgeInsets.only(left: 5),
+                    child: Container(
+                      width: 10,
+                      height: 10,
+                      decoration: BoxDecoration(
+                        shape: BoxShape.circle,
+                        color: filled ? consColor : KestrelColors.screenBg,
+                        border: Border.all(
+                          color: filled ? consColor : KestrelColors.cardBorder,
+                        ),
+                      ),
+                    ),
+                  );
+                }),
+              ),
+            ],
           ),
         ],
       ),
+    ),
     );
   }
 }

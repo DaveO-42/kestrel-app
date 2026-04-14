@@ -141,30 +141,12 @@ class _SystemScreenState extends State<SystemScreen> {
         children: [
           KestrelLogo(size: 26),
           const SizedBox(width: 8),
-          const Text('System',
+          const Text('Status',
               style: TextStyle(color: KestrelColors.goldLight, fontSize: 16,
                   fontWeight: FontWeight.w700, letterSpacing: 0.8)),
         ],
       ),
       actions: [
-        Padding(
-          padding: const EdgeInsets.only(right: 12),
-          child: Container(
-            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-            decoration: BoxDecoration(
-              color: paused ? KestrelColors.redBg : KestrelColors.greenBg,
-              borderRadius: BorderRadius.circular(5),
-              border: Border.all(
-                  color: paused ? KestrelColors.redBorder : KestrelColors.greenBorder),
-            ),
-            child: Text(
-              paused ? 'Pausiert' : 'Aktiv',
-              style: TextStyle(
-                  color: paused ? KestrelColors.red : KestrelColors.green,
-                  fontSize: 10, fontWeight: FontWeight.w700),
-            ),
-          ),
-        ),
         InfoButton(active: _infoOpen, onTap: _openInfo),
       ],
       bottom: PreferredSize(
@@ -324,15 +306,8 @@ class _ServicesCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final lastPing    = status['last_ping_at']            as String?;
-    final drawdown    = (status['drawdown_pct']            as num?) ?? 0;
-    final limit       = (status['drawdown_limit_pct']      as num?) ?? 25;
-    final consLosses  = ((status['consecutive_losses']     as num?) ?? 0).toInt();
-    final consLimit   = ((status['consecutive_loss_limit'] as num?) ?? 6).toInt();
-
-    final pingOk         = lastPing != null;
-    final drawdownWarn   = limit > 0 && (drawdown / limit) >= 0.8;
-    final consLossesWarn = consLimit > 0 && (consLosses / consLimit) >= 0.8;
+    final lastPing = status['last_ping_at'] as String?;
+    final pingOk   = lastPing != null;
 
     // Service-Map aus /system/health aufbauen
     final svcList = (health?['services'] as List?)
@@ -358,24 +333,6 @@ class _ServicesCard extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Text('SYSTEM-STATUS', style: kCardLabelStyle),
-          const SizedBox(height: 10),
-          Row(children: [
-            Expanded(child: _StatRow(
-              label: 'Drawdown',
-              value: '${drawdown.toStringAsFixed(1).replaceAll('.', ',')} % / '
-                  '${limit.toStringAsFixed(0)} %',
-              valueColor: drawdownWarn
-                  ? KestrelColors.orange : KestrelColors.textPrimary,
-            )),
-            Expanded(child: _StatRow(
-              label: 'Konsek. Verluste',
-              value: '$consLosses / $consLimit',
-              valueColor: consLossesWarn
-                  ? KestrelColors.orange : KestrelColors.textPrimary,
-            )),
-          ]),
-          const Divider(height: 16, color: KestrelColors.cardBorder),
           const Text('SERVICES', style: kCardLabelStyle),
           const SizedBox(height: 8),
           _ServiceRow(
@@ -387,34 +344,11 @@ class _ServicesCard extends StatelessWidget {
           ),
           _ServiceRow(name: 'FMP',          status: svcStatus('fmp'),          detail: svcDetail('fmp')),
           _ServiceRow(name: 'Claude',       status: svcStatus('claude'),       detail: svcDetail('claude')),
-          _ServiceRow(name: 'SEC EDGAR',    status: svcStatus('sec_edgar'),    detail: svcDetail('sec_edgar')),
+          _ServiceRow(name: 'SEC EDGAR', status: svcStatus('edgar'), detail: svcDetail('edgar')),
           _ServiceRow(name: 'Healthchecks', status: svcStatus('healthchecks'), detail: svcDetail('healthchecks')),
           const SizedBox(height: 8),
         ],
       ),
-    );
-  }
-}
-
-class _StatRow extends StatelessWidget {
-  final String label;
-  final String value;
-  final Color? valueColor;
-  const _StatRow({required this.label, required this.value, this.valueColor});
-
-  @override
-  Widget build(BuildContext context) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Text(label,
-            style: const TextStyle(color: KestrelColors.textGrey, fontSize: 10)),
-        const SizedBox(height: 2),
-        Text(value,
-            style: TextStyle(
-                color: valueColor ?? KestrelColors.textPrimary,
-                fontSize: 13, fontWeight: FontWeight.w600)),
-      ],
     );
   }
 }

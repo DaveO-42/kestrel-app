@@ -2,7 +2,7 @@ name: kestrel_app
 description: "A new Flutter project."
 publish_to: 'none'
 
-version: 1.0.0+1
+version: 1.0.2+1
 
 environment:
   sdk: ^3.11.4
@@ -14,6 +14,7 @@ dependencies:
   shared_preferences: ^2.3.0
   package_info_plus: ^8.0.0
   cupertino_icons: ^1.0.8
+  flutter_svg: ^2.0.0
 
 dev_dependencies:
   flutter_test:
@@ -34,6 +35,5 @@ flutter:
   uses-material-design: true
 
   assets:
-    - assets/images/icon_square.png
-    - assets/images/icon_round.png
+    - assets/images/
     - assets/mock/

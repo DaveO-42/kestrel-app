@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_svg/flutter_svg.dart';
 import '../../services/api_service.dart';
 import '../../services/cache_service.dart';
 import '../../theme/kestrel_theme.dart';
@@ -612,7 +613,7 @@ class _StopModeBadge extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+      padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 3),
       decoration: BoxDecoration(
         color: isWarn ? KestrelColors.orangeBg : KestrelColors.goldBg,
         borderRadius: BorderRadius.circular(5),
@@ -620,12 +621,29 @@ class _StopModeBadge extends StatelessWidget {
           color: isWarn ? KestrelColors.orangeBorder : KestrelColors.goldBorder,
         ),
       ),
-      child: Text(
-        isWarn ? 'WARN ATR×1.0' : 'Normal ATR×2.0',
-        style: TextStyle(
-          color: isWarn ? KestrelColors.orange : KestrelColors.gold,
-          fontSize: 9, fontWeight: FontWeight.w700,
-        ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          SvgPicture.asset(
+            isWarn
+                ? 'assets/images/kestrel_dive_icon.svg'
+                : 'assets/images/kestrel_sit_icon.svg',
+            width: 14,
+            height: 14,
+            colorFilter: ColorFilter.mode(
+              isWarn ? KestrelColors.orange : KestrelColors.gold,
+              BlendMode.srcIn,
+            ),
+          ),
+          const SizedBox(width: 5),
+          Text(
+            isWarn ? 'WARN ATR×1.0' : 'Normal ATR×2.0',
+            style: TextStyle(
+              color: isWarn ? KestrelColors.orange : KestrelColors.gold,
+              fontSize: 9, fontWeight: FontWeight.w700,
+            ),
+          ),
+        ],
       ),
     );
   }
