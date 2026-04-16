@@ -5,6 +5,7 @@ import '../../theme/kestrel_theme.dart';
 import '../../main_screen.dart';
 import '../../widgets/info_sheet.dart';
 import '../../widgets/offline_banner.dart';
+import 'trade_detail_screen.dart';
 
 // ── Formatter Helpers ─────────────────────────────────────────
 
@@ -281,7 +282,14 @@ class _TradeRow extends StatelessWidget {
     final pnlPct = trade['pnl_pct']     as num?;
     final isPos  = (pnl ?? 0) >= 0;
 
-    return Padding(
+    return InkWell(
+      onTap: () => Navigator.push(
+        context,
+        MaterialPageRoute(
+          builder: (_) => TradeDetailScreen(trade: trade),
+        ),
+      ),
+      child: Padding(
       padding: const EdgeInsets.symmetric(vertical: 9),
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
@@ -314,7 +322,7 @@ class _TradeRow extends StatelessWidget {
             ),
         ],
       ),
-    );
+    ));
   }
 }
 

@@ -747,7 +747,7 @@ class InfoButton extends StatelessWidget {
   Widget build(BuildContext context) {
     return IconButton(
       icon: Icon(
-        Icons.info_outline,
+        Icons.help_outline,
         color: active ? KestrelColors.gold : KestrelColors.textGrey,
         size: 20,
       ),

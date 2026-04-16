@@ -8,8 +8,12 @@
       "quantity": 2,
       "pnl_eur": 46.60,
       "pnl_pct": 11.76,
+      "entry_date": "2026-01-15",
       "exit_date": "2026-03-10",
-      "exit_reason": "Trailing Stop"
+      "exit_reason": "TrailingStop",
+      "initial_stop_eur": 186.40,
+      "atr_at_entry_eur": 5.90,
+      "notes": "EPS +8.3% vs. Schätzung. Revenue Beat Q4 2025."
     },
     {
       "ticker": "MSFT",
@@ -18,8 +22,11 @@
       "quantity": 1,
       "pnl_eur": -13.80,
       "pnl_pct": -3.58,
+      "entry_date": "2026-02-05",
       "exit_date": "2026-02-28",
-      "exit_reason": "Trailing Stop"
+      "exit_reason": "TrailingStop",
+      "initial_stop_eur": 369.80,
+      "atr_at_entry_eur": 8.20
     },
     {
       "ticker": "AVGO",
@@ -28,8 +35,12 @@
       "quantity": 2,
       "pnl_eur": 44.80,
       "pnl_pct": 12.52,
+      "entry_date": "2025-12-20",
       "exit_date": "2026-02-14",
-      "exit_reason": "Trailing Stop"
+      "exit_reason": "TrailingStop",
+      "initial_stop_eur": 168.50,
+      "atr_at_entry_eur": 4.80,
+      "notes": "Starkes AI-Chip-Geschäft. Guidance angehoben."
     }
   ]
 }
