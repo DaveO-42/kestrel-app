@@ -269,6 +269,14 @@ Animierter Ladebalken (0% → 100%), Kestrel-Logo + Name, Fade-Transition zu Mai
 
 **Position-ID als Integer:** Frühe API-Spezifikation nutzte numerische IDs. Korrigiert zu `ticker` (String), da Kestrel intern immer Ticker als Identifier verwendet. Hätte ohne frühen Kontrakt zu aufwändigen Refactorings geführt.
 
+**INTERNET Permission fehlt im Release-Build:** Flutter-Templates legen
+`<uses-permission android:name="android.permission.INTERNET"/>` nur in
+`android/app/src/debug/AndroidManifest.xml` und `profile/` an – nicht in `main/`.
+Release-APKs blockieren dann alle Netzwerkzugriffe lautlos (OS Error: errno=1,
+Operation not permitted). Symptom: Debug-APK funktioniert, Release-APK nicht.
+Fix: Permission in `android/app/src/main/AndroidManifest.xml` eintragen.
+Bei jedem Flutter-Projekt-Setup als erstes prüfen.
+
 ### Was verworfen wurde
 
 **RSI direkt in Trade-Parameter:** Entschieden, RSI **nicht** als eigenes Feld in Position-Detail zu zeigen — es ist bereits implizit im WARN-Signal enthalten. Doppelte Info vermieden.

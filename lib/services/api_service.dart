@@ -5,7 +5,7 @@ import 'cache_service.dart';
 
 class ApiService {
   // ── Mock-Flag ─────────────────────────────────────────────────
-  static const bool useMock = true;
+  static const bool useMock = false;
   static const String baseUrl = 'http://100.103.235.113:8000';
   static const _timeout = Duration(seconds: 8);
 
@@ -153,13 +153,19 @@ class ApiService {
   // ── Verbindungstest ───────────────────────────────────────────
 
   static Future<int> testConnection() async {
-    final stopwatch = Stopwatch()..start();
-    final response = await http
-        .get(Uri.parse('$baseUrl/health'))
-        .timeout(const Duration(seconds: 5));
-    stopwatch.stop();
-    if (response.statusCode == 200) return stopwatch.elapsedMilliseconds;
-    throw Exception('Server antwortete mit ${response.statusCode}');
+    try {
+      final stopwatch = Stopwatch()..start();
+      final response = await http
+          .get(Uri.parse('$baseUrl/health'))
+          .timeout(const Duration(seconds: 5));
+      stopwatch.stop();
+      if (response.statusCode == 200) return stopwatch.elapsedMilliseconds;
+      throw Exception('Server antwortete mit ${response.statusCode}');
+    } catch (e, stack) {
+      print('[kestrel] testConnection error: $e');
+      print('[kestrel] stack: $stack');
+      rethrow;
+    }
   }
 
   // ── POST Action Endpoints ─────────────────────────────────────

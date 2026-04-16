@@ -24,7 +24,7 @@ class TradeDetailScreen extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final ticker     = trade['ticker']           as String? ?? '–';
-    final pnl        = trade['pnl_eur']          as num?;
+    final pnl        = trade['pnl_abs_eur']      as num?;
     final pnlPct     = trade['pnl_pct']          as num?;
     final entryPrice = trade['entry_price_eur']  as num?;
     final exitPrice  = trade['exit_price_eur']   as num?;
