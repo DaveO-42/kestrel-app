@@ -5,15 +5,31 @@
     "completed_at": "2026-04-05T16:05:44Z",
     "shortlist_count": 2,
     "order_status": "pending",
-    "order_ticker": "NVDA"
+    "order_ticker": "NVDA",
+    "shortlist": [
+      { "ticker": "NVDA", "score": 7.84, "eps_surprise_pct": 9.2, "performance_4w": 5.1, "rsi": 62 },
+      { "ticker": "AVGO", "score": 5.21, "eps_surprise_pct": 6.8, "performance_4w": 3.4, "rsi": 58 }
+    ],
+    "kaufentscheidung": null
   },
   {
     "run_id": "20260404_150008",
     "started_at": "2026-04-04T15:00:08Z",
     "completed_at": "2026-04-04T15:58:22Z",
-    "shortlist_count": 1,
+    "shortlist_count": 2,
     "order_status": "filled",
-    "order_ticker": "NVDA"
+    "order_ticker": "NVDA",
+    "shortlist": [
+      { "ticker": "NVDA", "score": 8.12, "eps_surprise_pct": 9.2, "performance_4w": 5.1, "rsi": 63 },
+      { "ticker": "AVGO", "score": 5.40, "eps_surprise_pct": 6.8, "performance_4w": 3.4, "rsi": 57 }
+    ],
+    "kaufentscheidung": {
+      "ticker": "NVDA",
+      "price_eur": 897.40,
+      "quantity": 1,
+      "stop_eur": 823.10,
+      "total_risk_eur": 74.30
+    }
   },
   {
     "run_id": "20260403_150015",
@@ -21,7 +37,13 @@
     "completed_at": "2026-04-03T15:55:03Z",
     "shortlist_count": 3,
     "order_status": "skipped",
-    "order_ticker": null
+    "order_ticker": null,
+    "shortlist": [
+      { "ticker": "MSFT", "score": 4.90, "eps_surprise_pct": 3.1, "performance_4w": 1.8, "rsi": 54 },
+      { "ticker": "AAPL", "score": 4.55, "eps_surprise_pct": 2.4, "performance_4w": -0.5, "rsi": 49 },
+      { "ticker": "AMZN", "score": 3.80, "eps_surprise_pct": 1.9, "performance_4w": -1.2, "rsi": 46 }
+    ],
+    "kaufentscheidung": null
   },
   {
     "run_id": "20260402_150011",
@@ -29,7 +51,11 @@
     "completed_at": "2026-04-02T15:52:44Z",
     "shortlist_count": 1,
     "order_status": "skipped",
-    "order_ticker": null
+    "order_ticker": null,
+    "shortlist": [
+      { "ticker": "META", "score": 3.20, "eps_surprise_pct": 1.5, "performance_4w": -2.1, "rsi": 44 }
+    ],
+    "kaufentscheidung": null
   },
   {
     "run_id": "20260401_150009",
@@ -37,6 +63,17 @@
     "completed_at": "2026-04-01T15:49:18Z",
     "shortlist_count": 2,
     "order_status": "filled",
-    "order_ticker": "AAPL"
+    "order_ticker": "AAPL",
+    "shortlist": [
+      { "ticker": "AAPL", "score": 7.63, "eps_surprise_pct": 8.3, "performance_4w": 4.7, "rsi": 61 },
+      { "ticker": "MSFT", "score": 5.08, "eps_surprise_pct": 4.1, "performance_4w": 2.2, "rsi": 55 }
+    ],
+    "kaufentscheidung": {
+      "ticker": "AAPL",
+      "price_eur": 198.20,
+      "quantity": 2,
+      "stop_eur": 186.40,
+      "total_risk_eur": 23.60
+    }
   }
 ]

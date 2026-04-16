@@ -5,7 +5,7 @@ import 'cache_service.dart';
 
 class ApiService {
   // ── Mock-Flag ─────────────────────────────────────────────────
-  static const bool useMock = false;
+  static const bool useMock = true;
   static const String baseUrl = 'http://100.103.235.113:8000';
   static const _timeout = Duration(seconds: 8);
 

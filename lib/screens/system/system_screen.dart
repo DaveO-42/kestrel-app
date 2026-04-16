@@ -5,6 +5,7 @@ import '../../theme/kestrel_theme.dart';
 import '../../main_screen.dart';
 import '../../widgets/info_sheet.dart';
 import '../../widgets/offline_banner.dart';
+import 'run_detail_screen.dart';
 
 class SystemScreen extends StatefulWidget {
   const SystemScreen({super.key});
@@ -468,7 +469,14 @@ class _RunRow extends StatelessWidget {
     final status = run['order_status']     as String? ?? 'skipped';
     final ticker = run['order_ticker']     as String?;
 
-    return Padding(
+    return InkWell(
+      onTap: () => Navigator.push(
+        context,
+        MaterialPageRoute(
+          builder: (_) => RunDetailScreen(run: run),
+        ),
+      ),
+      child: Padding(
       padding: const EdgeInsets.symmetric(vertical: 8),
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
@@ -488,7 +496,7 @@ class _RunRow extends StatelessWidget {
           _OrderBadge(status: status, ticker: ticker),
         ],
       ),
-    );
+    ));
   }
 }
 
