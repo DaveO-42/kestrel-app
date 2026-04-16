@@ -15,8 +15,8 @@ class OfflineBanner extends StatelessWidget {
     if (cachedAt == null) return 'unbekannt';
     final d = DateTime.now().difference(cachedAt!);
     if (d.inMinutes < 1)  return 'wenigen Sekunden';
-    if (d.inMinutes < 60) return '${d.inMinutes} Min.';
-    if (d.inHours < 24)   return '${d.inHours} Std.';
+    if (d.inMinutes < 60) return '${d.inMinutes} Min';
+    if (d.inHours < 24)   return '${d.inHours} Std';
     return '${d.inDays} Tag${d.inDays > 1 ? 'en' : ''}';
   }
 

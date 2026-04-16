@@ -10,12 +10,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 
 // ── KestrelNav – InheritedWidget ──────────────────────────────
 // Stellt app-weite Callbacks bereit:
-//   KestrelNav.of(context)?.goToSystem()
-//   KestrelNav.of(context)?.goToSettings()
-//   KestrelNav.of(context)?.setConnectionError(true/false)
-//   KestrelNav.of(context)?.connectionError  → bool
 
-// nachher
 class KestrelNav extends InheritedWidget {
   final VoidCallback goToDashboard;
   final VoidCallback goToSystem;
@@ -368,7 +363,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
         surfaceTintColor: Colors.transparent,
         elevation: 0,
         leading: IconButton(
-          icon: const Icon(Icons.arrow_back_ios,
+          icon: const Icon(Icons.arrow_back,
               color: KestrelColors.textDimmed, size: 18),
           onPressed: () => Navigator.pop(context, _lastConnError),
         ),

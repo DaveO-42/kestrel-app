@@ -57,7 +57,7 @@ class _InfoSheet extends StatelessWidget {
                           KestrelLogo(size: 44),
                           const SizedBox(height: 6),
                           const Text(
-                            'KESTREL',
+                            'Kestrel',
                             style: TextStyle(
                               color: KestrelColors.goldLight,
                               fontSize: 14,
@@ -67,7 +67,7 @@ class _InfoSheet extends StatelessWidget {
                           ),
                           const SizedBox(height: 2),
                           const Text(
-                            'Hover. Strike. Ride.',
+                            'Hover · Strike · Ride',
                             style: TextStyle(
                               color: Color(0xFF8A6E2A),
                               fontSize: 10,

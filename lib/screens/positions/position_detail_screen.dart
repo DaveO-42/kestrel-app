@@ -67,7 +67,7 @@ class _PositionDetailScreenState extends State<PositionDetailScreen> {
         appBar: AppBar(
           backgroundColor: KestrelColors.appBarBg,
           leading: IconButton(
-            icon: const Icon(Icons.arrow_back_ios,
+            icon: const Icon(Icons.arrow_back,
                 color: KestrelColors.textDimmed, size: 18),
             onPressed: () => Navigator.pop(context),
           ),
@@ -98,7 +98,7 @@ class _PositionDetailScreenState extends State<PositionDetailScreen> {
         surfaceTintColor: Colors.transparent,
         elevation: 0,
         leading: IconButton(
-          icon: const Icon(Icons.arrow_back_ios,
+          icon: const Icon(Icons.arrow_back,
               color: KestrelColors.textDimmed, size: 18),
           onPressed: () => Navigator.pop(context),
         ),
@@ -118,12 +118,6 @@ class _PositionDetailScreenState extends State<PositionDetailScreen> {
             ),
           ],
         ),
-        actions: [
-          IconButton(
-            icon: const Icon(Icons.refresh, color: KestrelColors.textDimmed),
-            onPressed: () { setState(() => _loading = true); _load(); },
-          ),
-        ],
         bottom: PreferredSize(
           preferredSize: const Size.fromHeight(1),
           child: Container(height: 1, color: KestrelColors.cardBorder),
@@ -261,48 +255,23 @@ class _PriceHero extends StatelessWidget {
               letterSpacing: -0.5,
             ),
           ),
-          const SizedBox(height: 6),
-          Row(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              Text(
-                'Entry ${fmtPrice(position['entry_price_eur'] as num?)}',
-                style: const TextStyle(
-                    color: KestrelColors.textDimmed, fontSize: 11),
+          if (pnl != null) ...[
+            const SizedBox(height: 4),
+            Text(
+              '${fmtPrice(pnl, showSign: true)}  ${fmtPct(pnlPct)}',
+              style: TextStyle(
+                color: pnlColor,
+                fontSize: 22,
+                fontWeight: FontWeight.w600,
               ),
-              if (pnl != null) ...[
-                const SizedBox(width: 12),
-                Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-                  decoration: BoxDecoration(
-                    color: isPositive
-                        ? KestrelColors.greenBg
-                        : KestrelColors.redBg,
-                    borderRadius: BorderRadius.circular(5),
-                    border: Border.all(
-                      color: isPositive
-                          ? KestrelColors.greenBorder
-                          : KestrelColors.redBorder,
-                    ),
-                  ),
-                  child: Text(
-                    '${fmtPrice(pnl, showSign: true)}  ${fmtPct(pnlPct)}',
-                    style: TextStyle(
-                      color: pnlColor,
-                      fontSize: 11,
-                      fontWeight: FontWeight.w700,
-                    ),
-                  ),
-                ),
-              ],
-            ],
-          ),
+            ),
+          ],
           if (updatedAt != null) ...[
             const SizedBox(height: 6),
             Text(
               _fmtTimestamp(updatedAt),
               style: const TextStyle(
-                  color: KestrelColors.textHint, fontSize: 10),
+                  color: KestrelColors.textDimmed, fontSize: 11),
             ),
           ],
         ],
@@ -321,97 +290,164 @@ const _kOrangeDim = Color(0x55E07820);
 
 class _RangeBar extends StatelessWidget {
   final Map<String, dynamic> position;
-  final bool isPositive;
+  final bool isPositive; // kept for call-site compat; state is derived from position
   const _RangeBar({required this.position, required this.isPositive});
 
-  double _entryPos() {
-    final entry = (position['entry_price_eur']      as num?)?.toDouble() ?? 0;
-    final stop  = (position['current_stop_eur']     as num?)?.toDouble() ?? 0;
-    final price = (position['last_known_price_eur'] as num?)?.toDouble() ?? entry;
-    final spanne = price - stop;
-    if (spanne <= 0) return 0.5;
-    final rel = (entry - stop) / spanne;
-    return (0.08 + rel * 0.84).clamp(0.09, 0.91);
-  }
+  Widget _container(List<Widget> children) => Container(
+        color: KestrelColors.appBarBg,
+        padding: const EdgeInsets.fromLTRB(13, 10, 13, 14),
+        child: Column(children: children),
+      );
+
+  Widget _labelRow(
+    String left, Color lc,
+    String mid,  Color mc,
+    String right, Color rc,
+  ) =>
+      Row(
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        children: [
+          Text(left,  style: TextStyle(color: lc,  fontSize: 10, fontWeight: FontWeight.w600)),
+          Text(mid,   style: TextStyle(color: mc,  fontSize: 10, fontWeight: FontWeight.w600)),
+          Text(right, style: TextStyle(color: rc,  fontSize: 10, fontWeight: FontWeight.w600)),
+        ],
+      );
+
+  Widget _background() => Positioned.fill(
+        child: Container(
+          height: 8,
+          decoration: BoxDecoration(
+            color: KestrelColors.cardBorder,
+            borderRadius: BorderRadius.circular(4),
+          ),
+        ),
+      );
 
   @override
   Widget build(BuildContext context) {
-    final entry    = position['entry_price_eur']      as num?;
-    final stop     = position['current_stop_eur']     as num?;
-    final price    = position['last_known_price_eur'] as num?;
-    final entryPos = _entryPos();
+    final entry  = position['entry_price_eur']      as num?;
+    final stop   = position['current_stop_eur']     as num?;
+    final price  = position['last_known_price_eur'] as num?;
 
-    const stopPos  = 0.08;
-    const pricePos = 0.92;
+    final entryD = entry?.toDouble() ?? 0;
+    final stopD  = stop?.toDouble()  ?? 0;
+    final priceD = price?.toDouble() ?? 0;
 
-    final priceColor = isPositive ? KestrelColors.green : KestrelColors.orange;
+    final isBreakeven = stopD > entryD;
+    final isPosLocal  = !isBreakeven && priceD >= entryD;
+    // isNegative = !isBreakeven && !isPosLocal
 
-    final stopLabel  = stop  != null ? 'Stop ${fmtPrice(stop)}'   : '–';
-    final entryLabel = entry != null ? 'Entry ${fmtPrice(entry)}' : '–';
-    final priceLabel = price != null ? 'Kurs ${fmtPrice(price)}'  : 'Kurs –';
+    const L = 0.08; // linker Anker
+    const R = 0.92; // rechter Anker
 
-    return Container(
-      color: KestrelColors.appBarBg,
-      padding: const EdgeInsets.fromLTRB(13, 10, 13, 14),
-      child: Column(
-        children: [
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              Text(stopLabel,
-                  style: const TextStyle(color: KestrelColors.red,
-                      fontSize: 10, fontWeight: FontWeight.w600)),
-              Text(entryLabel,
-                  style: const TextStyle(color: KestrelColors.textGrey,
-                      fontSize: 10, fontWeight: FontWeight.w600)),
-              Text(priceLabel,
-                  style: TextStyle(color: priceColor,
-                      fontSize: 10, fontWeight: FontWeight.w600)),
-            ],
-          ),
-          const SizedBox(height: 8),
-          SizedBox(
-            height: 20,
-            child: LayoutBuilder(
-              builder: (context, constraints) {
-                final w = constraints.maxWidth;
-                return Stack(
-                  alignment: Alignment.center,
-                  children: [
-                    Positioned.fill(
-                      child: Container(
-                        height: 8,
-                        decoration: BoxDecoration(
-                          color: KestrelColors.cardBorder,
-                          borderRadius: BorderRadius.circular(4),
-                        ),
-                      ),
-                    ),
-                    if (isPositive) ...[
-                      _Zone(left: 0,            width: w * stopPos,               color: _kRedFull, roundLeft: true),
-                      _Zone(left: w * stopPos,  width: w * (entryPos - stopPos),  color: _kRedDim),
-                      _Zone(left: w * entryPos, width: w * (pricePos - entryPos), color: _kGreenFull),
-                    ] else ...[
-                      _Zone(left: 0,            width: w * stopPos,               color: _kRedFull, roundLeft: true),
-                      _Zone(left: w * stopPos,  width: w * (entryPos - stopPos),  color: _kRedMid),
-                      _Zone(left: w * entryPos, width: w * (pricePos - entryPos), color: _kOrangeDim),
-                    ],
-                    _Dot(left: w * stopPos,  color: KestrelColors.red,          glow: false),
-                    if (isPositive) ...[
-                      _Dot(left: w * entryPos, color: KestrelColors.textDimmed, glow: false),
-                      _Dot(left: w * pricePos, color: KestrelColors.green,      glow: true),
-                    ] else ...[
-                      _Dot(left: w * entryPos, color: KestrelColors.orange,     glow: true),
-                      _Dot(left: w * pricePos, color: KestrelColors.textDimmed, glow: false),
-                    ],
-                  ],
-                );
-              },
+    // ── Breakeven+: Entry (L) · Stop (beweglich) · Kurs (R) ──
+    if (isBreakeven) {
+      final span    = priceD - entryD;
+      final stopPos = span <= 0
+          ? 0.5
+          : (0.08 + ((stopD - entryD) / span) * 0.84).clamp(0.09, 0.91);
+
+      return _container([
+        Row(
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          crossAxisAlignment: CrossAxisAlignment.end,
+          children: [
+            Text('Entry ${fmtPrice(entry)}',
+                style: const TextStyle(color: KestrelColors.textGrey,
+                    fontSize: 10, fontWeight: FontWeight.w600)),
+            Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                const _BreakevenBadge(),
+                const SizedBox(height: 3),
+                Text('Stop ${fmtPrice(stop)}',
+                    style: const TextStyle(color: KestrelColors.green,
+                        fontSize: 10, fontWeight: FontWeight.w600)),
+              ],
             ),
-          ),
-        ],
+            Text('Kurs ${fmtPrice(price)}',
+                style: const TextStyle(color: KestrelColors.green,
+                    fontSize: 10, fontWeight: FontWeight.w600)),
+          ],
+        ),
+        const SizedBox(height: 8),
+        SizedBox(
+          height: 20,
+          child: LayoutBuilder(builder: (context, constraints) {
+            final w = constraints.maxWidth;
+            return Stack(alignment: Alignment.center, children: [
+              _background(),
+              _Zone(left: w * L,      width: w * (R - L), color: _kGreenFull),
+              _Dot(left: w * L,       color: KestrelColors.textDimmed, glow: false),
+              _Dot(left: w * stopPos, color: KestrelColors.green,      glow: false),
+              _Dot(left: w * R,       color: KestrelColors.green,      glow: true),
+            ]);
+          }),
+        ),
+      ]);
+    }
+
+    // ── Plus: Stop (L) · Entry (beweglich) · Kurs (R) ────────
+    if (isPosLocal) {
+      final span     = priceD - stopD;
+      final entryPos = span <= 0
+          ? 0.5
+          : (0.08 + ((entryD - stopD) / span) * 0.84).clamp(0.09, 0.91);
+
+      return _container([
+        _labelRow(
+          'Stop ${fmtPrice(stop)}',   KestrelColors.red,
+          'Entry ${fmtPrice(entry)}', KestrelColors.textGrey,
+          'Kurs ${fmtPrice(price)}',  KestrelColors.green,
+        ),
+        const SizedBox(height: 8),
+        SizedBox(
+          height: 20,
+          child: LayoutBuilder(builder: (context, constraints) {
+            final w = constraints.maxWidth;
+            return Stack(alignment: Alignment.center, children: [
+              _background(),
+              _Zone(left: 0,            width: w * L,                color: _kRedFull, roundLeft: true),
+              _Zone(left: w * L,        width: w * (entryPos - L),   color: _kRedDim),
+              _Zone(left: w * entryPos, width: w * (R - entryPos),   color: _kGreenFull),
+              _Dot(left: w * L,         color: KestrelColors.red,         glow: false),
+              _Dot(left: w * entryPos,  color: KestrelColors.textDimmed,  glow: false),
+              _Dot(left: w * R,         color: KestrelColors.green,       glow: true),
+            ]);
+          }),
+        ),
+      ]);
+    }
+
+    // ── Minus: Stop (L) · Kurs (beweglich) · Entry (R) ───────
+    final span    = entryD - stopD;
+    final kursPos = span <= 0
+        ? 0.5
+        : (0.08 + ((priceD - stopD) / span) * 0.84).clamp(0.09, 0.91);
+
+    return _container([
+      _labelRow(
+        'Stop ${fmtPrice(stop)}',   KestrelColors.red,
+        'Kurs ${fmtPrice(price)}',  KestrelColors.orange,
+        'Entry ${fmtPrice(entry)}', KestrelColors.textGrey,
       ),
-    );
+      const SizedBox(height: 8),
+      SizedBox(
+        height: 20,
+        child: LayoutBuilder(builder: (context, constraints) {
+          final w = constraints.maxWidth;
+          return Stack(alignment: Alignment.center, children: [
+            _background(),
+            _Zone(left: 0,           width: w * L,              color: _kRedFull, roundLeft: true),
+            _Zone(left: w * L,       width: w * (kursPos - L),  color: _kRedMid),
+            _Zone(left: w * kursPos, width: w * (R - kursPos),  color: _kOrangeDim),
+            _Dot(left: w * L,        color: KestrelColors.red,         glow: false),
+            _Dot(left: w * kursPos,  color: KestrelColors.orange,      glow: true),
+            _Dot(left: w * R,        color: KestrelColors.textDimmed,  glow: false),
+          ]);
+        }),
+      ),
+    ]);
   }
 }
 
@@ -506,9 +542,12 @@ class _TradeParamsCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final stopMode  = position['stop_mode'] as String? ?? 'normal';
-    final isWarn    = stopMode == 'warn';
-    final entryDate = position['entry_date'] as String?;
+    final stopMode    = position['stop_mode'] as String? ?? 'normal';
+    final isWarn      = stopMode == 'warn';
+    final entryDate   = position['entry_date'] as String?;
+    final stopD       = (position['current_stop_eur'] as num?)?.toDouble() ?? 0;
+    final entryD      = (position['entry_price_eur']  as num?)?.toDouble() ?? 0;
+    final isBreakeven = stopD > entryD;
 
     return _KestrelCard(
       label: 'TRADE-PARAMETER',
@@ -581,10 +620,19 @@ class _ParamCell extends StatelessWidget {
   final String value;
   final String label;
   final bool dimmed;
-  const _ParamCell({required this.value, required this.label, this.dimmed = false});
+  final Color? valueColor;
+  final Widget? badge;
+  const _ParamCell({
+    required this.value,
+    required this.label,
+    this.dimmed = false,
+    this.valueColor,
+    this.badge,
+  });
 
   @override
   Widget build(BuildContext context) {
+    final color = valueColor ?? (dimmed ? KestrelColors.textGrey : KestrelColors.textPrimary);
     return Container(
       decoration: BoxDecoration(
         color: KestrelColors.screenBg,
@@ -594,13 +642,15 @@ class _ParamCell extends StatelessWidget {
       padding: const EdgeInsets.symmetric(vertical: 7, horizontal: 4),
       child: Column(children: [
         Text(value,
-            style: TextStyle(
-                color: dimmed ? KestrelColors.textGrey : KestrelColors.textPrimary,
-                fontSize: 12, fontWeight: FontWeight.w600),
+            style: TextStyle(color: color, fontSize: 12, fontWeight: FontWeight.w600),
             textAlign: TextAlign.center),
         const SizedBox(height: 2),
         Text(label,
             style: const TextStyle(color: KestrelColors.textGrey, fontSize: 9)),
+        if (badge != null) ...[
+          const SizedBox(height: 4),
+          badge!,
+        ],
       ]),
     );
   }
@@ -644,6 +694,33 @@ class _StopModeBadge extends StatelessWidget {
             ),
           ),
         ],
+      ),
+    );
+  }
+}
+
+// ── Breakeven+ Badge ─────────────────────────────────────────
+
+class _BreakevenBadge extends StatelessWidget {
+  const _BreakevenBadge();
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 2),
+      decoration: BoxDecoration(
+        color: KestrelColors.green.withValues(alpha: 0.12),
+        borderRadius: BorderRadius.circular(4),
+        border: Border.all(color: KestrelColors.green.withValues(alpha: 0.4)),
+      ),
+      child: const Text(
+        'BREAKEVEN+',
+        style: TextStyle(
+          color: KestrelColors.green,
+          fontSize: 8,
+          fontWeight: FontWeight.w700,
+          letterSpacing: 0.3,
+        ),
       ),
     );
   }

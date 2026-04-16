@@ -727,7 +727,7 @@ class _ShortlistEmptyState extends StatelessWidget {
           Text(
             headline,
             style: const TextStyle(
-              color: KestrelColors.goldLight,
+              color: KestrelColors.gold,
               fontSize: 18,
               fontWeight: FontWeight.w700,
               letterSpacing: 2.5,

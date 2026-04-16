@@ -167,7 +167,7 @@ class _SplashScreenState extends State<SplashScreen>
                     'KESTREL',
                     textAlign: TextAlign.center,
                     style: TextStyle(
-                      color: KestrelColors.goldLight,
+                      color: KestrelColors.gold,
                       fontSize: 28,
                       fontWeight: FontWeight.w700,
                       letterSpacing: 8.0,
