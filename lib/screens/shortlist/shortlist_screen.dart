@@ -150,6 +150,7 @@ class _ShortlistScreenState extends State<ShortlistScreen> {
                         availableBudget:  _availableBudget ?? 0,
                         onSkip:           _onSkip,
                         onBought:         _onBought,
+                        isOffline:        _isOffline,
                       )
                           : _CandidateDimCard(
                         candidate: candidate,
@@ -284,17 +285,29 @@ class _StatusBadge extends StatelessWidget {
 
 // ── Kandidaten-Card (Top) ─────────────────────────────────────
 
+void _showOfflineError(BuildContext context) {
+  ScaffoldMessenger.of(context).showSnackBar(
+    const SnackBar(
+      content: Text('Keine Verbindung – Kauf nicht möglich.'),
+      backgroundColor: KestrelColors.red,
+      duration: Duration(seconds: 3),
+    ),
+  );
+}
+
 class _CandidateCard extends StatefulWidget {
   final Map<String, dynamic> candidate;
   final double availableBudget;
   final void Function(String ticker) onSkip;
   final VoidCallback onBought;
+  final bool isOffline;
 
   const _CandidateCard({
     required this.candidate,
     required this.availableBudget,
     required this.onSkip,
     required this.onBought,
+    this.isOffline = false,
   });
 
   @override
@@ -436,15 +449,17 @@ class _CandidateCardState extends State<_CandidateCard> {
               // Kaufen
               Expanded(
                 flex: 2,
-                child: ElevatedButton(
-                  onPressed: () {
-                    BoughtSheet.show(
-                      context,
-                      candidate:         widget.candidate,
-                      availableBudgetEur: widget.availableBudget,
-                      onSuccess:         widget.onBought,
-                    );
-                  },
+                child: Opacity(
+                  opacity: widget.isOffline ? 0.4 : 1.0,
+                  child: ElevatedButton(
+                  onPressed: widget.isOffline
+                      ? () => _showOfflineError(context)
+                      : () => BoughtSheet.show(
+                          context,
+                          candidate:          widget.candidate,
+                          availableBudgetEur: widget.availableBudget,
+                          onSuccess:          widget.onBought,
+                        ),
                   style: ElevatedButton.styleFrom(
                     backgroundColor: KestrelColors.gold,
                     foregroundColor: const Color(0xFF0F1822),
@@ -454,6 +469,7 @@ class _CandidateCardState extends State<_CandidateCard> {
                   ),
                   child: const Text('Kaufen →',
                       style: TextStyle(fontWeight: FontWeight.w700, fontSize: 14)),
+                ),
                 ),
               ),
             ],

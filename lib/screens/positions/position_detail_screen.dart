@@ -37,6 +37,16 @@ class _PositionDetailScreenState extends State<PositionDetailScreen> {
     }
   }
 
+  void _showOfflineError() {
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(
+        content: Text('Keine Verbindung – Verkauf nicht möglich.'),
+        backgroundColor: KestrelColors.red,
+        duration: Duration(seconds: 3),
+      ),
+    );
+  }
+
   void _openSoldSheet(Map<String, dynamic> position) {
     SoldSheet.show(
       context,
@@ -82,7 +92,8 @@ class _PositionDetailScreenState extends State<PositionDetailScreen> {
       );
     }
 
-    final p       = _result!.data;
+    final p         = _result!.data;
+    final isOffline = _result!.isOffline;
     final pnl     = p['pnl_eur']  as num?;
     final pnlPct  = p['pnl_pct']  as num?;
     final isPos   = (pnl ?? 0) >= 0;
@@ -161,7 +172,10 @@ class _PositionDetailScreenState extends State<PositionDetailScreen> {
             right: 0,
             bottom: 0,
             child: _SellButton(
-              onTap: () => _openSoldSheet(p),
+              onTap: isOffline
+                  ? () => _showOfflineError()
+                  : () => _openSoldSheet(p),
+              disabled: isOffline,
             ),
           ),
         ],
@@ -881,12 +895,15 @@ class _HardBanner extends StatelessWidget {
 
 class _SellButton extends StatelessWidget {
   final VoidCallback onTap;
-  const _SellButton({required this.onTap});
+  final bool disabled;
+  const _SellButton({required this.onTap, this.disabled = false});
 
   @override
   Widget build(BuildContext context) {
     final bottomInset = MediaQuery.of(context).padding.bottom;
-    return Container(
+    return Opacity(
+      opacity: disabled ? 0.4 : 1.0,
+      child: Container(
       decoration: const BoxDecoration(
         gradient: LinearGradient(
           begin: Alignment.topCenter,
@@ -917,6 +934,6 @@ class _SellButton extends StatelessWidget {
           ),
         ),
       ),
-    );
+    ));
   }
 }
