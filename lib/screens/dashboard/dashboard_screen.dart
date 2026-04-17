@@ -3,7 +3,7 @@ import '../../services/api_service.dart';
 import '../../services/cache_service.dart';
 import '../../theme/kestrel_theme.dart';
 import '../../main_screen.dart';
-import '../positions/position_detail_screen.dart';
+import '../positions/position_detail_screen.dart' hide fmtPrice, fmtPct;
 import '../../widgets/info_sheet.dart';
 
 class DashboardScreen extends StatefulWidget {
@@ -353,25 +353,53 @@ class _BudgetHero extends StatelessWidget {
                   ),
                 ),
                 const Spacer(),
-                if (totalPnl != null)
-                  Column(
-                    crossAxisAlignment: CrossAxisAlignment.end,
-                    children: [
-                      Text(
-                        '${pnlPos ? '+' : ''}${totalPnl!.toStringAsFixed(2)} €',
-                        style: TextStyle(
-                          color: pnlPos ? KestrelColors.green : KestrelColors.red,
-                          fontSize: 14,
-                          fontWeight: FontWeight.w600,
+                Row(
+                  crossAxisAlignment: CrossAxisAlignment.end,
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Column(
+                      crossAxisAlignment: CrossAxisAlignment.end,
+                      children: [
+                        Text(
+                          fmtPrice(invested),
+                          style: const TextStyle(
+                            color: KestrelColors.gold,
+                            fontSize: 14,
+                            fontWeight: FontWeight.w600,
+                          ),
                         ),
-                      ),
-                      const Text(
-                        'unrealisiert',
-                        style: TextStyle(
-                            color: KestrelColors.textGrey, fontSize: 10),
+                        const Text(
+                          'investiert',
+                          style: TextStyle(
+                              color: KestrelColors.textGrey, fontSize: 10),
+                        ),
+                      ],
+                    ),
+                    if (totalPnl != null) ...[
+                      const SizedBox(width: 12),
+                      Column(
+                        crossAxisAlignment: CrossAxisAlignment.end,
+                        children: [
+                          Text(
+                            fmtPrice(totalPnl, showSign: true),
+                            style: TextStyle(
+                              color: pnlPos
+                                  ? KestrelColors.green
+                                  : KestrelColors.red,
+                              fontSize: 14,
+                              fontWeight: FontWeight.w600,
+                            ),
+                          ),
+                          const Text(
+                            'unrealisiert',
+                            style: TextStyle(
+                                color: KestrelColors.textGrey, fontSize: 10),
+                          ),
+                        ],
                       ),
                     ],
-                  ),
+                  ],
+                ),
               ],
             ),
             const SizedBox(height: 10),
