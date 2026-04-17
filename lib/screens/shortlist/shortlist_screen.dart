@@ -116,10 +116,12 @@ class _ShortlistScreenState extends State<ShortlistScreen> {
         ? '${runId.substring(9, 11)}:${runId.substring(11, 13)}'
         : runId;
     final paused       = system?['is_paused'] as bool? ?? false;
+    final isPass2Skipped = status == 'skipped' &&
+        (data['order_reason'] as String? ?? '').contains('Pass 2');
 
     return Scaffold(
       backgroundColor: KestrelColors.screenBg,
-      appBar: _buildAppBar(status),
+      appBar: _buildAppBar(status, isPass2Skipped: isPass2Skipped),
       body: Column(
         children: [
           if (_isOffline)
@@ -129,6 +131,8 @@ class _ShortlistScreenState extends State<ShortlistScreen> {
               drawdownPct: system?['drawdown_pct'] as num?,
               reason:      system?['pause_reason'] as String?,
             ),
+          if (isPass2Skipped && candidates.isNotEmpty)
+            _Pass2Banner(reason: data['order_reason'] as String? ?? ''),
           Expanded(
             child: RefreshIndicator(
               onRefresh: _load,
@@ -151,6 +155,7 @@ class _ShortlistScreenState extends State<ShortlistScreen> {
                         onSkip:           _onSkip,
                         onBought:         _onBought,
                         isOffline:        _isOffline,
+                        buyDisabled:      isPass2Skipped,
                       )
                           : _CandidateDimCard(
                         candidate: candidate,
@@ -168,7 +173,7 @@ class _ShortlistScreenState extends State<ShortlistScreen> {
     );
   }
 
-  AppBar _buildAppBar(String status) {
+  AppBar _buildAppBar(String status, {bool isPass2Skipped = false}) {
     return AppBar(
       backgroundColor: KestrelColors.appBarBg,
       surfaceTintColor: Colors.transparent,
@@ -186,7 +191,7 @@ class _ShortlistScreenState extends State<ShortlistScreen> {
       actions: [
         Padding(
           padding: const EdgeInsets.only(right: 4),
-          child: _StatusBadge(status: status),
+          child: _StatusBadge(status: status, isPass2Skipped: isPass2Skipped),
         ),
         InfoButton(active: _infoOpen, onTap: _openInfo),
       ],
@@ -257,18 +262,63 @@ const kCardLabelStyle = TextStyle(
   letterSpacing: 0.8,
 );
 
+String _cleanReason(String reason) {
+  return reason
+      .replaceAll(RegExp(r'Pass 2 Gate \d+: '), '')
+      .replaceAll(RegExp(r'alle \d+ Kandidaten gefiltert – '), '');
+}
+
+// ── Pass 2 Banner ─────────────────────────────────────────────
+
+class _Pass2Banner extends StatelessWidget {
+  final String reason;
+  const _Pass2Banner({required this.reason});
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      margin: const EdgeInsets.fromLTRB(12, 8, 12, 0),
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+      decoration: BoxDecoration(
+        color: const Color(0xFF161210),
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(color: const Color(0xFF3A2A18)),
+      ),
+      child: Row(
+        children: [
+          const Icon(Icons.money_off, color: Color(0xFFA07840), size: 16),
+          const SizedBox(width: 8),
+          Expanded(
+            child: Text(
+              'Kein Kaufsignal — ${_cleanReason(reason)}',
+              style: const TextStyle(
+                color: Color(0xFFA07840),
+                fontSize: 11,
+                height: 1.4,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
 // ── Status Badge ──────────────────────────────────────────────
 
 class _StatusBadge extends StatelessWidget {
   final String status;
-  const _StatusBadge({required this.status});
+  final bool isPass2Skipped;
+  const _StatusBadge({required this.status, this.isPass2Skipped = false});
 
   @override
   Widget build(BuildContext context) {
     final (label, color, bg, border) = switch (status) {
       'pending'   => ('heute · pending',  KestrelColors.gold,       KestrelColors.goldBg,   KestrelColors.goldBorder),
       'confirmed' => ('bestätigt',        KestrelColors.green,      KestrelColors.greenBg,  KestrelColors.greenBorder),
-      'skipped'   => ('übersprungen',     KestrelColors.textDimmed, KestrelColors.screenBg, KestrelColors.cardBorder),
+      'skipped'   => isPass2Skipped
+          ? ('heute · kein Signal', KestrelColors.textDimmed, KestrelColors.screenBg, KestrelColors.cardBorder)
+          : ('übersprungen',        KestrelColors.textDimmed, KestrelColors.screenBg, KestrelColors.cardBorder),
       'expired'   => ('abgelaufen',       KestrelColors.red,        KestrelColors.redBg,    KestrelColors.redBorder),
       _           => (status,             KestrelColors.textDimmed, KestrelColors.screenBg, KestrelColors.cardBorder),
     };
@@ -301,6 +351,7 @@ class _CandidateCard extends StatefulWidget {
   final void Function(String ticker) onSkip;
   final VoidCallback onBought;
   final bool isOffline;
+  final bool buyDisabled;
 
   const _CandidateCard({
     required this.candidate,
@@ -308,6 +359,7 @@ class _CandidateCard extends StatefulWidget {
     required this.onSkip,
     required this.onBought,
     this.isOffline = false,
+    this.buyDisabled = false,
   });
 
   @override
@@ -449,28 +501,53 @@ class _CandidateCardState extends State<_CandidateCard> {
               // Kaufen
               Expanded(
                 flex: 2,
-                child: Opacity(
-                  opacity: widget.isOffline ? 0.4 : 1.0,
-                  child: ElevatedButton(
-                  onPressed: widget.isOffline
-                      ? () => _showOfflineError(context)
-                      : () => BoughtSheet.show(
-                          context,
-                          candidate:          widget.candidate,
-                          availableBudgetEur: widget.availableBudget,
-                          onSuccess:          widget.onBought,
+                child: widget.buyDisabled
+                    ? ElevatedButton(
+                        onPressed: null,
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: const Color(0xFF1A1508),
+                          disabledBackgroundColor: const Color(0xFF1A1508),
+                          disabledForegroundColor: const Color(0xFF5A4A20),
+                          padding: const EdgeInsets.symmetric(vertical: 11),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(8),
+                            side: const BorderSide(color: Color(0xFF3A3010)),
+                          ),
                         ),
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: KestrelColors.gold,
-                    foregroundColor: const Color(0xFF0F1822),
-                    padding: const EdgeInsets.symmetric(vertical: 11),
-                    shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(8)),
-                  ),
-                  child: const Text('Kaufen →',
-                      style: TextStyle(fontWeight: FontWeight.w700, fontSize: 14)),
-                ),
-                ),
+                        child: const Row(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            Icon(Icons.lock_outline, size: 14),
+                            SizedBox(width: 5),
+                            Text('Kaufen →',
+                                style: TextStyle(
+                                    fontWeight: FontWeight.w700, fontSize: 14)),
+                          ],
+                        ),
+                      )
+                    : Opacity(
+                        opacity: widget.isOffline ? 0.4 : 1.0,
+                        child: ElevatedButton(
+                          onPressed: widget.isOffline
+                              ? () => _showOfflineError(context)
+                              : () => BoughtSheet.show(
+                                  context,
+                                  candidate:          widget.candidate,
+                                  availableBudgetEur: widget.availableBudget,
+                                  onSuccess:          widget.onBought,
+                                ),
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: KestrelColors.gold,
+                            foregroundColor: const Color(0xFF0F1822),
+                            padding: const EdgeInsets.symmetric(vertical: 11),
+                            shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(8)),
+                          ),
+                          child: const Text('Kaufen →',
+                              style: TextStyle(
+                                  fontWeight: FontWeight.w700, fontSize: 14)),
+                        ),
+                      ),
               ),
             ],
           ),
