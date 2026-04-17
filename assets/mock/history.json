@@ -24,7 +24,7 @@
       "pnl_pct": -3.58,
       "entry_date": "2026-02-05",
       "exit_date": "2026-02-28",
-      "exit_reason": "TrailingStop",
+      "exit_reason": "WarnStop",
       "initial_stop_eur": 369.80,
       "atr_at_entry_eur": 8.20
     },

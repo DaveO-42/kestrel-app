@@ -79,7 +79,7 @@ class ApiService {
       getMapCached('assets/mock/dashboard.json', '/dashboard', _keyDashboard);
 
   static Future<CachedResult<List<dynamic>>> getPositions() =>
-      getListCached('assets/mock/dashboard.json', '/positions', _keyPositions);
+      getListCached('assets/mock/position_nvda.json', '/positions', _keyPositions);
 
   static Future<CachedResult<Map<String, dynamic>>> getPosition(
       String ticker) async {

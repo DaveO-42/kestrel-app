@@ -321,17 +321,32 @@ class _ExitReasonPill extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final Color bg;
+    final Color border;
+    final Color text;
+
+    switch (reason) {
+      case 'WarnStop':
+        bg     = KestrelColors.orangeBg;
+        border = KestrelColors.orangeBorder;
+        text   = KestrelColors.orange;
+      default:
+        bg     = KestrelColors.grayBg;
+        border = KestrelColors.grayBorder;
+        text   = KestrelColors.textGrey;
+    }
+
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
       decoration: BoxDecoration(
-        color:        KestrelColors.grayBg,
+        color:        bg,
         borderRadius: BorderRadius.circular(5),
-        border: Border.all(color: KestrelColors.grayBorder),
+        border: Border.all(color: border),
       ),
       child: Text(
         reason,
-        style: const TextStyle(
-          color:      KestrelColors.textGrey,
+        style: TextStyle(
+          color:      text,
           fontSize:   10,
           fontWeight: FontWeight.w600,
         ),

@@ -92,12 +92,10 @@ class _InfoSheet extends StatelessWidget {
                                 color: const Color(0xFF1E2E42)),
                           ),
                           child: const Center(
-                            child: Text(
-                              '✕',
-                              style: TextStyle(
-                                color: KestrelColors.textDimmed,
-                                fontSize: 10,
-                              ),
+                            child: Icon(
+                              Icons.close,
+                              color: KestrelColors.textDimmed,
+                              size: 14,
                             ),
                           ),
                         ),

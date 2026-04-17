@@ -272,7 +272,7 @@ class _ErrorCard extends StatelessWidget {
                 ),
                 const SizedBox(height: 4),
                 Text(
-                  'Pi nicht erreichbar. Daten von vor ${_formatAge()}.',
+                  'Pi nicht erreichbar. Daten von vor ${_formatAge()}',
                   style: const TextStyle(
                     color: KestrelColors.textGrey,
                     fontSize: 11,
