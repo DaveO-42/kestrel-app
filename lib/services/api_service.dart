@@ -1,4 +1,5 @@
 import 'dart:convert';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
 import 'package:http/http.dart' as http;
 import 'cache_service.dart';
@@ -165,6 +166,16 @@ class ApiService {
       print('[kestrel] testConnection error: $e');
       print('[kestrel] stack: $stack');
       rethrow;
+    }
+  }
+
+  // ── FCM Token ────────────────────────────────────────────────
+
+  static Future<void> postFcmToken(String token) async {
+    try {
+      await _postAction('/system/fcm-token', jsonEncode({'token': token}));
+    } catch (e) {
+      debugPrint('FCM token upload failed: $e');
     }
   }
 

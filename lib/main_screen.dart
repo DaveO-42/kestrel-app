@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'services/api_service.dart';
+import 'services/notification_service.dart';
 import 'theme/kestrel_theme.dart';
 import 'screens/dashboard/dashboard_screen.dart';
 import 'screens/shortlist/shortlist_screen.dart';
@@ -18,6 +19,7 @@ class KestrelNav extends InheritedWidget {
   final VoidCallback goToSettings;
   final VoidCallback refreshDashboard;
   final ValueChanged<bool> setConnectionError;
+  final ValueChanged<int> goToTab;
   final bool connectionError;
 
   const KestrelNav({
@@ -28,6 +30,7 @@ class KestrelNav extends InheritedWidget {
     required this.goToSettings,
     required this.refreshDashboard,
     required this.setConnectionError,
+    required this.goToTab,
     required this.connectionError,
     required super.child,
   });
@@ -61,6 +64,14 @@ class _MainScreenState extends State<MainScreen> {
   final _dashboardRefresh = ValueNotifier<int>(0);
 
   @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      NotificationService().init(context);
+    });
+  }
+
+  @override
   void dispose() {
     _dashboardRefresh.dispose();
     super.dispose();
@@ -75,6 +86,7 @@ class _MainScreenState extends State<MainScreen> {
       goToSettings:       _openSettings,
       refreshDashboard:   () => _dashboardRefresh.value++,
       setConnectionError: (v) => setState(() => _connError = v),
+      goToTab:            (i) => setState(() => _index = i),
       connectionError:    _connError,
       child: Scaffold(
         backgroundColor: KestrelColors.screenBg,
