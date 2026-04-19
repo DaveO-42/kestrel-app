@@ -1,6 +1,5 @@
 import 'dart:math' as math;
 import 'package:flutter/material.dart';
-import 'package:flutter_svg/flutter_svg.dart';
 import '../../services/api_service.dart';
 import '../../services/cache_service.dart';
 import '../../theme/kestrel_theme.dart';
@@ -209,13 +208,18 @@ class _ShortlistScreenState extends State<ShortlistScreen> {
         ? '${runId.substring(9, 11)}:${runId.substring(11, 13)}'
         : null;
 
-    final isBudget  = reason != null && reason.toLowerCase().contains('budget');
-    final isPending = status == 'expired' || runDate != _todayString();
+    final isBudget   = reason != null && reason.toLowerCase().contains('budget');
+    final isPending  = status == 'expired' || runDate != _todayString();
+    final isFiltered = !isPending && !isBudget &&
+        (data['filter_reason'] != null ||
+         (reason != null && reason.toLowerCase().contains('pass 2')));
 
     final variant = isPending
         ? _EmptyVariant.pending
         : isBudget
         ? _EmptyVariant.budget
+        : isFiltered
+        ? _EmptyVariant.filtered
         : _EmptyVariant.none;
 
     return ListView(
@@ -741,7 +745,7 @@ class _ShortlistFooter extends StatelessWidget {
 
 // ── Empty State ───────────────────────────────────────────────
 
-enum _EmptyVariant { pending, budget, none }
+enum _EmptyVariant { pending, budget, none, filtered }
 
 class _ShortlistEmptyState extends StatelessWidget {
   final _EmptyVariant variant;
@@ -754,28 +758,32 @@ class _ShortlistEmptyState extends StatelessWidget {
     final screenH = MediaQuery.of(context).size.height;
     final screenW = MediaQuery.of(context).size.width;
 
-    final svgAsset = switch (variant) {
-      _EmptyVariant.pending => 'assets/images/kestrel_pending.svg',
-      _EmptyVariant.budget  => 'assets/images/kestrel_no_budget.svg',
-      _EmptyVariant.none    => 'assets/images/kestrel_falcon.svg',
+    final imageAsset = switch (variant) {
+      _EmptyVariant.pending  => 'assets/images/empty_scan_pending.png',
+      _EmptyVariant.budget   => 'assets/images/empty_no_budget.png',
+      _EmptyVariant.none     => 'assets/images/empty_no_candidates.png',
+      _EmptyVariant.filtered => 'assets/images/empty_no_candidates.png',
     };
 
     final headline = switch (variant) {
-      _EmptyVariant.pending => 'SCAN AUSSTEHEND',
-      _EmptyVariant.budget  => 'NEST IST LEER',
-      _EmptyVariant.none    => 'HORIZONT LEER',
+      _EmptyVariant.pending  => 'SCAN AUSSTEHEND',
+      _EmptyVariant.budget   => 'NEST IST LEER',
+      _EmptyVariant.none     => 'HORIZONT LEER',
+      _EmptyVariant.filtered => 'SIGNAL GEFILTERT',
     };
 
     final subline = switch (variant) {
-      _EmptyVariant.pending => 'Kestrel positioniert sich',
-      _EmptyVariant.budget  => 'Kein Budget verfügbar',
-      _EmptyVariant.none    => 'Keine Kandidaten',
+      _EmptyVariant.pending  => 'Kestrel positioniert sich',
+      _EmptyVariant.budget   => 'Kein Budget verfügbar',
+      _EmptyVariant.none     => 'Keine Kandidaten',
+      _EmptyVariant.filtered => 'Gates nicht erfüllt',
     };
 
     final description = switch (variant) {
-      _EmptyVariant.pending => 'Warten auf das zeitgesteuerte Signal.\n(Run ca. 15:00 Uhr)',
-      _EmptyVariant.budget  => 'Budget liegt unter der Mindestposition.\nPrüfe deine Liquidität.',
-      _EmptyVariant.none    => 'Weit und breit keine Beute.\nMarkt bietet gerade keine Signale.',
+      _EmptyVariant.pending  => 'Warten auf das zeitgesteuerte Signal.\n(Run ca. 15:00 Uhr)',
+      _EmptyVariant.budget   => 'Budget liegt unter der Mindestposition.\nPrüfe deine Liquidität.',
+      _EmptyVariant.none     => 'Weit und breit keine Beute.\nMarkt bietet gerade keine Signale.',
+      _EmptyVariant.filtered => 'Kandidaten gefunden, aber RSI/EMA-Gates\nhaben den Eintritt verhindert.',
     };
 
     return SizedBox(
@@ -786,33 +794,14 @@ class _ShortlistEmptyState extends StatelessWidget {
           Stack(
             alignment: Alignment.center,
             children: [
-              // Sonnenstrahlen ganz hinten
-              // Sonnenstrahlen nur bei pending
               if (variant == _EmptyVariant.pending)
                 CustomPaint(
                   size: Size(screenW * 0.72, screenW * 0.72),
                   painter: _SunRaysPainter(),
                 ),
-              // Kreisrahmen
-              Container(
-                width: screenW * 0.72,
-                height: screenW * 0.72,
-                decoration: BoxDecoration(
-                  shape: BoxShape.circle,
-                  border: Border.all(
-                    color: KestrelColors.gold.withOpacity(0.25),
-                    width: 1.5,
-                  ),
-                ),
-              ),
-              // Falke vorne
-              SvgPicture.asset(
-                svgAsset,
+              Image.asset(
+                imageAsset,
                 width: screenW * 0.60,
-                colorFilter: const ColorFilter.mode(
-                  KestrelColors.gold,
-                  BlendMode.srcIn,
-                ),
               ),
             ],
           ),
