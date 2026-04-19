@@ -64,3 +64,5 @@
 - [x] IndexedStack Navigation mit 4 Tabs
 - [x] TradingView Chart via WebView in Position Detail
 - [x] Tailscale-Connectivity (Tailscale-IP hardcodiert)
+- [x] FCM Push Notifications via Firebase – ersetzt Telegram parallel.
+     Token-Handling, HARD/WARN/CANDIDATES Events, Deep Links implementiert.
