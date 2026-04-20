@@ -65,14 +65,16 @@ class _BoughtSheetState extends State<BoughtSheet> {
   @override
   void initState() {
     super.initState();
-    final tp = widget.candidate['trade_params'] as Map<String, dynamic>? ?? {};
-    _qtyCtrl  = TextEditingController(text: '${tp['quantity'] ?? 1}');
-    _fillCtrl = TextEditingController(
-        text: _fmt(tp['entry_price_eur'] as double? ?? 0.0));
-    _stopCtrl = TextEditingController(
-        text: _fmt(tp['stop_level_eur'] as double? ?? 0.0));
-    _atrCtrl  = TextEditingController(
-        text: _fmt(tp['atr_eur'] as double? ?? 0.0));
+    final tp    = widget.candidate['trade_params'] as Map<String, dynamic>? ?? {};
+    final qty   = tp['quantity']        as int?;
+    final entry = tp['entry_price_eur'] as num?;
+    final stop  = tp['stop_level_eur']  as num?;
+    final atr   = tp['atr_eur']         as num?;
+
+    _qtyCtrl  = TextEditingController(text: qty   != null && qty   > 0 ? '$qty'                  : '');
+    _fillCtrl = TextEditingController(text: entry != null && entry > 0 ? _fmt(entry.toDouble())  : '');
+    _stopCtrl = TextEditingController(text: stop  != null && stop  > 0 ? _fmt(stop.toDouble())   : '');
+    _atrCtrl  = TextEditingController(text: atr   != null && atr   > 0 ? _fmt(atr.toDouble())    : '');
 
     for (final c in [_qtyCtrl, _fillCtrl, _stopCtrl, _atrCtrl]) {
       c.addListener(() => setState(() {}));

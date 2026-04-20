@@ -3,8 +3,8 @@
   "run_date": "2026-04-05",
   "started_at": "2026-04-05T15:00:12Z",
   "source": "logs/run_20260405_150012.json",
-  "status": "skipped",
-  "order_reason": "Pass 2: alle 2 Kandidaten gefiltert – PLD: RSI 71.47 außerhalb 50–70, MS: RSI 71.26 außerhalb 50–70",
+  "status": "confirmed",
+  "order_reason": null,
   "top_candidate": {
     "ticker": "NVDA",
     "sector": "Technology",

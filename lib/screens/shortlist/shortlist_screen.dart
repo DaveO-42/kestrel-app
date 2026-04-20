@@ -147,19 +147,25 @@ class _ShortlistScreenState extends State<ShortlistScreen> {
                     final isTop = candidate['ticker'] == topTicker;
                     return Padding(
                       padding: const EdgeInsets.only(bottom: 8),
-                      child: isTop
-                          ? _CandidateCard(
-                        candidate:        candidate,
-                        availableBudget:  _availableBudget ?? 0,
-                        onSkip:           _onSkip,
-                        onBought:         _onBought,
-                        isOffline:        _isOffline,
-                        buyDisabled:      isPass2Skipped,
-                      )
-                          : _CandidateDimCard(
-                        candidate: candidate,
-                        index:     entry.key + 1,
-                      ),
+                      child: status == 'confirmed' && isTop
+                          ? _ConfirmedCard(
+                              candidate: candidate,
+                              onNavigateToDashboard: () =>
+                                  KestrelNav.of(context)?.goToDashboard(),
+                            )
+                          : isTop
+                              ? _CandidateCard(
+                                  candidate:        candidate,
+                                  availableBudget:  _availableBudget ?? 0,
+                                  onSkip:           _onSkip,
+                                  onBought:         _onBought,
+                                  isOffline:        _isOffline,
+                                  buyDisabled:      isPass2Skipped,
+                                )
+                              : _CandidateDimCard(
+                                  candidate: candidate,
+                                  index:     entry.key + 1,
+                                ),
                     );
                   }),
                   _ShortlistFooter(runTime: runTime, data: data),
@@ -848,6 +854,88 @@ class _ShortlistEmptyState extends StatelessWidget {
             ),
           ],
         ],
+      ),
+    );
+  }
+}
+
+// ── Confirmed Card ────────────────────────────────────────────
+
+class _ConfirmedCard extends StatelessWidget {
+  final Map<String, dynamic> candidate;
+  final VoidCallback onNavigateToDashboard;
+  const _ConfirmedCard({
+    required this.candidate,
+    required this.onNavigateToDashboard,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final ticker = candidate['ticker'] as String;
+    final sector = candidate['sector'] as String? ?? '–';
+    final tp     = candidate['trade_params'] as Map<String, dynamic>?;
+    final order  = candidate['order']        as Map<String, dynamic>?;
+
+    final fillPrice = (order?['fill_price_eur'] as num?)
+        ?? (tp?['entry_price_eur'] as num?);
+
+    return GestureDetector(
+      onTap: onNavigateToDashboard,
+      child: Container(
+        decoration: BoxDecoration(
+          color: KestrelColors.cardBg,
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(color: KestrelColors.cardBorder),
+        ),
+        foregroundDecoration: const BoxDecoration(
+          borderRadius: BorderRadius.all(Radius.circular(12)),
+          border: Border(top: BorderSide(color: KestrelColors.green, width: 2)),
+        ),
+        padding: const EdgeInsets.fromLTRB(13, 11, 13, 13),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                  Text(ticker,
+                      style: const TextStyle(color: KestrelColors.textPrimary,
+                          fontSize: 16, fontWeight: FontWeight.w700)),
+                  Text(sector,
+                      style: const TextStyle(
+                          color: KestrelColors.textGrey, fontSize: 10)),
+                ]),
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                  decoration: BoxDecoration(
+                    color: KestrelColors.greenBg,
+                    borderRadius: BorderRadius.circular(6),
+                    border: Border.all(color: KestrelColors.greenBorder),
+                  ),
+                  child: const Text('✅ Gekauft',
+                      style: TextStyle(color: KestrelColors.green,
+                          fontSize: 11, fontWeight: FontWeight.w700)),
+                ),
+              ],
+            ),
+            if (fillPrice != null) ...[
+              const SizedBox(height: 8),
+              Text(
+                'Fill ${fmtPrice(fillPrice)}',
+                style: const TextStyle(
+                    color: KestrelColors.textGrey,
+                    fontSize: 12,
+                    fontWeight: FontWeight.w500),
+              ),
+            ],
+            const SizedBox(height: 10),
+            const Text(
+              'Position aktiv · Details im Dashboard',
+              style: TextStyle(color: KestrelColors.textDimmed, fontSize: 11),
+            ),
+          ],
+        ),
       ),
     );
   }
