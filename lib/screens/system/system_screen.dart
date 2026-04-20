@@ -514,7 +514,8 @@ class _OrderBadge extends StatelessWidget {
 
     switch (status) {
       case 'filled':
-        label  = ticker != null ? '$ticker filled' : 'filled';
+      case 'bought':
+        label  = ticker != null ? '$ticker gekauft' : 'gekauft';
         color  = KestrelColors.green;
         bg     = KestrelColors.greenBg;
         border = KestrelColors.greenBorder;

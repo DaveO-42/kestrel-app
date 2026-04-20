@@ -43,7 +43,7 @@ class RunDetailScreen extends StatelessWidget {
     final shortlist = run['shortlist']     as List? ?? [];
     final kauf      = run['kaufentscheidung'] as Map<String, dynamic>?;
 
-    final isFilled  = status == 'filled';
+    final isFilled  = status == 'filled' || status == 'bought';
     final topTicker = kauf?['ticker'] as String?;
 
     return Scaffold(
@@ -340,7 +340,8 @@ class _StatusBadge extends StatelessWidget {
 
     switch (status) {
       case 'filled':
-        label  = 'filled';
+      case 'bought':
+        label  = 'gekauft';
         color  = KestrelColors.green;
         bg     = KestrelColors.greenBg;
         border = KestrelColors.greenBorder;
