@@ -688,7 +688,7 @@ class _PositionsCard extends StatelessWidget {
       child: Center(
         child: Column(
           children: const [
-            Icon(Icons.inbox_outlined,
+            Icon(Icons.candlestick_chart,
                 color: KestrelColors.textHint, size: 32),
             SizedBox(height: 8),
             Text(

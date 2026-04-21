@@ -182,7 +182,7 @@ String fmtPrice(num? value, {bool showSign = false}) {
     buf.write(intPart[i]);
   }
 
-  final formatted = '$sign${value < 0 ? '-' : ''}${buf.toString()},${decPart} €';
+  final formatted = '$sign${value < 0 ? '-' : ''}${buf.toString()},$decPart €';
   return formatted;
 }
 

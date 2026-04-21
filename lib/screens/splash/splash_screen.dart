@@ -1,6 +1,4 @@
-import 'dart:math' as math;
 import 'package:flutter/material.dart';
-import 'package:flutter_svg/flutter_svg.dart';
 import 'package:package_info_plus/package_info_plus.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../../theme/kestrel_theme.dart';
@@ -115,8 +113,8 @@ class _SplashScreenState extends State<SplashScreen>
     if (!mounted) return;
     Navigator.of(context).pushReplacement(
       PageRouteBuilder(
-        pageBuilder: (_, __, ___) => const MainScreen(),
-        transitionsBuilder: (_, anim, __, child) =>
+        pageBuilder: (_, _, _) => const MainScreen(),
+        transitionsBuilder: (_, anim, _, child) =>
             FadeTransition(opacity: anim, child: child),
         transitionDuration: const Duration(milliseconds: 400),
       ),
@@ -200,7 +198,7 @@ class _SplashScreenState extends State<SplashScreen>
                     height: 12,
                     child: AnimatedBuilder(
                       animation: _progressAnim,
-                      builder: (_, __) => CustomPaint(
+                      builder: (_, _) => CustomPaint(
                         painter: _ProgressBarPainter(progress: _progressAnim.value),
                       ),
                     ),
@@ -208,7 +206,7 @@ class _SplashScreenState extends State<SplashScreen>
                   const SizedBox(height: 10),
                   AnimatedBuilder(
                     animation: _progressAnim,
-                    builder: (_, __) => Text(
+                    builder: (_, _) => Text(
                       _statusText,
                       style: const TextStyle(
                         color: KestrelColors.textDimmed,

@@ -769,7 +769,7 @@ class _ToggleRow extends StatelessWidget {
           Switch(
             value: value,
             onChanged: onChanged,
-            activeColor: KestrelColors.gold,
+            activeThumbColor: KestrelColors.gold,
             inactiveThumbColor: KestrelColors.textDimmed,
             inactiveTrackColor: KestrelColors.cardBorder,
           ),

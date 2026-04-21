@@ -640,8 +640,6 @@ class _ParamCell extends StatelessWidget {
     required this.value,
     required this.label,
     this.dimmed = false,
-    this.valueColor,
-    this.badge,
   });
 
   @override
