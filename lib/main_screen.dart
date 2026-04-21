@@ -1,4 +1,7 @@
 import 'package:flutter/material.dart';
+import 'package:firebase_messaging/firebase_messaging.dart';
+import 'package:shared_preferences/shared_preferences.dart';
+import 'package:package_info_plus/package_info_plus.dart';
 import 'services/api_service.dart';
 import 'services/notification_service.dart';
 import 'theme/kestrel_theme.dart';
@@ -6,8 +9,6 @@ import 'screens/dashboard/dashboard_screen.dart';
 import 'screens/shortlist/shortlist_screen.dart';
 import 'screens/history/history_screen.dart';
 import 'screens/system/system_screen.dart';
-import 'package:package_info_plus/package_info_plus.dart';
-import 'package:shared_preferences/shared_preferences.dart';
 
 // ── KestrelNav – InheritedWidget ──────────────────────────────
 // Stellt app-weite Callbacks bereit:
@@ -289,10 +290,26 @@ class _SettingsScreenState extends State<SettingsScreen> {
   String _apiVersion     = '…';
   String _backendVersion = '…';
 
+  // Server-URL
+  late TextEditingController _urlController;
+  bool _urlDirty = false;
+
+  // Benachrichtigungen
+  bool _notifShortlist = false;
+  bool _notifWarn      = false;
+  bool _notifHard      = false;
+
   @override
   void initState() {
     super.initState();
+    _urlController = TextEditingController(text: ApiService.baseUrl);
     _loadVersions();
+  }
+
+  @override
+  void dispose() {
+    _urlController.dispose();
+    super.dispose();
   }
 
   Future<void> _loadVersions() async {
@@ -306,9 +323,12 @@ class _SettingsScreenState extends State<SettingsScreen> {
 
     if (!mounted) return;
     setState(() {
-      _appVersion     = info.version;
-      _apiVersion     = prefs.getString('version_api')     ?? '…';
-      _backendVersion = prefs.getString('version_backend') ?? '…';
+      _appVersion      = info.version;
+      _apiVersion      = prefs.getString('version_api')     ?? '…';
+      _backendVersion  = prefs.getString('version_backend') ?? '…';
+      _notifShortlist  = prefs.getBool('notif_shortlist')   ?? false;
+      _notifWarn       = prefs.getBool('notif_warn')         ?? false;
+      _notifHard       = prefs.getBool('notif_hard')         ?? false;
     });
 
     // 2. Frische Versionen vom Server holen
@@ -366,6 +386,47 @@ class _SettingsScreenState extends State<SettingsScreen> {
         '${now.second.toString().padLeft(2, '0')}';
   }
 
+  Future<void> _saveUrl() async {
+    final newUrl = _urlController.text.trim();
+    if (newUrl.isEmpty) return;
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setString('server_url', newUrl);
+    ApiService.baseUrl = newUrl;
+    if (!mounted) return;
+    setState(() => _urlDirty = false);
+    FocusScope.of(context).unfocus();
+    ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+      content: Text('Server-URL gespeichert. Verbindungstest empfohlen.'),
+    ));
+  }
+
+  Future<void> _onNotifToggle(String key, String topic, bool value) async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setBool(key, value);
+    if (!mounted) return;
+    setState(() {
+      if (key == 'notif_shortlist') _notifShortlist = value;
+      if (key == 'notif_warn')      _notifWarn      = value;
+      if (key == 'notif_hard')      _notifHard      = value;
+    });
+
+    final settings = await FirebaseMessaging.instance.requestPermission();
+    if (settings.authorizationStatus == AuthorizationStatus.denied) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+          content: Text('Benachrichtigungen in den System-Einstellungen blockiert.'),
+        ));
+      }
+      return;
+    }
+
+    if (value) {
+      await FirebaseMessaging.instance.subscribeToTopic(topic);
+    } else {
+      await FirebaseMessaging.instance.unsubscribeFromTopic(topic);
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -413,23 +474,46 @@ class _SettingsScreenState extends State<SettingsScreen> {
                   children: [
                     const Text('Server-URL', style: _labelStyle),
                     const SizedBox(height: 6),
-                    Container(
-                      width: double.infinity,
-                      padding: const EdgeInsets.symmetric(
-                          horizontal: 10, vertical: 8),
-                      decoration: BoxDecoration(
-                        color: KestrelColors.screenBg,
-                        borderRadius: BorderRadius.circular(8),
-                        border: Border.all(color: KestrelColors.cardBorder),
+                    TextField(
+                      controller: _urlController,
+                      style: const TextStyle(
+                        color: KestrelColors.textGrey,
+                        fontSize: 11,
+                        fontFamily: 'monospace',
                       ),
-                      child: Text(
-                        ApiService.baseUrl,
-                        style: const TextStyle(
-                          color: KestrelColors.textGrey,
-                          fontSize: 11,
-                          fontFamily: 'monospace',
+                      decoration: InputDecoration(
+                        filled: true,
+                        fillColor: KestrelColors.screenBg,
+                        contentPadding: const EdgeInsets.symmetric(
+                            horizontal: 10, vertical: 8),
+                        border: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(8),
+                          borderSide: const BorderSide(
+                              color: KestrelColors.cardBorder),
                         ),
+                        enabledBorder: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(8),
+                          borderSide: const BorderSide(
+                              color: KestrelColors.cardBorder),
+                        ),
+                        focusedBorder: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(8),
+                          borderSide:
+                              const BorderSide(color: KestrelColors.gold),
+                        ),
+                        suffixIcon: _urlDirty
+                            ? IconButton(
+                                icon: const Icon(Icons.check,
+                                    color: KestrelColors.gold, size: 16),
+                                onPressed: _saveUrl,
+                              )
+                            : null,
                       ),
+                      onChanged: (v) =>
+                          setState(() => _urlDirty = v != ApiService.baseUrl),
+                      onSubmitted: (_) => _saveUrl(),
+                      keyboardType: TextInputType.url,
+                      autocorrect: false,
                     ),
                   ],
                 ),
@@ -530,14 +614,26 @@ class _SettingsScreenState extends State<SettingsScreen> {
           _SettingsCard(
             children: [
               _ToggleRow(
-                  label: 'Shortlist verfügbar',
-                  sub: 'Neuer Kandidat nach Run'),
+                label: 'Shortlist verfügbar',
+                sub: 'Neuer Kandidat nach Run',
+                value: _notifShortlist,
+                onChanged: (v) =>
+                    _onNotifToggle('notif_shortlist', 'kestrel_candidates', v),
+              ),
               _ToggleRow(
-                  label: 'WARN-Signal',
-                  sub: 'Trendumkehr erkannt'),
+                label: 'WARN-Signal',
+                sub: 'Trendumkehr erkannt',
+                value: _notifWarn,
+                onChanged: (v) =>
+                    _onNotifToggle('notif_warn', 'kestrel_warn', v),
+              ),
               _ToggleRow(
-                  label: 'HARD-Signal',
-                  sub: 'Sofortiger Handlungsbedarf'),
+                label: 'HARD-Signal',
+                sub: 'Sofortiger Handlungsbedarf',
+                value: _notifHard,
+                onChanged: (v) =>
+                    _onNotifToggle('notif_hard', 'kestrel_hard', v),
+              ),
             ],
           ),
 
@@ -638,7 +734,15 @@ class _SettingsRow extends StatelessWidget {
 class _ToggleRow extends StatelessWidget {
   final String label;
   final String sub;
-  const _ToggleRow({required this.label, required this.sub});
+  final bool value;
+  final ValueChanged<bool> onChanged;
+
+  const _ToggleRow({
+    required this.label,
+    required this.sub,
+    required this.value,
+    required this.onChanged,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -650,67 +754,24 @@ class _ToggleRow extends StatelessWidget {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(
-                  label,
-                  style: const TextStyle(
-                    color: KestrelColors.textPrimary,
-                    fontSize: 12,
-                    fontWeight: FontWeight.w500,
-                  ),
-                ),
+                Text(label,
+                    style: const TextStyle(
+                        color: KestrelColors.textPrimary,
+                        fontSize: 12,
+                        fontWeight: FontWeight.w500)),
                 const SizedBox(height: 2),
-                Text(
-                  sub,
-                  style: const TextStyle(
-                    color: KestrelColors.textDimmed,
-                    fontSize: 10,
-                  ),
-                ),
+                Text(sub,
+                    style: const TextStyle(
+                        color: KestrelColors.textDimmed, fontSize: 10)),
               ],
             ),
           ),
-          const SizedBox(width: 8),
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1),
-            decoration: BoxDecoration(
-              color: const Color(0xFF1A1008),
-              borderRadius: BorderRadius.circular(3),
-              border: Border.all(color: const Color(0xFF4A3010)),
-            ),
-            child: const Text(
-              'V2',
-              style: TextStyle(
-                color: Color(0xFF8A6E2A),
-                fontSize: 9,
-                fontWeight: FontWeight.w600,
-              ),
-            ),
-          ),
-          const SizedBox(width: 7),
-          // Toggle (visuell, noch nicht funktional — V2)
-          Opacity(
-            opacity: 0.4,
-            child: Container(
-              width: 30,
-              height: 17,
-              decoration: BoxDecoration(
-                color: KestrelColors.cardBg,
-                borderRadius: BorderRadius.circular(9),
-                border: Border.all(color: KestrelColors.cardBorder),
-              ),
-              child: Align(
-                alignment: Alignment.centerLeft,
-                child: Container(
-                  margin: const EdgeInsets.all(2),
-                  width: 11,
-                  height: 11,
-                  decoration: const BoxDecoration(
-                    color: Color(0xFF334D68),
-                    shape: BoxShape.circle,
-                  ),
-                ),
-              ),
-            ),
+          Switch(
+            value: value,
+            onChanged: onChanged,
+            activeColor: KestrelColors.gold,
+            inactiveThumbColor: KestrelColors.textDimmed,
+            inactiveTrackColor: KestrelColors.cardBorder,
           ),
         ],
       ),

@@ -2,13 +2,20 @@ import 'dart:convert';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
 import 'package:http/http.dart' as http;
+import 'package:shared_preferences/shared_preferences.dart';
 import 'cache_service.dart';
 
 class ApiService {
   // ── Mock-Flag ─────────────────────────────────────────────────
   static const bool useMock = bool.fromEnvironment('USE_MOCK', defaultValue: false);
-  static const String baseUrl = 'http://100.103.235.113:8000';
+  static String baseUrl = 'http://100.103.235.113:8000';
   static const _timeout = Duration(seconds: 8);
+
+  static Future<void> loadBaseUrl() async {
+    final prefs = await SharedPreferences.getInstance();
+    final saved = prefs.getString('server_url');
+    if (saved != null && saved.isNotEmpty) baseUrl = saved;
+  }
 
   // ── Cache-Keys ────────────────────────────────────────────────
   static const String _keyDashboard      = 'cache_dashboard';
