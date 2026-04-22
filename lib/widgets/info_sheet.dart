@@ -67,11 +67,11 @@ class _InfoSheet extends StatelessWidget {
                           ),
                           const SizedBox(height: 2),
                           const Text(
-                            'Hover · Strike · Ride',
+                            'HOVER · STRIKE · RIDE',
                             style: TextStyle(
                               color: Color(0xFF8A6E2A),
                               fontSize: 10,
-                              letterSpacing: 0.5,
+                              letterSpacing: 1.5,
                             ),
                           ),
                         ],

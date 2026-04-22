@@ -17,7 +17,7 @@
   Entry-Preis und Stop-Level als Overlays direkt im Chart einzeichnen.
   Abhängigkeit: FMP-Key muss aus Backend durchgereicht werden oder App nutzt eigenen Key.
 
-- [ ] **Push Notifications via Firebase Cloud Messaging** – Ersetzt Telegram-Alerts vollständig.
+- [x] **Push Notifications via Firebase Cloud Messaging** – Ersetzt Telegram-Alerts vollständig.
   EXIT/WARN-Signale sollen direkt auf dem Telefon ankommen, nicht mehr nur per Telegram.
   Voraussetzung: Firebase-Projekt anlegen, `firebase_messaging`-Package, Backend-seitiger FCM-Push.
 
@@ -35,7 +35,7 @@
 - [ ] **Widget-Tests schreiben** – Aktuell keine Tests im Frontend.
   Priorität: `ApiService` (Mock-Mode), `CacheService`, `ShortlistScreen` (Bought-Flow).
 
-- [ ] **`useMock` Build-Flag** – Aktuell hardcodiert in `api_service.dart`.
+- [x] **`useMock` Build-Flag** – Aktuell hardcodiert in `api_service.dart`.
   Besser: `--dart-define=USE_MOCK=true` als Build-Argument damit Mock-Modus ohne Code-Änderung aktivierbar.
 
 - [ ] **CORS in `src/api/main.py` einschränken** – Aktuell `allow_origins=["*"]`.
