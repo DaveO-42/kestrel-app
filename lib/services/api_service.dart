@@ -3,12 +3,13 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
 import 'package:http/http.dart' as http;
 import 'package:shared_preferences/shared_preferences.dart';
+import 'auth_service.dart';
 import 'cache_service.dart';
 
 class ApiService {
   // ── Mock-Flag ─────────────────────────────────────────────────
   static const bool useMock = bool.fromEnvironment('USE_MOCK', defaultValue: false);
-  static String baseUrl = 'http://100.103.235.113:8000';
+  static String baseUrl = 'https://api.kestrel-trading.com';
   static const _timeout = Duration(seconds: 8);
 
   static Future<void> loadBaseUrl() async {
@@ -176,6 +177,18 @@ class ApiService {
     }
   }
 
+  // ── Candidate Chart ──────────────────────────────────────────
+
+  static Future<Map<String, dynamic>> getCandidateChart(String ticker) async {
+    final response = await http
+        .get(Uri.parse('$baseUrl/candidates/$ticker/chart'))
+        .timeout(const Duration(seconds: 15));
+    if (response.statusCode == 200) {
+      return jsonDecode(response.body) as Map<String, dynamic>;
+    }
+    throw Exception('Chart HTTP ${response.statusCode}');
+  }
+
   // ── FCM Token ────────────────────────────────────────────────
 
   static Future<void> postFcmToken(String token) async {
@@ -227,26 +240,46 @@ class ApiService {
     return _postAction('/actions/resume', '{}');
   }
 
+  static VoidCallback? onAuthError;
+
   static Future<Map<String, dynamic>> _postAction(
       String endpoint, String body) async {
-    // Im Mock-Modus: sofort Erfolg zurückgeben ohne Netzwerkzugriff
     if (useMock) {
-      await Future.delayed(const Duration(milliseconds: 400)); // realistisches Feedback
+      await Future.delayed(const Duration(milliseconds: 400));
       return {'ok': true};
     }
     try {
-      final response = await http
-          .post(
-        Uri.parse('$baseUrl$endpoint'),
-        headers: {'Content-Type': 'application/json'},
-        body: body,
-      )
+      final token = await AuthService().getAccessToken();
+      final headers = <String, String>{
+        'Content-Type': 'application/json',
+        if (token != null) 'Authorization': 'Bearer $token',
+      };
+
+      var response = await http
+          .post(Uri.parse('$baseUrl$endpoint'), headers: headers, body: body)
           .timeout(_timeout);
 
+      if (response.statusCode == 401) {
+        final newToken = await AuthService().refreshToken();
+        if (newToken != null) {
+          response = await http
+              .post(
+                Uri.parse('$baseUrl$endpoint'),
+                headers: {...headers, 'Authorization': 'Bearer $newToken'},
+                body: body,
+              )
+              .timeout(_timeout);
+        }
+        if (response.statusCode == 401) {
+          await AuthService().logout();
+          onAuthError?.call();
+          throw const ActionException('Sitzung abgelaufen.',
+              statusCode: 401, isAuthError: true);
+        }
+      }
+
       final data = jsonDecode(response.body) as Map<String, dynamic>;
-
       if (response.statusCode == 200) return data;
-
       final detail = data['detail'] as String? ?? 'Unbekannter Fehler';
       throw ActionException(detail, statusCode: response.statusCode);
     } on ActionException {
@@ -262,7 +295,8 @@ class ApiService {
 class ActionException implements Exception {
   final String message;
   final int? statusCode;
-  const ActionException(this.message, {this.statusCode});
+  final bool isAuthError;
+  const ActionException(this.message, {this.statusCode, this.isAuthError = false});
 
   @override
   String toString() => message;

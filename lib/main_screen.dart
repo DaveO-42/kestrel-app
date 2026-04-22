@@ -3,7 +3,9 @@ import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:package_info_plus/package_info_plus.dart';
 import 'services/api_service.dart';
+import 'services/auth_service.dart';
 import 'services/notification_service.dart';
+import 'screens/login/login_screen.dart';
 import 'theme/kestrel_theme.dart';
 import 'screens/dashboard/dashboard_screen.dart';
 import 'screens/shortlist/shortlist_screen.dart';
@@ -67,6 +69,7 @@ class _MainScreenState extends State<MainScreen> {
   @override
   void initState() {
     super.initState();
+    ApiService.onAuthError = _navigateToLogin;
     WidgetsBinding.instance.addPostFrameCallback((_) {
       NotificationService().init(context);
     });
@@ -74,8 +77,17 @@ class _MainScreenState extends State<MainScreen> {
 
   @override
   void dispose() {
+    ApiService.onAuthError = null;
     _dashboardRefresh.dispose();
     super.dispose();
+  }
+
+  void _navigateToLogin() {
+    if (!mounted) return;
+    Navigator.of(context).pushAndRemoveUntil(
+      MaterialPageRoute(builder: (_) => const LoginScreen()),
+      (_) => false,
+    );
   }
 
   @override
@@ -359,7 +371,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
 
     final stopwatch = Stopwatch()..start();
     try {
-      final result = await ApiService.testConnection();
+      await ApiService.testConnection();
       stopwatch.stop();
       final ms = stopwatch.elapsedMilliseconds;
       setState(() {
@@ -647,8 +659,44 @@ class _SettingsScreenState extends State<SettingsScreen> {
               _InfoRow(label: 'Pi-Hostname',      value: ApiService.baseUrl.replaceAll('http://', '').replaceAll(':8000', '')),
             ],
           ),
+
+          // ── Account ──────────────────────────────────────
+          _SectionHeader(label: 'Account'),
+          _SettingsCard(
+            children: [
+              GestureDetector(
+                onTap: _logout,
+                child: const Padding(
+                  padding: EdgeInsets.symmetric(horizontal: 13, vertical: 13),
+                  child: Row(
+                    children: [
+                      Icon(Icons.logout, color: KestrelColors.red, size: 16),
+                      SizedBox(width: 10),
+                      Text(
+                        'Abmelden',
+                        style: TextStyle(
+                          color: KestrelColors.red,
+                          fontSize: 13,
+                          fontWeight: FontWeight.w500,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ],
+          ),
         ],
       ),
+    );
+  }
+
+  Future<void> _logout() async {
+    await AuthService().logout();
+    if (!mounted) return;
+    Navigator.of(context).pushAndRemoveUntil(
+      MaterialPageRoute(builder: (_) => const LoginScreen()),
+      (_) => false,
     );
   }
 }
