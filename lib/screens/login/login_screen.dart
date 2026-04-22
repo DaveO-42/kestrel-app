@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:flutter_svg/flutter_svg.dart';
 import '../../services/auth_service.dart';
 import '../../theme/kestrel_theme.dart';
 import '../../main_screen.dart';
@@ -65,12 +64,25 @@ class _LoginScreenState extends State<LoginScreen> {
             child: Column(
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
-                SvgPicture.asset(
-                  'assets/images/kestrel_splash.svg',
-                  width: screenW * 0.38,
-                  colorFilter: const ColorFilter.mode(
-                    KestrelColors.gold,
-                    BlendMode.srcIn,
+                Container(
+                  decoration: BoxDecoration(
+                    shape: BoxShape.circle,
+                    boxShadow: [
+                      BoxShadow(
+                        color: KestrelColors.gold.withValues(alpha: 0.05),
+                        blurRadius: 160,
+                        spreadRadius: 10,
+                      ),
+                      BoxShadow(
+                        color: KestrelColors.gold.withValues(alpha: 0.05),
+                        blurRadius: 180,
+                        spreadRadius: 20,
+                      ),
+                    ],
+                  ),
+                  child: Image.asset(
+                    'assets/images/kestrel_login.png',
+                    width: screenW * 0.75,
                   ),
                 ),
                 const SizedBox(height: 20),
@@ -78,9 +90,19 @@ class _LoginScreenState extends State<LoginScreen> {
                   'KESTREL',
                   style: TextStyle(
                     color: KestrelColors.gold,
-                    fontSize: 26,
+                    fontSize: 28,
                     fontWeight: FontWeight.w700,
                     letterSpacing: 8.0,
+                  ),
+                ),
+                const SizedBox(height: 6),
+                const Text(
+                  'HOVER · STRIKE · RIDE',
+                  style: TextStyle(
+                    color: KestrelColors.gold,
+                    fontSize: 12,
+                    fontWeight: FontWeight.w500,
+                    letterSpacing: 3.0,
                   ),
                 ),
                 const SizedBox(height: 48),

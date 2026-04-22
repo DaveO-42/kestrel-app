@@ -686,17 +686,45 @@ class _SettingsScreenState extends State<SettingsScreen> {
               ),
             ],
           ),
+          SizedBox(height: MediaQuery.of(context).padding.bottom + 16),
         ],
       ),
     );
   }
 
   Future<void> _logout() async {
+    final confirm = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        backgroundColor: KestrelColors.cardBg,
+        title: const Text(
+          'Abmelden',
+          style: TextStyle(color: KestrelColors.textPrimary),
+        ),
+        content: const Text(
+          'Wirklich abmelden?',
+          style: TextStyle(color: KestrelColors.textDimmed),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, false),
+            child: const Text('Abbrechen',
+                style: TextStyle(color: KestrelColors.textDimmed)),
+          ),
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, true),
+            child: const Text('Abmelden',
+                style: TextStyle(color: KestrelColors.red)),
+          ),
+        ],
+      ),
+    );
+    if (confirm != true) return;
     await AuthService().logout();
     if (!mounted) return;
     Navigator.of(context).pushAndRemoveUntil(
       MaterialPageRoute(builder: (_) => const LoginScreen()),
-      (_) => false,
+          (_) => false,
     );
   }
 }

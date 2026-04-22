@@ -7,13 +7,7 @@
 
 ## 🟠 Kurzfristig
 
-- [ ] **Cloudflare Tunnel einrichten** – Ersetzt Tailscale als Verbindung zwischen App und Pi-API.
-  Ziel: App verbindet über feste HTTPS-URL ohne VPN-App auf dem Telefon.
-  Vorgehen im Backend-TODO dokumentiert. `baseUrl` in `api_service.dart` anpassen sobald Domain bekannt.
-
-- [ ] **Auth-Header implementieren** – `POST /actions/*` Endpoints sind aktuell ungesichert.
-  Sobald Cloudflare-Domain steht: API-Key als `Authorization`-Header in `ApiService._postAction()` ergänzen.
-  Backend-seitig in `src/api/main.py` gegenseitig absichern.
+- [ ] **CORS einschränken** – Abhängig vom Backend-Task
 
 ---
 
@@ -66,3 +60,5 @@
 - [x] Tailscale-Connectivity (Tailscale-IP hardcodiert)
 - [x] FCM Push Notifications via Firebase – ersetzt Telegram parallel.
      Token-Handling, HARD/WARN/CANDIDATES Events, Deep Links implementiert.
+- [x] Cloudflare Tunnel – App verbindet ohne VPN über HTTPS
+- [x] JWT Bearer Auth – Login-Screen, flutter_secure_storage, Auto-Refresh
