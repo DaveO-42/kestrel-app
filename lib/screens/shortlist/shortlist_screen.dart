@@ -1,5 +1,7 @@
+import 'dart:convert';
 import 'dart:math' as math;
 import 'package:flutter/material.dart';
+import 'package:webview_flutter/webview_flutter.dart';
 import '../../services/api_service.dart';
 import '../../services/cache_service.dart';
 import '../../theme/kestrel_theme.dart';
@@ -379,6 +381,45 @@ class _CandidateCard extends StatefulWidget {
 class _CandidateCardState extends State<_CandidateCard> {
   bool _skipLoading = false;
 
+  bool _chartExpanded = false;
+  bool _chartLoading  = false;
+  Map<String, dynamic>? _chartData;
+  WebViewController? _webViewController;
+
+  Future<void> _toggleChart() async {
+    if (_chartExpanded) {
+      setState(() => _chartExpanded = false);
+      return;
+    }
+    setState(() { _chartExpanded = true; _chartLoading = true; });
+
+    try {
+      final ticker = widget.candidate['ticker'] as String;
+      final data   = await ApiService.getCandidateChart(ticker);
+      final controller = WebViewController();
+      controller
+        ..setJavaScriptMode(JavaScriptMode.unrestricted)
+        ..setBackgroundColor(const Color(0xFF0A1628))
+        ..setNavigationDelegate(NavigationDelegate(
+          onPageFinished: (_) {
+            final json = jsonEncode(data);
+            controller.runJavaScript('window.initChart($json)');
+          },
+        ))
+        ..loadFlutterAsset('assets/chart.html');
+
+      if (!mounted) return;
+      setState(() {
+        _chartData          = data;
+        _webViewController  = controller;
+        _chartLoading       = false;
+      });
+    } catch (e) {
+      if (!mounted) return;
+      setState(() { _chartLoading = false; _chartData = null; });
+    }
+  }
+
   Future<void> _handleSkip(String ticker) async {
     setState(() => _skipLoading = true);
     try {
@@ -477,6 +518,54 @@ class _CandidateCardState extends State<_CandidateCard> {
             const SizedBox(height: 10),
             _TradeParamsRow(params: params),
           ],
+
+          // ── Chart Toggle ───────────────────────────────────
+          GestureDetector(
+            onTap: _toggleChart,
+            child: Padding(
+              padding: const EdgeInsets.symmetric(vertical: 8),
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Icon(
+                    _chartExpanded
+                        ? Icons.keyboard_arrow_up
+                        : Icons.keyboard_arrow_down,
+                    color: KestrelColors.textDimmed,
+                    size: 16,
+                  ),
+                  const SizedBox(width: 4),
+                  Text(
+                    _chartExpanded ? 'Chart schließen' : 'Chart anzeigen',
+                    style: const TextStyle(
+                        color: KestrelColors.textDimmed, fontSize: 11),
+                  ),
+                ],
+              ),
+            ),
+          ),
+
+          // ── Chart Area ─────────────────────────────────────
+          if (_chartExpanded)
+            Container(
+              height: 260,
+              margin: const EdgeInsets.only(bottom: 8),
+              decoration: BoxDecoration(
+                color: const Color(0xFF0A1628),
+                borderRadius: BorderRadius.circular(8),
+              ),
+              child: _chartLoading
+                  ? const Center(child: CircularProgressIndicator(
+                      color: KestrelColors.gold, strokeWidth: 2))
+                  : _chartData == null
+                      ? const Center(child: Text('Chart nicht verfügbar',
+                          style: TextStyle(
+                              color: KestrelColors.textDimmed, fontSize: 11)))
+                      : ClipRRect(
+                          borderRadius: BorderRadius.circular(8),
+                          child: WebViewWidget(controller: _webViewController!),
+                        ),
+            ),
 
           // ── Trennlinie ─────────────────────────────────────
           const SizedBox(height: 14),

@@ -94,7 +94,7 @@ class _PositionDetailScreenState extends State<PositionDetailScreen> {
 
     final p         = _result!.data;
     final isOffline = _result!.isOffline;
-    final pnl     = p['pnl_eur']  as num?;
+    final pnl = (p['pnl_abs_eur'] ?? p['pnl_eur']) as num?;
     final pnlPct  = p['pnl_pct']  as num?;
     final isPos   = (pnl ?? 0) >= 0;
     final signals = p['signals']  as List? ?? [];
@@ -640,6 +640,8 @@ class _ParamCell extends StatelessWidget {
     required this.value,
     required this.label,
     this.dimmed = false,
+    this.valueColor,
+    this.badge,
   });
 
   @override

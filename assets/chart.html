@@ -1,0 +1,111 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  html, body { width: 100%; height: 100%; overflow: hidden; background: #0A1628; }
+  #chart { width: 100%; height: 100vh; }
+</style>
+</head>
+<body>
+<div id="chart"></div>
+<script src="https://cdn.jsdelivr.net/npm/lightweight-charts@4/dist/lightweight-charts.standalone.production.js"></script>
+<script>
+  window.initChart = function(data) {
+    try {
+      var chart = LightweightCharts.createChart(document.getElementById('chart'), {
+        width:  document.getElementById('chart').clientWidth,
+        height: window.innerHeight,
+        layout: {
+          background: { type: 'solid', color: '#0A1628' },
+          textColor: '#8899AA',
+        },
+        grid: {
+          vertLines: { color: '#141F2E' },
+          horzLines: { color: '#141F2E' },
+        },
+        watermark: { visible: false },
+        crosshair: { mode: LightweightCharts.CrosshairMode.Normal },
+        timeScale: { borderColor: '#141F2E' },
+        rightPriceScale: { borderColor: '#141F2E' },
+      });
+
+      // ── Candlestick series ──────────────────────────────────
+      var candleSeries = chart.addCandlestickSeries({
+        upColor:          '#26A69A',
+        downColor:        '#EF5350',
+        borderUpColor:    '#26A69A',
+        borderDownColor:  '#EF5350',
+        wickUpColor:      '#26A69A',
+        wickDownColor:    '#EF5350',
+      });
+
+      var candles = (data.candles || []).map(function(c) {
+        return { time: c.date, open: c.open, high: c.high, low: c.low, close: c.close };
+      });
+      candleSeries.setData(candles);
+
+      // ── Overlays ────────────────────────────────────────────
+      var overlays = data.overlays || {};
+
+      if (overlays.initial_stop_usd != null) {
+        var stopLine = chart.addLineSeries({
+          color:      '#EF5350',
+          lineWidth:  1,
+          lineStyle:  LightweightCharts.LineStyle.Dashed,
+          title:      'Stop',
+          priceLineVisible: false,
+          lastValueVisible: true,
+        });
+        var stopData = candles.map(function(c) {
+          return { time: c.time, value: overlays.initial_stop_usd };
+        });
+        stopLine.setData(stopData);
+      }
+
+      if (overlays.ema20 != null && candles.length > 0) {
+        var ema20Series = chart.addLineSeries({
+          color:      '#C9A84C',
+          lineWidth:  1,
+          title:      'EMA20',
+          priceLineVisible: false,
+          lastValueVisible: true,
+        });
+        var ema20Candles = candles.slice(-20);
+        ema20Series.setData(ema20Candles.map(function(c) {
+          return { time: c.time, value: overlays.ema20 };
+        }));
+      }
+
+      if (overlays.ema50 != null && candles.length > 0) {
+        var ema50Series = chart.addLineSeries({
+          color:      '#4A90D9',
+          lineWidth:  1,
+          title:      'EMA50',
+          priceLineVisible: false,
+          lastValueVisible: true,
+        });
+        var ema50Candles = candles.slice(-50);
+        ema50Series.setData(ema50Candles.map(function(c) {
+          return { time: c.time, value: overlays.ema50 };
+        }));
+      }
+
+      chart.timeScale().fitContent();
+
+      window.addEventListener('resize', function() {
+        chart.applyOptions({
+          width:  document.getElementById('chart').clientWidth,
+          height: window.innerHeight,
+        });
+      });
+
+    } catch(e) {
+      console.error('initChart error:', e);
+    }
+  };
+</script>
+</body>
+</html>
