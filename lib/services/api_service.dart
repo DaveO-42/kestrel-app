@@ -240,6 +240,10 @@ class ApiService {
     return _postAction('/actions/resume', '{}');
   }
 
+  static Future<Map<String, dynamic>> postShutdown() async {
+    return _postAction('/system/shutdown', '{}');
+  }
+
   static VoidCallback? onAuthError;
 
   static Future<Map<String, dynamic>> _postAction(
