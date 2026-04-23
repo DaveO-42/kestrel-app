@@ -18,10 +18,9 @@ class _SystemScreenState extends State<SystemScreen> {
   CachedResult<Map<String, dynamic>>? _statusResult;
   CachedResult<List<dynamic>>?        _runsResult;
   Map<String, dynamic>?               _healthData;
-  bool _loading        = true;
-  bool _infoOpen       = false;
-  bool _resumeLoading  = false;
-  bool _shutdownLoading = false;
+  bool _loading      = true;
+  bool _infoOpen     = false;
+  bool _resumeLoading = false;
 
   bool get _isOffline => _statusResult?.isOffline ?? false;
   DateTime? get _cachedAt => _statusResult?.cachedAt;
@@ -60,60 +59,6 @@ class _SystemScreenState extends State<SystemScreen> {
       if (!mounted) return;
       setState(() => _loading = false);
       KestrelNav.of(context)?.setConnectionError(true);
-    }
-  }
-
-  Future<void> _handleShutdown() async {
-    final confirmed = await showDialog<bool>(
-      context: context,
-      builder: (_) => AlertDialog(
-        backgroundColor: KestrelColors.cardBg,
-        shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(12),
-            side: const BorderSide(color: KestrelColors.cardBorder)),
-        title: const Text('Pi herunterfahren?',
-            style: TextStyle(color: KestrelColors.textPrimary, fontSize: 16,
-                fontWeight: FontWeight.w700)),
-        content: const Text(
-          'Der Pi wird heruntergefahren. Die App verliert die Verbindung.',
-          style: TextStyle(color: KestrelColors.textGrey, fontSize: 13),
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context, false),
-            child: const Text('Abbrechen',
-                style: TextStyle(color: KestrelColors.textDimmed)),
-          ),
-          TextButton(
-            onPressed: () => Navigator.pop(context, true),
-            child: const Text('Herunterfahren',
-                style: TextStyle(color: KestrelColors.red,
-                    fontWeight: FontWeight.w700)),
-          ),
-        ],
-      ),
-    );
-    if (confirmed != true || !mounted) return;
-
-    setState(() => _shutdownLoading = true);
-    try {
-      await ApiService.postShutdown();
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
-          content: Text('Shutdown eingeleitet – Verbindung wird getrennt.'),
-          duration: Duration(seconds: 4),
-        ));
-      }
-    } on ActionException catch (e) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-          content: Text(e.message),
-          backgroundColor: KestrelColors.red,
-          duration: const Duration(seconds: 3),
-        ));
-      }
-    } finally {
-      if (mounted) setState(() => _shutdownLoading = false);
     }
   }
 
@@ -178,26 +123,6 @@ class _SystemScreenState extends State<SystemScreen> {
                   ],
                   if (runs != null && runs.isNotEmpty)
                     _RunLogCard(runs: runs),
-                  const SizedBox(height: 16),
-                  OutlinedButton.icon(
-                    onPressed: _shutdownLoading ? null : _handleShutdown,
-                    icon: _shutdownLoading
-                        ? const SizedBox(
-                            width: 14, height: 14,
-                            child: CircularProgressIndicator(
-                                strokeWidth: 2, color: KestrelColors.red))
-                        : const Icon(Icons.power_settings_new,
-                            size: 16, color: KestrelColors.red),
-                    label: const Text('Pi herunterfahren',
-                        style: TextStyle(color: KestrelColors.red,
-                            fontSize: 13, fontWeight: FontWeight.w600)),
-                    style: OutlinedButton.styleFrom(
-                      side: const BorderSide(color: KestrelColors.redBorder),
-                      padding: const EdgeInsets.symmetric(vertical: 12),
-                      shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(8)),
-                    ),
-                  ),
                 ],
               ),
             ),

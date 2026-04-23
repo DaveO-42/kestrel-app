@@ -307,9 +307,11 @@ class _SettingsScreenState extends State<SettingsScreen> {
   bool _urlDirty = false;
 
   // Benachrichtigungen
-  bool _notifShortlist = false;
-  bool _notifWarn      = false;
-  bool _notifHard      = false;
+  bool _notifShortlist  = false;
+  bool _notifWarn       = false;
+  bool _notifHard       = false;
+
+  bool _shutdownLoading = false;
 
   @override
   void initState() {
@@ -686,10 +688,118 @@ class _SettingsScreenState extends State<SettingsScreen> {
               ),
             ],
           ),
+          // ── Hardware ─────────────────────────────────────
+          _SectionHeader(label: 'Hardware'),
+          _SettingsCard(
+            children: [
+              _SettingsRow(
+                child: Row(
+                  children: [
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: const [
+                          Text('Pi herunterfahren',
+                              style: TextStyle(
+                                  color: KestrelColors.textPrimary,
+                                  fontSize: 13,
+                                  fontWeight: FontWeight.w600)),
+                          SizedBox(height: 2),
+                          Text('Fährt den Raspberry Pi sauber herunter',
+                              style: TextStyle(
+                                  color: KestrelColors.textDimmed,
+                                  fontSize: 10)),
+                        ],
+                      ),
+                    ),
+                    const SizedBox(width: 12),
+                    OutlinedButton(
+                      onPressed: _shutdownLoading ? null : _handleShutdown,
+                      style: OutlinedButton.styleFrom(
+                        side: const BorderSide(color: KestrelColors.red),
+                        padding: const EdgeInsets.symmetric(
+                            horizontal: 14, vertical: 8),
+                        shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(7)),
+                        tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                      ),
+                      child: _shutdownLoading
+                          ? const SizedBox(
+                              width: 16,
+                              height: 16,
+                              child: CircularProgressIndicator(
+                                  strokeWidth: 2,
+                                  color: KestrelColors.red),
+                            )
+                          : const Text('Shutdown',
+                              style: TextStyle(
+                                  color: KestrelColors.red,
+                                  fontSize: 11,
+                                  fontWeight: FontWeight.w600)),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
           SizedBox(height: MediaQuery.of(context).padding.bottom + 16),
         ],
       ),
     );
+  }
+
+  Future<void> _handleShutdown() async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (_) => AlertDialog(
+        backgroundColor: KestrelColors.cardBg,
+        shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(12),
+            side: const BorderSide(color: KestrelColors.cardBorder)),
+        title: const Text('Pi herunterfahren?',
+            style: TextStyle(color: KestrelColors.textPrimary, fontSize: 16,
+                fontWeight: FontWeight.w700)),
+        content: const Text(
+          'Der Pi wird heruntergefahren. Die App verliert die Verbindung.',
+          style: TextStyle(color: KestrelColors.textGrey, fontSize: 13),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: const Text('Abbrechen',
+                style: TextStyle(color: KestrelColors.textDimmed)),
+          ),
+          TextButton(
+            onPressed: () => Navigator.pop(context, true),
+            child: const Text('Herunterfahren',
+                style: TextStyle(color: KestrelColors.red,
+                    fontWeight: FontWeight.w700)),
+          ),
+        ],
+      ),
+    );
+    if (confirmed != true || !mounted) return;
+
+    setState(() => _shutdownLoading = true);
+    try {
+      await ApiService.postShutdown();
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+          content: Text('Shutdown eingeleitet – Verbindung wird getrennt.'),
+          duration: Duration(seconds: 4),
+        ));
+      }
+    } on ActionException catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+          content: Text(e.message),
+          backgroundColor: KestrelColors.red,
+          duration: const Duration(seconds: 3),
+        ));
+      }
+    } finally {
+      if (mounted) setState(() => _shutdownLoading = false);
+    }
   }
 
   Future<void> _logout() async {
