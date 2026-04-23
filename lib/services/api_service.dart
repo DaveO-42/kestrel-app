@@ -179,6 +179,16 @@ class ApiService {
 
   // ── Candidate Chart ──────────────────────────────────────────
 
+  static Future<Map<String, dynamic>> getPositionChart(String ticker) async {
+    final response = await http
+        .get(Uri.parse('$baseUrl/positions/$ticker/chart'))
+        .timeout(const Duration(seconds: 15));
+    if (response.statusCode == 200) {
+      return jsonDecode(response.body) as Map<String, dynamic>;
+    }
+    throw Exception('Chart HTTP ${response.statusCode}');
+  }
+
   static Future<Map<String, dynamic>> getCandidateChart(String ticker) async {
     final response = await http
         .get(Uri.parse('$baseUrl/candidates/$ticker/chart'))

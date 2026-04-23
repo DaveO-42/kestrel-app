@@ -1,5 +1,7 @@
+import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:flutter_svg/flutter_svg.dart';
+import 'package:webview_flutter/webview_flutter.dart';
 import '../../services/api_service.dart';
 import '../../services/cache_service.dart';
 import '../../theme/kestrel_theme.dart';
@@ -19,6 +21,11 @@ class _PositionDetailScreenState extends State<PositionDetailScreen> {
   CachedResult<Map<String, dynamic>>? _result;
   bool _loading = true;
 
+  bool _chartExpanded = false;
+  bool _chartLoading  = false;
+  Map<String, dynamic>? _chartData;
+  WebViewController? _webViewController;
+
   @override
   void initState() {
     super.initState();
@@ -34,6 +41,39 @@ class _PositionDetailScreenState extends State<PositionDetailScreen> {
     } catch (e) {
       if (!mounted) return;
       setState(() { _result = null; _loading = false; });
+    }
+  }
+
+  Future<void> _toggleChart() async {
+    if (_chartExpanded) {
+      setState(() => _chartExpanded = false);
+      return;
+    }
+    setState(() { _chartExpanded = true; _chartLoading = true; });
+
+    try {
+      final data = await ApiService.getPositionChart(widget.ticker);
+      final controller = WebViewController();
+      controller
+        ..setJavaScriptMode(JavaScriptMode.unrestricted)
+        ..setBackgroundColor(const Color(0xFF0A1628))
+        ..setNavigationDelegate(NavigationDelegate(
+          onPageFinished: (_) {
+            final json = jsonEncode(data);
+            controller.runJavaScript('window.initChart($json)');
+          },
+        ))
+        ..loadFlutterAsset('assets/chart.html');
+
+      if (!mounted) return;
+      setState(() {
+        _chartData         = data;
+        _webViewController = controller;
+        _chartLoading      = false;
+      });
+    } catch (e) {
+      if (!mounted) return;
+      setState(() { _chartLoading = false; _chartData = null; });
     }
   }
 
@@ -146,6 +186,74 @@ class _PositionDetailScreenState extends State<PositionDetailScreen> {
               if (hasHard) const _HardBanner(),
               _PriceHero(position: p, pnl: pnl, pnlPct: pnlPct, isPositive: isPos),
               _RangeBar(position: p, isPositive: isPos),
+              // ── Chart Card ─────────────────────────────────
+              Padding(
+                padding: const EdgeInsets.fromLTRB(12, 8, 12, 0),
+                child: Container(
+                  decoration: BoxDecoration(
+                    color: KestrelColors.cardBg,
+                    borderRadius: BorderRadius.circular(12),
+                    border: Border.all(color: KestrelColors.cardBorder),
+                  ),
+                  child: Column(
+                    children: [
+                      GestureDetector(
+                        onTap: _toggleChart,
+                        child: Padding(
+                          padding: const EdgeInsets.symmetric(
+                              horizontal: 13, vertical: 10),
+                          child: Row(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            children: [
+                              Icon(
+                                _chartExpanded
+                                    ? Icons.keyboard_arrow_up
+                                    : Icons.keyboard_arrow_down,
+                                color: KestrelColors.textDimmed,
+                                size: 16,
+                              ),
+                              const SizedBox(width: 4),
+                              Text(
+                                _chartExpanded
+                                    ? 'Chart schließen'
+                                    : 'Chart anzeigen',
+                                style: const TextStyle(
+                                    color: KestrelColors.textDimmed,
+                                    fontSize: 11),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ),
+                      if (_chartExpanded)
+                        Container(
+                          height: 260,
+                          margin: const EdgeInsets.fromLTRB(8, 0, 8, 8),
+                          decoration: BoxDecoration(
+                            color: const Color(0xFF0A1628),
+                            borderRadius: BorderRadius.circular(8),
+                          ),
+                          child: _chartLoading
+                              ? const Center(
+                                  child: CircularProgressIndicator(
+                                      color: KestrelColors.gold,
+                                      strokeWidth: 2))
+                              : _chartData == null
+                                  ? const Center(
+                                      child: Text('Chart nicht verfügbar',
+                                          style: TextStyle(
+                                              color: KestrelColors.textDimmed,
+                                              fontSize: 11)))
+                                  : ClipRRect(
+                                      borderRadius: BorderRadius.circular(8),
+                                      child: WebViewWidget(
+                                          controller: _webViewController!),
+                                    ),
+                        ),
+                    ],
+                  ),
+                ),
+              ),
               Padding(
                 padding: const EdgeInsets.fromLTRB(12, 8, 12, 0),
                 child: Column(
