@@ -93,31 +93,29 @@
         }));
       }
 
-      if (overlays.ema20 != null && candles.length > 0) {
+      if (overlays.ema20_series && overlays.ema20_series.length > 0) {
         var ema20Series = chart.addLineSeries({
-          color:      '#C9A84C',
+          color:      '#E05050',
           lineWidth:  1,
           title:      'EMA20',
           priceLineVisible: false,
           lastValueVisible: true,
         });
-        var ema20Candles = candles.slice(-20);
-        ema20Series.setData(ema20Candles.map(function(c) {
-          return { time: c.time, value: overlays.ema20 };
+        ema20Series.setData(overlays.ema20_series.map(function(p) {
+          return { time: p.date, value: p.value };
         }));
       }
 
-      if (overlays.ema50 != null && candles.length > 0) {
+      if (overlays.ema50_series && overlays.ema50_series.length > 0) {
         var ema50Series = chart.addLineSeries({
-          color:      '#4A90D9',
+          color:      '#E07820',
           lineWidth:  1,
           title:      'EMA50',
           priceLineVisible: false,
           lastValueVisible: true,
         });
-        var ema50Candles = candles.slice(-50);
-        ema50Series.setData(ema50Candles.map(function(c) {
-          return { time: c.time, value: overlays.ema50 };
+        ema50Series.setData(overlays.ema50_series.map(function(p) {
+          return { time: p.date, value: p.value };
         }));
       }
 
