@@ -65,6 +65,34 @@
         stopLine.setData(stopData);
       }
 
+      if (overlays.entry_price_usd != null) {
+        var entryLine = chart.addLineSeries({
+          color:      '#C9A84C',
+          lineWidth:  1,
+          lineStyle:  LightweightCharts.LineStyle.Dashed,
+          title:      'Entry',
+          priceLineVisible: false,
+          lastValueVisible: true,
+        });
+        entryLine.setData(candles.map(function(c) {
+          return { time: c.time, value: overlays.entry_price_usd };
+        }));
+      }
+
+      if (overlays.current_stop_usd != null) {
+        var currentStopLine = chart.addLineSeries({
+          color:      '#EF5350',
+          lineWidth:  1,
+          lineStyle:  LightweightCharts.LineStyle.Dashed,
+          title:      'Stop',
+          priceLineVisible: false,
+          lastValueVisible: true,
+        });
+        currentStopLine.setData(candles.map(function(c) {
+          return { time: c.time, value: overlays.current_stop_usd };
+        }));
+      }
+
       if (overlays.ema20 != null && candles.length > 0) {
         var ema20Series = chart.addLineSeries({
           color:      '#C9A84C',
