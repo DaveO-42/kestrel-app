@@ -613,11 +613,11 @@ class _VersionCard extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Text('VERSIONEN', style: kCardLabelStyle),
+          const Text('APP-INFO', style: kCardLabelStyle),
           const SizedBox(height: 8),
-          _VersionRow(label: 'App',     value: appVersion),
-          _VersionRow(label: 'API',     value: apiVersion),
-          _VersionRow(label: 'Backend', value: backendVersion),
+          _VersionRow(label: 'App-Version',     value: appVersion),
+          _VersionRow(label: 'API-Version',     value: apiVersion),
+          _VersionRow(label: 'Backend-Version', value: backendVersion),
           const SizedBox(height: 8),
         ],
       ),

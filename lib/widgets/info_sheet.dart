@@ -120,7 +120,7 @@ class _InfoSheet extends StatelessWidget {
                   children: const [
                     _SectionTitle('Screening Gates'),
                     _GateRow('G1', 'Earnings Beat', 'EPS-Überraschung ≤ 30 Tage'),
-                    _GateRow('G2', 'Momentum', '4W Performance > 3 %'),
+                    _GateRow('G2', 'Momentum', 'Performance seit Beat > 3%'),
                     _GateRow('G3', 'Budget', 'Verfügbares Budget ≥ Mindestposition'),
                     _GateRow('G4', 'Preis', 'Kurs ≤ verfügbares Budget'),
                     _GateRow('G5', 'RSI', 'RSI 50–70 (Daily)'),
@@ -128,10 +128,11 @@ class _InfoSheet extends StatelessWidget {
                     _GateRow('G7', 'Earnings-Abstand', 'Nächste Earnings > 7 Tage'),
                     _GateRow('G8', 'SEC EDGAR', 'Kein K.O.-Kriterium im Filing'),
                     _SectionTitle('Score-Berechnung'),
-                    _ScoreRow('EPS Surprise (Stärke des Katalysators)', '70 %'),
-                    _ScoreRow('Performance 4W (Marktreaktion seit Beat)', '30 %'),
+                    _ScoreRow('RSI-Qualität (Sweetspot 63–67)', '40 %'),
+                    _ScoreRow('RSI-Momentum (Anstieg letzte 3 Tage)', '40 %'),
+                    _ScoreRow('EMA-Abstand (moderater Bereich ~2 %)', '20 %'),
                     _ScoreNote(
-                        'Höherer Score = stärkeres Signal. Tie-Breaking bei gleichen Kandidaten.'),
+                        'Score 0.0–1.0. Zeigt welcher Kandidat bei Gleichstand bevorzugt wird. Kein Maß für absolute Qualität — alle Kandidaten haben alle Gates bestanden.'),
                     _SectionTitle('Signal-Hierarchie'),
                     _SignalRow('HARD', 'Sofortiger Handlungsbedarf',
                         'Stop auf ATR×1.0 gesetzt'),
