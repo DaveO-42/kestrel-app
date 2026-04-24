@@ -628,70 +628,61 @@ class _SettingsScreenState extends State<SettingsScreen> {
                     children: [
                       Icon(Icons.logout, color: KestrelColors.red, size: 16),
                       SizedBox(width: 10),
-                      Text(
-                        'Abmelden',
-                        style: TextStyle(
-                          color: KestrelColors.red,
-                          fontSize: 13,
-                          fontWeight: FontWeight.w500,
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text('Abmelden',
+                                style: TextStyle(
+                                    color: KestrelColors.red,
+                                    fontSize: 13,
+                                    fontWeight: FontWeight.w500)),
+                            SizedBox(height: 2),
+                            Text('Kestrel-Sitzung beenden',
+                                style: TextStyle(
+                                    color: KestrelColors.textDimmed,
+                                    fontSize: 10)),
+                          ],
                         ),
                       ),
                     ],
                   ),
                 ),
               ),
-            ],
-          ),
-          // ── Hardware ─────────────────────────────────────
-          _SectionHeader(label: 'Hardware'),
-          _SettingsCard(
-            children: [
-              _SettingsRow(
-                child: Row(
-                  children: [
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: const [
-                          Text('Pi herunterfahren',
-                              style: TextStyle(
-                                  color: KestrelColors.textPrimary,
-                                  fontSize: 13,
-                                  fontWeight: FontWeight.w600)),
-                          SizedBox(height: 2),
-                          Text('Fährt den Raspberry Pi sauber herunter',
-                              style: TextStyle(
-                                  color: KestrelColors.textDimmed,
-                                  fontSize: 10)),
-                        ],
-                      ),
-                    ),
-                    const SizedBox(width: 12),
-                    OutlinedButton(
-                      onPressed: _shutdownLoading ? null : _handleShutdown,
-                      style: OutlinedButton.styleFrom(
-                        side: const BorderSide(color: KestrelColors.red),
-                        padding: const EdgeInsets.symmetric(
-                            horizontal: 14, vertical: 8),
-                        shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(7)),
-                        tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                      ),
-                      child: _shutdownLoading
+              const Divider(height: 1, color: KestrelColors.cardBorder, indent: 13),
+              GestureDetector(
+                onTap: _shutdownLoading ? null : _handleShutdown,
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 13, vertical: 13),
+                  child: Row(
+                    children: [
+                      _shutdownLoading
                           ? const SizedBox(
-                              width: 16,
-                              height: 16,
+                              width: 16, height: 16,
                               child: CircularProgressIndicator(
-                                  strokeWidth: 2,
-                                  color: KestrelColors.red),
-                            )
-                          : const Text('Shutdown',
-                              style: TextStyle(
-                                  color: KestrelColors.red,
-                                  fontSize: 11,
-                                  fontWeight: FontWeight.w600)),
-                    ),
-                  ],
+                                  strokeWidth: 1.5, color: KestrelColors.red))
+                          : const Icon(Icons.power_settings_new,
+                              color: KestrelColors.red, size: 16),
+                      const SizedBox(width: 10),
+                      const Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text('Pi herunterfahren',
+                                style: TextStyle(
+                                    color: KestrelColors.red,
+                                    fontSize: 13,
+                                    fontWeight: FontWeight.w500)),
+                            SizedBox(height: 2),
+                            Text('Fährt den Raspberry Pi sauber herunter',
+                                style: TextStyle(
+                                    color: KestrelColors.textDimmed,
+                                    fontSize: 10)),
+                          ],
+                        ),
+                      ),
+                    ],
+                  ),
                 ),
               ),
             ],
