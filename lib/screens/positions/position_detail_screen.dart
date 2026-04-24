@@ -259,7 +259,7 @@ class _PositionDetailScreenState extends State<PositionDetailScreen> {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.stretch,
                   children: [
-                    _TradeParamsCard(position: p),
+                    _TradeParamsCard(position: p, hasWarn: hasWarn),
                     if (signals.isNotEmpty) ...[
                       const SizedBox(height: 8),
                       _SignalsCard(signals: signals, hasWarn: hasWarn, hasHard: hasHard),
@@ -630,7 +630,8 @@ class _Dot extends StatelessWidget {
 
 class _TradeParamsCard extends StatelessWidget {
   final Map<String, dynamic> position;
-  const _TradeParamsCard({required this.position});
+  final bool hasWarn;
+  const _TradeParamsCard({required this.position, required this.hasWarn});
 
   String _positionSize(Map<String, dynamic> p) {
     final price = (p['last_known_price_eur'] as num?)?.toDouble();
@@ -664,8 +665,6 @@ class _TradeParamsCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final stopMode    = position['stop_mode'] as String? ?? 'normal';
-    final isWarn      = stopMode == 'warn';
     final entryDate   = position['entry_date'] as String?;
     final stopD       = (position['current_stop_eur'] as num?)?.toDouble() ?? 0;
     final entryD      = (position['entry_price_eur']  as num?)?.toDouble() ?? 0;
@@ -729,7 +728,7 @@ class _TradeParamsCard extends StatelessWidget {
                 ),
               ),
               const SizedBox(width: 8),
-              _StopModeBadge(isWarn: isWarn),
+              _StopModeBadge(isWarn: hasWarn),
             ],
           ),
         ],
