@@ -1,4 +1,6 @@
 import 'package:flutter/material.dart';
+import 'package:package_info_plus/package_info_plus.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import '../../services/api_service.dart';
 import '../../services/cache_service.dart';
 import '../../theme/kestrel_theme.dart';
@@ -22,6 +24,10 @@ class _SystemScreenState extends State<SystemScreen> {
   bool _infoOpen     = false;
   bool _resumeLoading = false;
 
+  String _appVersion     = '…';
+  String _apiVersion     = '…';
+  String _backendVersion = '…';
+
   bool get _isOffline => _statusResult?.isOffline ?? false;
   DateTime? get _cachedAt => _statusResult?.cachedAt;
 
@@ -36,6 +42,38 @@ class _SystemScreenState extends State<SystemScreen> {
   void initState() {
     super.initState();
     _load();
+    _loadVersions();
+  }
+
+  Future<void> _loadVersions() async {
+    final results = await Future.wait([
+      SharedPreferences.getInstance(),
+      PackageInfo.fromPlatform(),
+    ]);
+    final prefs = results[0] as SharedPreferences;
+    final info  = results[1] as PackageInfo;
+
+    if (!mounted) return;
+    setState(() {
+      _appVersion     = info.version;
+      _apiVersion     = prefs.getString('version_api')     ?? '…';
+      _backendVersion = prefs.getString('version_backend') ?? '…';
+    });
+
+    try {
+      final versions = await ApiService.getVersion();
+      if (versions != null) {
+        final api     = versions['api']     as String? ?? '–';
+        final backend = versions['backend'] as String? ?? '–';
+        await prefs.setString('version_api',     api);
+        await prefs.setString('version_backend', backend);
+        if (!mounted) return;
+        setState(() {
+          _apiVersion     = api;
+          _backendVersion = backend;
+        });
+      }
+    } catch (_) {}
   }
 
   Future<void> _load() async {
@@ -123,6 +161,12 @@ class _SystemScreenState extends State<SystemScreen> {
                   ],
                   if (runs != null && runs.isNotEmpty)
                     _RunLogCard(runs: runs),
+                  const SizedBox(height: 8),
+                  _VersionCard(
+                    appVersion:     _appVersion,
+                    apiVersion:     _apiVersion,
+                    backendVersion: _backendVersion,
+                  ),
                 ],
               ),
             ),
@@ -541,6 +585,68 @@ class _OrderBadge extends StatelessWidget {
       child: Text(label,
           style: TextStyle(
               color: color, fontSize: 10, fontWeight: FontWeight.w600)),
+    );
+  }
+}
+
+// ── Version Card ──────────────────────────────────────────────
+
+class _VersionCard extends StatelessWidget {
+  final String appVersion;
+  final String apiVersion;
+  final String backendVersion;
+  const _VersionCard({
+    required this.appVersion,
+    required this.apiVersion,
+    required this.backendVersion,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      decoration: BoxDecoration(
+        color: KestrelColors.cardBg,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: KestrelColors.cardBorder),
+      ),
+      padding: const EdgeInsets.fromLTRB(13, 11, 13, 4),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Text('VERSIONEN', style: kCardLabelStyle),
+          const SizedBox(height: 8),
+          _VersionRow(label: 'App',     value: appVersion),
+          _VersionRow(label: 'API',     value: apiVersion),
+          _VersionRow(label: 'Backend', value: backendVersion),
+          const SizedBox(height: 8),
+        ],
+      ),
+    );
+  }
+}
+
+class _VersionRow extends StatelessWidget {
+  final String label;
+  final String value;
+  const _VersionRow({required this.label, required this.value});
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 5),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        children: [
+          Text(label,
+              style: const TextStyle(
+                  color: KestrelColors.textDimmed, fontSize: 11)),
+          Text(value,
+              style: const TextStyle(
+                  color: KestrelColors.textGrey,
+                  fontSize: 11,
+                  fontFamily: 'monospace')),
+        ],
+      ),
     );
   }
 }

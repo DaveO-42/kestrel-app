@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:shared_preferences/shared_preferences.dart';
-import 'package:package_info_plus/package_info_plus.dart';
 import 'services/api_service.dart';
 import 'services/auth_service.dart';
 import 'services/notification_service.dart';
@@ -297,11 +296,6 @@ class _SettingsScreenState extends State<SettingsScreen> {
   String? _connTimestamp;
   bool? _lastConnError;
 
-  // Versionen
-  String _appVersion     = '…';
-  String _apiVersion     = '…';
-  String _backendVersion = '…';
-
   // Server-URL
   late TextEditingController _urlController;
   bool _urlDirty = false;
@@ -327,42 +321,13 @@ class _SettingsScreenState extends State<SettingsScreen> {
   }
 
   Future<void> _loadVersions() async {
-    // 1. Gecachte API-Versionen + PackageInfo parallel laden und sofort anzeigen
-    final results = await Future.wait([
-      SharedPreferences.getInstance(),
-      PackageInfo.fromPlatform(),
-    ]);
-    final prefs = results[0] as SharedPreferences;
-    final info  = results[1] as PackageInfo;
-
+    final prefs = await SharedPreferences.getInstance();
     if (!mounted) return;
     setState(() {
-      _appVersion      = info.version;
-      _apiVersion      = prefs.getString('version_api')     ?? '…';
-      _backendVersion  = prefs.getString('version_backend') ?? '…';
-      _notifShortlist  = prefs.getBool('notif_shortlist')   ?? false;
-      _notifWarn       = prefs.getBool('notif_warn')         ?? false;
-      _notifHard       = prefs.getBool('notif_hard')         ?? false;
+      _notifShortlist = prefs.getBool('notif_shortlist') ?? false;
+      _notifWarn      = prefs.getBool('notif_warn')      ?? false;
+      _notifHard      = prefs.getBool('notif_hard')      ?? false;
     });
-
-    // 2. Frische Versionen vom Server holen
-    try {
-      final versions = await ApiService.getVersion();
-      if (versions != null) {
-        final api     = versions['api']     as String? ?? '–';
-        final backend = versions['backend'] as String? ?? '–';
-        // Zuerst in Cache schreiben – unabhängig vom mounted-Status
-        await prefs.setString('version_api',     api);
-        await prefs.setString('version_backend', backend);
-        if (!mounted) return;
-        setState(() {
-          _apiVersion     = api;
-          _backendVersion = backend;
-        });
-      }
-    } catch (_) {
-      // Fehler: gecachte Werte bleiben stehen
-    }
   }
 
   Future<void> _testConnection() async {
@@ -648,17 +613,6 @@ class _SettingsScreenState extends State<SettingsScreen> {
                 onChanged: (v) =>
                     _onNotifToggle('notif_hard', 'kestrel_hard', v),
               ),
-            ],
-          ),
-
-          // ── App-Info ─────────────────────────────────────
-          _SectionHeader(label: 'App-Info'),
-          _SettingsCard(
-            children: [
-              _InfoRow(label: 'App-Version',     value: _appVersion),
-              _InfoRow(label: 'API-Version',      value: _apiVersion),
-              _InfoRow(label: 'Backend-Version',  value: _backendVersion),
-              _InfoRow(label: 'Pi-Hostname',      value: ApiService.baseUrl.replaceAll('http://', '').replaceAll(':8000', '')),
             ],
           ),
 
@@ -965,38 +919,6 @@ class _ToggleRow extends StatelessWidget {
   }
 }
 
-class _InfoRow extends StatelessWidget {
-  final String label;
-  final String value;
-  const _InfoRow({required this.label, required this.value});
-
-  @override
-  Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 13, vertical: 10),
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-        children: [
-          Text(
-            label,
-            style: const TextStyle(
-              color: KestrelColors.textDimmed,
-              fontSize: 11,
-            ),
-          ),
-          Text(
-            value,
-            style: const TextStyle(
-              color: KestrelColors.textGrey,
-              fontSize: 11,
-              fontFamily: 'monospace',
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-}
 class InfoButton extends StatelessWidget {
   final bool active;
   final VoidCallback onTap;
