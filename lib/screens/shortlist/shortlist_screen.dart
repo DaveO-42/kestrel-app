@@ -110,9 +110,14 @@ class _ShortlistScreenState extends State<ShortlistScreen> {
         .where((c) => !_skipped.contains((c as Map<String, dynamic>)['ticker']))
         .toList();
     final topCandidate = data['top_candidate'];
-    final topTicker    = topCandidate != null
+    final originalTopTicker = topCandidate != null
         ? (topCandidate as Map<String, dynamic>)['ticker'] as String?
         : null;
+
+    // Nach Skip des Top-Kandidaten: nächsten verfügbaren Kandidaten als Top setzen
+    final topTicker = candidates.isNotEmpty
+        ? (candidates.first as Map<String, dynamic>)['ticker'] as String?
+        : originalTopTicker;
     final runTime      = runId.length >= 13
         ? '${runId.substring(9, 11)}:${runId.substring(11, 13)}'
         : runId;
@@ -498,7 +503,7 @@ class _CandidateCardState extends State<_CandidateCard> {
               const SizedBox(width: 6),
               Expanded(child: _MetricCell(
                   value: perf4w != null ? fmtPct(perf4w) : '–',
-                  label: '4W-Perf',
+                  label: 'Perf. seit Beat',
                   valueColor: perf4w != null && perf4w >= 0
                       ? KestrelColors.green : KestrelColors.red)),
               const SizedBox(width: 6),
