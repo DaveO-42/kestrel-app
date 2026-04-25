@@ -29,7 +29,14 @@
         watermark: { visible: false },
         crosshair: { mode: LightweightCharts.CrosshairMode.Normal },
         timeScale: { borderColor: '#141F2E' },
-        rightPriceScale: { borderColor: '#141F2E' },
+        rightPriceScale: {
+          borderColor: '#141F2E',
+          visible: true,
+          borderVisible: false,
+        },
+        leftPriceScale: {
+          visible: false,
+        },
       });
 
       // ── Candlestick series ──────────────────────────────────
@@ -40,6 +47,7 @@
         borderDownColor:  '#EF5350',
         wickUpColor:      '#26A69A',
         wickDownColor:    '#EF5350',
+        lastValueVisible: false,
       });
 
       var candles = (data.candles || []).map(function(c) {
@@ -52,12 +60,12 @@
 
       if (overlays.initial_stop_usd != null) {
         var stopLine = chart.addLineSeries({
-          color:      '#EF5350',
-          lineWidth:  1,
-          lineStyle:  LightweightCharts.LineStyle.Dashed,
-          title:      'Stop',
+          color:            '#EF5350',
+          lineWidth:        1,
+          lineStyle:        LightweightCharts.LineStyle.Dashed,
+          title:            'Stop',
           priceLineVisible: false,
-          lastValueVisible: true,
+          lastValueVisible: false,
         });
         var stopData = candles.map(function(c) {
           return { time: c.time, value: overlays.initial_stop_usd };
@@ -67,12 +75,12 @@
 
       if (overlays.entry_price_usd != null) {
         var entryLine = chart.addLineSeries({
-          color:      '#C9A84C',
-          lineWidth:  1,
-          lineStyle:  LightweightCharts.LineStyle.Dashed,
-          title:      'Entry',
+          color:            '#C9A84C',
+          lineWidth:        1,
+          lineStyle:        LightweightCharts.LineStyle.Dashed,
+          title:            'Entry',
           priceLineVisible: false,
-          lastValueVisible: true,
+          lastValueVisible: false,
         });
         entryLine.setData(candles.map(function(c) {
           return { time: c.time, value: overlays.entry_price_usd };
@@ -81,12 +89,12 @@
 
       if (overlays.current_stop_usd != null) {
         var currentStopLine = chart.addLineSeries({
-          color:      '#EF5350',
-          lineWidth:  1,
-          lineStyle:  LightweightCharts.LineStyle.Dashed,
-          title:      'Stop',
+          color:            '#EF5350',
+          lineWidth:        1,
+          lineStyle:        LightweightCharts.LineStyle.Dashed,
+          title:            'Stop',
           priceLineVisible: false,
-          lastValueVisible: true,
+          lastValueVisible: false,
         });
         currentStopLine.setData(candles.map(function(c) {
           return { time: c.time, value: overlays.current_stop_usd };
@@ -95,11 +103,11 @@
 
       if (overlays.ema20_series && overlays.ema20_series.length > 0) {
         var ema20Series = chart.addLineSeries({
-          color:      '#E05050',
-          lineWidth:  1,
-          title:      'EMA20',
+          color:            '#E05050',
+          lineWidth:        1,
+          title:            'EMA20',
           priceLineVisible: false,
-          lastValueVisible: true,
+          lastValueVisible: false,
         });
         ema20Series.setData(overlays.ema20_series.map(function(p) {
           return { time: p.date, value: p.value };
@@ -108,11 +116,11 @@
 
       if (overlays.ema50_series && overlays.ema50_series.length > 0) {
         var ema50Series = chart.addLineSeries({
-          color:      '#E07820',
-          lineWidth:  1,
-          title:      'EMA50',
+          color:            '#E07820',
+          lineWidth:        1,
+          title:            'EMA50',
           priceLineVisible: false,
-          lastValueVisible: true,
+          lastValueVisible: false,
         });
         ema50Series.setData(overlays.ema50_series.map(function(p) {
           return { time: p.date, value: p.value };
