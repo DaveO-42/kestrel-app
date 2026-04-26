@@ -174,13 +174,8 @@ class _PositionDetailScreenState extends State<PositionDetailScreen> {
           child: Container(height: 1, color: KestrelColors.cardBorder),
         ),
       ),
-      body: Stack(
+      body: ListView(
         children: [
-          ListView(
-            padding: EdgeInsets.only(
-              bottom: 88 + MediaQuery.of(context).padding.bottom,
-            ),
-            children: [
               if (_result!.isOffline)
                 OfflineBanner(cachedAt: _result!.cachedAt),
               if (hasHard) const _HardBanner(),
@@ -272,20 +267,15 @@ class _PositionDetailScreenState extends State<PositionDetailScreen> {
                   ],
                 ),
               ),
-            ],
-          ),
-          // ── Sticky Sell Button ─────────────────────────────
-          Positioned(
-            left: 0,
-            right: 0,
-            bottom: 0,
-            child: _SellButton(
-              onTap: isOffline
-                  ? () => _showOfflineError()
-                  : () => _openSoldSheet(p),
-              disabled: isOffline,
-            ),
-          ),
+              Padding(
+                padding: const EdgeInsets.fromLTRB(12, 16, 12, 24),
+                child: _SellButton(
+                  onTap: isOffline
+                      ? () => _showOfflineError()
+                      : () => _openSoldSheet(p),
+                  disabled: isOffline,
+                ),
+              ),
         ],
       ),
     );
