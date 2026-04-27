@@ -36,6 +36,14 @@ class ApiService {
     return jsonDecode(str);
   }
 
+  static Future<Map<String, String>> _authHeaders() async {
+    final token = await AuthService().getAccessToken();
+    return {
+      'Content-Type': 'application/json',
+      if (token != null) 'Authorization': 'Bearer $token',
+    };
+  }
+
   static Future<CachedResult<T>> getMapCached<T>(
       String mockPath, String endpoint, String cacheKey) async {
     if (useMock) {
@@ -43,15 +51,33 @@ class ApiService {
       return CachedResult(data: data as T);
     }
     try {
-      final response = await http
-          .get(Uri.parse('$baseUrl$endpoint'))
+      final headers = await _authHeaders();
+      var response = await http
+          .get(Uri.parse('$baseUrl$endpoint'), headers: headers)
           .timeout(_timeout);
+      if (response.statusCode == 401) {
+        final newToken = await AuthService().refreshToken();
+        if (newToken != null) {
+          response = await http
+              .get(Uri.parse('$baseUrl$endpoint'),
+                  headers: {...headers, 'Authorization': 'Bearer $newToken'})
+              .timeout(_timeout);
+        }
+        if (response.statusCode == 401) {
+          await AuthService().logout();
+          onAuthError?.call();
+          throw const ActionException('Sitzung abgelaufen.',
+              statusCode: 401, isAuthError: true);
+        }
+      }
       if (response.statusCode == 200) {
         final data = jsonDecode(response.body) as T;
         await CacheService.write(cacheKey, data);
         return CachedResult(data: data, isOffline: false);
       }
       throw Exception('HTTP ${response.statusCode}');
+    } on ActionException {
+      rethrow;
     } catch (_) {
       final cached = await CacheService.read<T>(cacheKey);
       if (cached != null) return cached;
@@ -66,15 +92,33 @@ class ApiService {
       return CachedResult(data: data as T);
     }
     try {
-      final response = await http
-          .get(Uri.parse('$baseUrl$endpoint'))
+      final headers = await _authHeaders();
+      var response = await http
+          .get(Uri.parse('$baseUrl$endpoint'), headers: headers)
           .timeout(_timeout);
+      if (response.statusCode == 401) {
+        final newToken = await AuthService().refreshToken();
+        if (newToken != null) {
+          response = await http
+              .get(Uri.parse('$baseUrl$endpoint'),
+                  headers: {...headers, 'Authorization': 'Bearer $newToken'})
+              .timeout(_timeout);
+        }
+        if (response.statusCode == 401) {
+          await AuthService().logout();
+          onAuthError?.call();
+          throw const ActionException('Sitzung abgelaufen.',
+              statusCode: 401, isAuthError: true);
+        }
+      }
       if (response.statusCode == 200) {
         final data = jsonDecode(response.body) as T;
         await CacheService.write(cacheKey, data);
         return CachedResult(data: data, isOffline: false);
       }
       throw Exception('HTTP ${response.statusCode}');
+    } on ActionException {
+      rethrow;
     } catch (_) {
       final cached = await CacheService.read<T>(cacheKey);
       if (cached != null) return cached;
@@ -99,15 +143,33 @@ class ApiService {
     }
     final key = _positionKey(ticker);
     try {
-      final response = await http
-          .get(Uri.parse('$baseUrl/positions/$ticker'))
+      final headers = await _authHeaders();
+      var response = await http
+          .get(Uri.parse('$baseUrl/positions/$ticker'), headers: headers)
           .timeout(_timeout);
+      if (response.statusCode == 401) {
+        final newToken = await AuthService().refreshToken();
+        if (newToken != null) {
+          response = await http
+              .get(Uri.parse('$baseUrl/positions/$ticker'),
+                  headers: {...headers, 'Authorization': 'Bearer $newToken'})
+              .timeout(_timeout);
+        }
+        if (response.statusCode == 401) {
+          await AuthService().logout();
+          onAuthError?.call();
+          throw const ActionException('Sitzung abgelaufen.',
+              statusCode: 401, isAuthError: true);
+        }
+      }
       if (response.statusCode == 200) {
         final data = jsonDecode(response.body) as Map<String, dynamic>;
         await CacheService.write(key, data);
         return CachedResult(data: data, isOffline: false);
       }
       throw Exception('HTTP ${response.statusCode}');
+    } on ActionException {
+      rethrow;
     } catch (_) {
       final cached = await CacheService.read<Map<String, dynamic>>(key);
       if (cached != null) return cached;
@@ -180,9 +242,25 @@ class ApiService {
   // ── Candidate Chart ──────────────────────────────────────────
 
   static Future<Map<String, dynamic>> getPositionChart(String ticker) async {
-    final response = await http
-        .get(Uri.parse('$baseUrl/positions/$ticker/chart'))
+    final headers = await _authHeaders();
+    var response = await http
+        .get(Uri.parse('$baseUrl/positions/$ticker/chart'), headers: headers)
         .timeout(const Duration(seconds: 15));
+    if (response.statusCode == 401) {
+      final newToken = await AuthService().refreshToken();
+      if (newToken != null) {
+        response = await http
+            .get(Uri.parse('$baseUrl/positions/$ticker/chart'),
+                headers: {...headers, 'Authorization': 'Bearer $newToken'})
+            .timeout(const Duration(seconds: 15));
+      }
+      if (response.statusCode == 401) {
+        await AuthService().logout();
+        onAuthError?.call();
+        throw const ActionException('Sitzung abgelaufen.',
+            statusCode: 401, isAuthError: true);
+      }
+    }
     if (response.statusCode == 200) {
       return jsonDecode(response.body) as Map<String, dynamic>;
     }
@@ -190,9 +268,25 @@ class ApiService {
   }
 
   static Future<Map<String, dynamic>> getCandidateChart(String ticker) async {
-    final response = await http
-        .get(Uri.parse('$baseUrl/candidates/$ticker/chart'))
+    final headers = await _authHeaders();
+    var response = await http
+        .get(Uri.parse('$baseUrl/candidates/$ticker/chart'), headers: headers)
         .timeout(const Duration(seconds: 15));
+    if (response.statusCode == 401) {
+      final newToken = await AuthService().refreshToken();
+      if (newToken != null) {
+        response = await http
+            .get(Uri.parse('$baseUrl/candidates/$ticker/chart'),
+                headers: {...headers, 'Authorization': 'Bearer $newToken'})
+            .timeout(const Duration(seconds: 15));
+      }
+      if (response.statusCode == 401) {
+        await AuthService().logout();
+        onAuthError?.call();
+        throw const ActionException('Sitzung abgelaufen.',
+            statusCode: 401, isAuthError: true);
+      }
+    }
     if (response.statusCode == 200) {
       return jsonDecode(response.body) as Map<String, dynamic>;
     }
@@ -252,6 +346,10 @@ class ApiService {
 
   static Future<Map<String, dynamic>> postShutdown() async {
     return _postAction('/system/shutdown', '{}');
+  }
+
+  static Future<Map<String, dynamic>> triggerRun() async {
+    return _postAction('/actions/trigger-run', '{}');
   }
 
   static VoidCallback? onAuthError;
