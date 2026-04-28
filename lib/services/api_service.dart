@@ -8,7 +8,8 @@ import 'cache_service.dart';
 
 class ApiService {
   // ── Mock-Flag ─────────────────────────────────────────────────
-  static const bool useMock = bool.fromEnvironment('USE_MOCK', defaultValue: false);
+  static const bool useMock = bool.fromEnvironment(
+      'USE_MOCK', defaultValue: false);
   static String baseUrl = 'https://api.kestrel-trading.com';
   static const _timeout = Duration(seconds: 8);
 
@@ -19,13 +20,13 @@ class ApiService {
   }
 
   // ── Cache-Keys ────────────────────────────────────────────────
-  static const String _keyDashboard      = 'cache_dashboard';
-  static const String _keyPositions      = 'cache_positions';
-  static const String _keyShortlist      = 'cache_shortlist';
-  static const String _keyHistory        = 'cache_history';
+  static const String _keyDashboard = 'cache_dashboard';
+  static const String _keyPositions = 'cache_positions';
+  static const String _keyShortlist = 'cache_shortlist';
+  static const String _keyHistory = 'cache_history';
   static const String _keyHistorySummary = 'cache_history_summary';
-  static const String _keySystemStatus   = 'cache_system_status';
-  static const String _keyRuns           = 'cache_runs';
+  static const String _keySystemStatus = 'cache_system_status';
+  static const String _keyRuns = 'cache_runs';
 
   static String _positionKey(String ticker) => 'cache_position_$ticker';
 
@@ -44,8 +45,8 @@ class ApiService {
     };
   }
 
-  static Future<CachedResult<T>> getMapCached<T>(
-      String mockPath, String endpoint, String cacheKey) async {
+  static Future<CachedResult<T>> getMapCached<T>(String mockPath,
+      String endpoint, String cacheKey) async {
     if (useMock) {
       final data = await _loadAsset(mockPath);
       return CachedResult(data: data as T);
@@ -60,7 +61,7 @@ class ApiService {
         if (newToken != null) {
           response = await http
               .get(Uri.parse('$baseUrl$endpoint'),
-                  headers: {...headers, 'Authorization': 'Bearer $newToken'})
+              headers: {...headers, 'Authorization': 'Bearer $newToken'})
               .timeout(_timeout);
         }
         if (response.statusCode == 401) {
@@ -85,8 +86,8 @@ class ApiService {
     }
   }
 
-  static Future<CachedResult<T>> getListCached<T>(
-      String mockPath, String endpoint, String cacheKey) async {
+  static Future<CachedResult<T>> getListCached<T>(String mockPath,
+      String endpoint, String cacheKey) async {
     if (useMock) {
       final data = await _loadAsset(mockPath);
       return CachedResult(data: data as T);
@@ -101,7 +102,7 @@ class ApiService {
         if (newToken != null) {
           response = await http
               .get(Uri.parse('$baseUrl$endpoint'),
-                  headers: {...headers, 'Authorization': 'Bearer $newToken'})
+              headers: {...headers, 'Authorization': 'Bearer $newToken'})
               .timeout(_timeout);
         }
         if (response.statusCode == 401) {
@@ -132,7 +133,8 @@ class ApiService {
       getMapCached('assets/mock/dashboard.json', '/dashboard', _keyDashboard);
 
   static Future<CachedResult<List<dynamic>>> getPositions() =>
-      getListCached('assets/mock/position_nvda.json', '/positions', _keyPositions);
+      getListCached(
+          'assets/mock/position_nvda.json', '/positions', _keyPositions);
 
   static Future<CachedResult<Map<String, dynamic>>> getPosition(
       String ticker) async {
@@ -152,7 +154,7 @@ class ApiService {
         if (newToken != null) {
           response = await http
               .get(Uri.parse('$baseUrl/positions/$ticker'),
-                  headers: {...headers, 'Authorization': 'Bearer $newToken'})
+              headers: {...headers, 'Authorization': 'Bearer $newToken'})
               .timeout(_timeout);
         }
         if (response.statusCode == 401) {
@@ -194,7 +196,7 @@ class ApiService {
   static Future<Map<String, dynamic>?> getSystemHealth() async {
     if (useMock) return null;
     try {
-      final headers  = await _authHeaders();
+      final headers = await _authHeaders();
       final response = await http
           .get(Uri.parse('$baseUrl/system/health'), headers: headers)
           .timeout(_timeout);
@@ -226,7 +228,8 @@ class ApiService {
 
   static Future<int> testConnection() async {
     try {
-      final stopwatch = Stopwatch()..start();
+      final stopwatch = Stopwatch()
+        ..start();
       final response = await http
           .get(Uri.parse('$baseUrl/health'))
           .timeout(const Duration(seconds: 5));
@@ -252,7 +255,7 @@ class ApiService {
       if (newToken != null) {
         response = await http
             .get(Uri.parse('$baseUrl/positions/$ticker/chart'),
-                headers: {...headers, 'Authorization': 'Bearer $newToken'})
+            headers: {...headers, 'Authorization': 'Bearer $newToken'})
             .timeout(const Duration(seconds: 15));
       }
       if (response.statusCode == 401) {
@@ -278,7 +281,7 @@ class ApiService {
       if (newToken != null) {
         response = await http
             .get(Uri.parse('$baseUrl/candidates/$ticker/chart'),
-                headers: {...headers, 'Authorization': 'Bearer $newToken'})
+            headers: {...headers, 'Authorization': 'Bearer $newToken'})
             .timeout(const Duration(seconds: 15));
       }
       if (response.statusCode == 401) {
@@ -355,8 +358,8 @@ class ApiService {
 
   static VoidCallback? onAuthError;
 
-  static Future<Map<String, dynamic>> _postAction(
-      String endpoint, String body) async {
+  static Future<Map<String, dynamic>> _postAction(String endpoint,
+      String body) async {
     if (useMock) {
       await Future.delayed(const Duration(milliseconds: 400));
       return {'ok': true};
@@ -377,10 +380,10 @@ class ApiService {
         if (newToken != null) {
           response = await http
               .post(
-                Uri.parse('$baseUrl$endpoint'),
-                headers: {...headers, 'Authorization': 'Bearer $newToken'},
-                body: body,
-              )
+            Uri.parse('$baseUrl$endpoint'),
+            headers: {...headers, 'Authorization': 'Bearer $newToken'},
+            body: body,
+          )
               .timeout(_timeout);
         }
         if (response.statusCode == 401) {
@@ -401,31 +404,43 @@ class ApiService {
       throw ActionException('Verbindungsfehler: $e');
     }
   }
+
   // ── Sandbox ────────────────────────────────────────────────────
 
   static Future<Map<String, dynamic>> postSandboxRun({
     required double atrMultiplier,
-    required int    rsiMin,
-    required int    rsiMax,
+    required int rsiMin,
+    required int rsiMax,
     required double minPerfPct,
     required List<int> years,
   }) async {
     final body = jsonEncode({
       'atr_multiplier': atrMultiplier,
-      'rsi_min':        rsiMin,
-      'rsi_max':        rsiMax,
-      'min_perf_pct':   minPerfPct,
-      'years':          years,
-      'universe':       'combined',
+      'rsi_min': rsiMin,
+      'rsi_max': rsiMax,
+      'min_perf_pct': minPerfPct,
+      'years': years,
+      'universe': 'combined',
     });
     return _postAction('/sandbox/run', body);
   }
 
+  static Future<Map<String, dynamic>> postSandboxCancel(String jobId) async {
+    return _postAction('/sandbox/cancel/$jobId', '{}');
+  }
+
   static Future<Map<String, dynamic>> getSandboxStatus(String jobId) async {
-    if (useMock) return {'status': 'done', 'message': 'Fertig', 'current': 3, 'total': 3, 'result': null, 'error': null};
+    if (useMock) return {
+      'status': 'done',
+      'message': 'Fertig',
+      'current': 3,
+      'total': 3,
+      'result': null,
+      'error': null
+    };
     try {
-      final headers  = await _authHeaders();
-      var response   = await http
+      final headers = await _authHeaders();
+      var response = await http
           .get(Uri.parse('$baseUrl/sandbox/status/$jobId'), headers: headers)
           .timeout(_timeout);
       if (response.statusCode == 401) {
@@ -439,10 +454,12 @@ class ApiService {
         if (response.statusCode == 401) {
           await AuthService().logout();
           onAuthError?.call();
-          throw const ActionException('Sitzung abgelaufen.', statusCode: 401, isAuthError: true);
+          throw const ActionException(
+              'Sitzung abgelaufen.', statusCode: 401, isAuthError: true);
         }
       }
-      if (response.statusCode == 200) return jsonDecode(response.body) as Map<String, dynamic>;
+      if (response.statusCode == 200)
+        return jsonDecode(response.body) as Map<String, dynamic>;
       throw Exception('HTTP ${response.statusCode}');
     } on ActionException {
       rethrow;
@@ -453,12 +470,15 @@ class ApiService {
 
 // ── Kalender ───────────────────────────────────────────────────
 
-  static Future<Map<String, dynamic>> getCalendar({String filter = 'all'}) async {
-    if (useMock) return {'days': [], 'fetched_at': DateTime.now().toIso8601String()};
+  static Future<Map<String, dynamic>> getCalendar(
+      {String filter = 'all'}) async {
+    if (useMock)
+      return {'days': [], 'fetched_at': DateTime.now().toIso8601String()};
     try {
-      final headers  = await _authHeaders();
-      var response   = await http
-          .get(Uri.parse('$baseUrl/lab/calendar?filter=$filter'), headers: headers)
+      final headers = await _authHeaders();
+      var response = await http
+          .get(
+          Uri.parse('$baseUrl/lab/calendar?filter=$filter'), headers: headers)
           .timeout(_timeout);
       if (response.statusCode == 401) {
         final newToken = await AuthService().refreshToken();
@@ -471,10 +491,12 @@ class ApiService {
         if (response.statusCode == 401) {
           await AuthService().logout();
           onAuthError?.call();
-          throw const ActionException('Sitzung abgelaufen.', statusCode: 401, isAuthError: true);
+          throw const ActionException(
+              'Sitzung abgelaufen.', statusCode: 401, isAuthError: true);
         }
       }
-      if (response.statusCode == 200) return jsonDecode(response.body) as Map<String, dynamic>;
+      if (response.statusCode == 200)
+        return jsonDecode(response.body) as Map<String, dynamic>;
       throw Exception('HTTP ${response.statusCode}');
     } on ActionException {
       rethrow;
@@ -483,7 +505,6 @@ class ApiService {
     }
   }
 }
-
 // ── ActionException ───────────────────────────────────────────
 
 class ActionException implements Exception {

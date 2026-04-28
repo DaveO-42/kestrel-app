@@ -36,7 +36,7 @@ class _CalendarScreenState extends State<CalendarScreen> {
       };
       final data = await ApiService.getCalendar(filter: filterStr);
       setState(() {
-        _days   = (data['days'] as List? ?? []);
+        _days    = (data['days'] as List? ?? []);
         _loading = false;
       });
     } catch (e) {
@@ -65,7 +65,7 @@ class _CalendarScreenState extends State<CalendarScreen> {
               : _error != null
               ? _ErrorState(message: _error!)
               : _days.isEmpty
-              ? const _EmptyState()
+              ? _EmptyState(filter: _filter)
               : RefreshIndicator(
             color:     KestrelColors.gold,
             onRefresh: _load,
@@ -165,7 +165,7 @@ class _DayGroup extends StatelessWidget {
     final label      = day['label']   as String? ?? day['date'] as String? ?? '';
     final entries    = (day['entries'] as List? ?? []).cast<Map<String, dynamic>>();
     final relevant   = entries.where((e) => e['tag'] != 'universe').toList();
-    final universeN  = entries.where((e) => e['tag'] == 'universe').length;
+    final universe   = entries.where((e) => e['tag'] == 'universe').toList();
 
     return Padding(
       padding: const EdgeInsets.only(bottom: 16),
@@ -174,8 +174,11 @@ class _DayGroup extends StatelessWidget {
         children: [
           _DayHeader(label: label, count: entries.length),
           const SizedBox(height: 6),
+          // Positions + Shortlist als vollständige Cards
           ...relevant.map((e) => _EntryCard(entry: e)),
-          if (universeN > 0) _UniverseSummary(count: universeN),
+          // Universe als kompakte Chip-Zeile
+          if (universe.isNotEmpty)
+            _UniverseChips(entries: universe),
         ],
       ),
     );
@@ -206,13 +209,136 @@ class _DayHeader extends StatelessWidget {
         const Spacer(),
         Text('$count Berichte',
             style: const TextStyle(
-                color: KestrelColors.textGrey, fontSize: 11)),
+                color: KestrelColors.textDimmed, fontSize: 11)),
       ],
     );
   }
 }
 
-// ── Entry Card ─────────────────────────────────────────────────
+// ── Universe Chips ─────────────────────────────────────────────
+
+class _UniverseChips extends StatefulWidget {
+  final List<Map<String, dynamic>> entries;
+  const _UniverseChips({required this.entries});
+
+  @override
+  State<_UniverseChips> createState() => _UniverseChipsState();
+}
+
+class _UniverseChipsState extends State<_UniverseChips> {
+  static const int _maxVisible = 12;
+  bool _expanded = false;
+
+  @override
+  Widget build(BuildContext context) {
+    final tickers   = widget.entries.map((e) => e['ticker'] as String? ?? '').toList();
+    final visible   = _expanded ? tickers : tickers.take(_maxVisible).toList();
+    final overflow  = tickers.length - _maxVisible;
+
+    return Container(
+      width:   double.infinity,
+      padding: const EdgeInsets.fromLTRB(10, 8, 10, 10),
+      decoration: BoxDecoration(
+        color:        KestrelColors.cardBg,
+        borderRadius: BorderRadius.circular(10),
+        border:       Border.all(color: KestrelColors.cardBorder, width: 0.5),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Text(
+            'UNIVERSUM',
+            style: TextStyle(
+              color:         KestrelColors.textDimmed,
+              fontSize:      9,
+              fontWeight:    FontWeight.w700,
+              letterSpacing: 0.8,
+            ),
+          ),
+          const SizedBox(height: 7),
+          Wrap(
+            spacing:   6,
+            runSpacing: 5,
+            children: [
+              ...visible.map((t) => _TickerChip(ticker: t)),
+              if (!_expanded && overflow > 0)
+                GestureDetector(
+                  onTap: () => setState(() => _expanded = true),
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(
+                        horizontal: 8, vertical: 4),
+                    decoration: BoxDecoration(
+                      color:        KestrelColors.screenBg,
+                      borderRadius: BorderRadius.circular(5),
+                      border:       Border.all(
+                          color: KestrelColors.cardBorder,
+                          style: BorderStyle.solid),
+                    ),
+                    child: Text(
+                      '+$overflow',
+                      style: const TextStyle(
+                        color:      KestrelColors.textDimmed,
+                        fontSize:   11,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                  ),
+                ),
+              if (_expanded)
+                GestureDetector(
+                  onTap: () => setState(() => _expanded = false),
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(
+                        horizontal: 8, vertical: 4),
+                    decoration: BoxDecoration(
+                      color:        KestrelColors.screenBg,
+                      borderRadius: BorderRadius.circular(5),
+                      border:       Border.all(color: KestrelColors.cardBorder),
+                    ),
+                    child: const Text(
+                      'Weniger',
+                      style: TextStyle(
+                        color:      KestrelColors.textDimmed,
+                        fontSize:   11,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                  ),
+                ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _TickerChip extends StatelessWidget {
+  final String ticker;
+  const _TickerChip({required this.ticker});
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+      decoration: BoxDecoration(
+        color:        KestrelColors.screenBg,
+        borderRadius: BorderRadius.circular(5),
+        border:       Border.all(color: KestrelColors.cardBorder, width: 0.5),
+      ),
+      child: Text(
+        ticker,
+        style: const TextStyle(
+          color:      KestrelColors.textPrimary,
+          fontSize:   11,
+          fontWeight: FontWeight.w500,
+        ),
+      ),
+    );
+  }
+}
+
+// ── Entry Card (Position / Shortlist) ──────────────────────────
 
 class _EntryCard extends StatelessWidget {
   final Map<String, dynamic> entry;
@@ -228,9 +354,7 @@ class _EntryCard extends StatelessWidget {
 
     final accentColor = tag == 'position'
         ? KestrelColors.gold
-        : tag == 'shortlist'
-        ? KestrelColors.green
-        : KestrelColors.cardBorder;
+        : KestrelColors.green;
 
     return Container(
       margin: const EdgeInsets.only(bottom: 6),
@@ -238,7 +362,7 @@ class _EntryCard extends StatelessWidget {
         color:        KestrelColors.cardBg,
         borderRadius: BorderRadius.circular(10),
         border: Border(
-          left:   BorderSide(color: accentColor, width: tag == 'universe' ? 0.5 : 2),
+          left:   BorderSide(color: accentColor, width: 2),
           top:    const BorderSide(color: KestrelColors.cardBorder, width: 0.5),
           right:  const BorderSide(color: KestrelColors.cardBorder, width: 0.5),
           bottom: const BorderSide(color: KestrelColors.cardBorder, width: 0.5),
@@ -272,8 +396,8 @@ class _EntryCard extends StatelessWidget {
                     company,
                     style: const TextStyle(
                         color: KestrelColors.textGrey, fontSize: 11),
-                    maxLines:  1,
-                    overflow:  TextOverflow.ellipsis,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
                   ),
                 ],
               ),
@@ -293,7 +417,6 @@ class _TagBadge extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     if (tag == 'universe') return const SizedBox.shrink();
-
     final isPosition = tag == 'position';
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
@@ -307,9 +430,9 @@ class _TagBadge extends StatelessWidget {
       child: Text(
         isPosition ? 'Position' : 'Shortlist',
         style: TextStyle(
-          color:      isPosition ? KestrelColors.gold : KestrelColors.green,
-          fontSize:   9,
-          fontWeight: FontWeight.w700,
+          color:         isPosition ? KestrelColors.gold : KestrelColors.green,
+          fontSize:      9,
+          fontWeight:    FontWeight.w700,
           letterSpacing: 0.3,
         ),
       ),
@@ -325,7 +448,7 @@ class _LockChip extends StatelessWidget {
       decoration: BoxDecoration(
         color:        KestrelColors.goldBg,
         borderRadius: BorderRadius.circular(4),
-        border: Border.all(color: KestrelColors.goldBorder),
+        border:       Border.all(color: KestrelColors.goldBorder),
       ),
       child: const Text(
         'Sperre aktiv',
@@ -347,32 +470,9 @@ class _TimeChip extends StatelessWidget {
     return Text(
       time.toUpperCase(),
       style: const TextStyle(
-          color:    KestrelColors.textGrey,
-          fontSize: 11,
+          color:         KestrelColors.textDimmed,
+          fontSize:      11,
           letterSpacing: 0.4),
-    );
-  }
-}
-
-class _UniverseSummary extends StatelessWidget {
-  final int count;
-  const _UniverseSummary({required this.count});
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      margin:  const EdgeInsets.only(bottom: 6),
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 9),
-      decoration: BoxDecoration(
-        color:        KestrelColors.cardBg,
-        borderRadius: BorderRadius.circular(10),
-        border: Border.all(
-            color: KestrelColors.cardBorder, width: 0.5, style: BorderStyle.solid),
-      ),
-      child: Text(
-        '$count weitere Berichte im Universum',
-        style: const TextStyle(color: KestrelColors.textGrey, fontSize: 12),
-      ),
     );
   }
 }
@@ -380,14 +480,58 @@ class _UniverseSummary extends StatelessWidget {
 // ── States ─────────────────────────────────────────────────────
 
 class _EmptyState extends StatelessWidget {
-  const _EmptyState();
+  final _CalFilter filter;
+  const _EmptyState({required this.filter});
 
   @override
   Widget build(BuildContext context) {
-    return const Center(
-      child: Text(
-        'Keine Earnings in den nächsten 14 Tagen',
-        style: TextStyle(color: KestrelColors.textGrey, fontSize: 13),
+    final (icon, title, subtitle) = switch (filter) {
+      _CalFilter.positions => (
+      Icons.check_circle_outline,
+      'Keine bevorstehenden Earnings',
+      'Deine offenen Positionen haben\nkeine Earnings in den nächsten 14 Tagen.',
+      ),
+      _CalFilter.shortlist => (
+      Icons.playlist_remove,
+      'Shortlist hat keine Earnings',
+      'Keine Shortlist-Kandidaten mit\nbevorstehenden Earnings gefunden.',
+      ),
+      _CalFilter.all => (
+      Icons.event_busy_outlined,
+      'Keine Earnings',
+      'Keine Berichte in den nächsten 14 Tagen.',
+      ),
+    };
+
+    return Center(
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 40),
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(icon, color: KestrelColors.textDimmed, size: 40),
+            const SizedBox(height: 16),
+            Text(
+              title,
+              style: const TextStyle(
+                color:      KestrelColors.textPrimary,
+                fontSize:   15,
+                fontWeight: FontWeight.w600,
+              ),
+              textAlign: TextAlign.center,
+            ),
+            const SizedBox(height: 8),
+            Text(
+              subtitle,
+              style: const TextStyle(
+                color:    KestrelColors.textGrey,
+                fontSize: 13,
+                height:   1.5,
+              ),
+              textAlign: TextAlign.center,
+            ),
+          ],
+        ),
       ),
     );
   }

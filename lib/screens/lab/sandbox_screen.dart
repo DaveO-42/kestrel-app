@@ -106,6 +106,9 @@ class _SandboxScreenState extends State<SandboxScreen>
           _running = false;
           _result  = status['result'] as Map<String, dynamic>?;
         });
+      } else if (s == 'cancelled') {
+        _pollTimer?.cancel();
+        setState(() { _running = false; });
       } else if (s == 'error') {
         _pollTimer?.cancel();
         setState(() {
@@ -114,6 +117,15 @@ class _SandboxScreenState extends State<SandboxScreen>
         });
       }
     } catch (_) {}
+  }
+
+  Future<void> _cancelRun() async {
+    if (_jobId == null) return;
+    _pollTimer?.cancel();
+    try {
+      await ApiService.postSandboxCancel(_jobId!);
+    } catch (_) {}
+    setState(() { _running = false; });
   }
 
   void _reset() {
@@ -337,6 +349,26 @@ class _SandboxScreenState extends State<SandboxScreen>
                   ),
                 );
               }).toList(),
+            ),
+            const SizedBox(height: 32),
+            GestureDetector(
+              onTap: _cancelRun,
+              child: Container(
+                padding: const EdgeInsets.symmetric(
+                    horizontal: 24, vertical: 10),
+                decoration: BoxDecoration(
+                  color:        Colors.transparent,
+                  borderRadius: BorderRadius.circular(8),
+                  border: Border.all(color: KestrelColors.cardBorder),
+                ),
+                child: const Text(
+                  'Abbrechen',
+                  style: TextStyle(
+                    color:    KestrelColors.textGrey,
+                    fontSize: 13,
+                  ),
+                ),
+              ),
             ),
           ],
         ),
