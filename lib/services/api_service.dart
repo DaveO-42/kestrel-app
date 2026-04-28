@@ -194,8 +194,9 @@ class ApiService {
   static Future<Map<String, dynamic>?> getSystemHealth() async {
     if (useMock) return null;
     try {
+      final headers  = await _authHeaders();
       final response = await http
-          .get(Uri.parse('$baseUrl/system/health'))
+          .get(Uri.parse('$baseUrl/system/health'), headers: headers)
           .timeout(_timeout);
       if (response.statusCode == 200) {
         return jsonDecode(response.body) as Map<String, dynamic>;
@@ -394,6 +395,87 @@ class ApiService {
       if (response.statusCode == 200) return data;
       final detail = data['detail'] as String? ?? 'Unbekannter Fehler';
       throw ActionException(detail, statusCode: response.statusCode);
+    } on ActionException {
+      rethrow;
+    } catch (e) {
+      throw ActionException('Verbindungsfehler: $e');
+    }
+  }
+  // ── Sandbox ────────────────────────────────────────────────────
+
+  static Future<Map<String, dynamic>> postSandboxRun({
+    required double atrMultiplier,
+    required int    rsiMin,
+    required int    rsiMax,
+    required double minPerfPct,
+    required List<int> years,
+  }) async {
+    final body = jsonEncode({
+      'atr_multiplier': atrMultiplier,
+      'rsi_min':        rsiMin,
+      'rsi_max':        rsiMax,
+      'min_perf_pct':   minPerfPct,
+      'years':          years,
+      'universe':       'combined',
+    });
+    return _postAction('/sandbox/run', body);
+  }
+
+  static Future<Map<String, dynamic>> getSandboxStatus(String jobId) async {
+    if (useMock) return {'status': 'done', 'message': 'Fertig', 'current': 3, 'total': 3, 'result': null, 'error': null};
+    try {
+      final headers  = await _authHeaders();
+      var response   = await http
+          .get(Uri.parse('$baseUrl/sandbox/status/$jobId'), headers: headers)
+          .timeout(_timeout);
+      if (response.statusCode == 401) {
+        final newToken = await AuthService().refreshToken();
+        if (newToken != null) {
+          response = await http
+              .get(Uri.parse('$baseUrl/sandbox/status/$jobId'),
+              headers: {...headers, 'Authorization': 'Bearer $newToken'})
+              .timeout(_timeout);
+        }
+        if (response.statusCode == 401) {
+          await AuthService().logout();
+          onAuthError?.call();
+          throw const ActionException('Sitzung abgelaufen.', statusCode: 401, isAuthError: true);
+        }
+      }
+      if (response.statusCode == 200) return jsonDecode(response.body) as Map<String, dynamic>;
+      throw Exception('HTTP ${response.statusCode}');
+    } on ActionException {
+      rethrow;
+    } catch (e) {
+      throw ActionException('Verbindungsfehler: $e');
+    }
+  }
+
+// ── Kalender ───────────────────────────────────────────────────
+
+  static Future<Map<String, dynamic>> getCalendar({String filter = 'all'}) async {
+    if (useMock) return {'days': [], 'fetched_at': DateTime.now().toIso8601String()};
+    try {
+      final headers  = await _authHeaders();
+      var response   = await http
+          .get(Uri.parse('$baseUrl/lab/calendar?filter=$filter'), headers: headers)
+          .timeout(_timeout);
+      if (response.statusCode == 401) {
+        final newToken = await AuthService().refreshToken();
+        if (newToken != null) {
+          response = await http
+              .get(Uri.parse('$baseUrl/lab/calendar?filter=$filter'),
+              headers: {...headers, 'Authorization': 'Bearer $newToken'})
+              .timeout(_timeout);
+        }
+        if (response.statusCode == 401) {
+          await AuthService().logout();
+          onAuthError?.call();
+          throw const ActionException('Sitzung abgelaufen.', statusCode: 401, isAuthError: true);
+        }
+      }
+      if (response.statusCode == 200) return jsonDecode(response.body) as Map<String, dynamic>;
+      throw Exception('HTTP ${response.statusCode}');
     } on ActionException {
       rethrow;
     } catch (e) {
