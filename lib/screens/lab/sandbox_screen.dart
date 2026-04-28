@@ -29,7 +29,9 @@ class _SandboxScreenState extends State<SandboxScreen>
   Map<String, dynamic>? _result;
   String?               _error;
   bool                  _running    = false;
+  bool                  _cancelling = false;
   Timer?                _pollTimer;
+  Timer?                _cancelTimer;
 
   // ── Hover Animation ────────────────────────────────────────
   late final AnimationController _hoverCtrl;
@@ -51,6 +53,7 @@ class _SandboxScreenState extends State<SandboxScreen>
   void dispose() {
     _hoverCtrl.dispose();
     _pollTimer?.cancel();
+    _cancelTimer?.cancel();
     super.dispose();
   }
 
@@ -108,7 +111,8 @@ class _SandboxScreenState extends State<SandboxScreen>
         });
       } else if (s == 'cancelled') {
         _pollTimer?.cancel();
-        setState(() { _running = false; });
+        _cancelTimer?.cancel();
+        setState(() { _running = false; _cancelling = false; });
       } else if (s == 'error') {
         _pollTimer?.cancel();
         setState(() {
@@ -121,17 +125,33 @@ class _SandboxScreenState extends State<SandboxScreen>
 
   Future<void> _cancelRun() async {
     if (_jobId == null) return;
-    _pollTimer?.cancel();
+    setState(() => _cancelling = true);
     try {
       await ApiService.postSandboxCancel(_jobId!);
     } catch (_) {}
-    setState(() { _running = false; });
+
+    // Timeout: nach 20s UI zurücksetzen auch wenn Backend noch läuft
+    _cancelTimer = Timer(const Duration(seconds: 20), () {
+      if (mounted && _cancelling) {
+        setState(() {
+          _running    = false;
+          _cancelling = false;
+          _error      = 'Job läuft noch im Hintergrund. Bitte 30 Sekunden warten bevor du einen neuen Start versuchst.';
+          _jobId      = null;
+          _jobMessage = '';
+          _jobCurrent = 0;
+        });
+        _pollTimer?.cancel();
+      }
+    });
   }
 
   void _reset() {
     _pollTimer?.cancel();
+    _cancelTimer?.cancel();
     setState(() {
       _running    = false;
+      _cancelling = false;
       _result     = null;
       _error      = null;
       _jobId      = null;
@@ -311,9 +331,11 @@ class _SandboxScreenState extends State<SandboxScreen>
             ),
             const SizedBox(height: 32),
             Text(
-              _jobMessage,
-              style: const TextStyle(
-                color:    KestrelColors.textPrimary,
+              _cancelling ? 'Wird abgebrochen…' : _jobMessage,
+              style: TextStyle(
+                color:    _cancelling
+                    ? KestrelColors.textGrey
+                    : KestrelColors.textPrimary,
                 fontSize: 16,
               ),
             ),
@@ -321,10 +343,12 @@ class _SandboxScreenState extends State<SandboxScreen>
             ClipRRect(
               borderRadius: BorderRadius.circular(4),
               child: LinearProgressIndicator(
-                value:           pct,
+                value:           _cancelling ? null : pct,
                 minHeight:       6,
                 backgroundColor: KestrelColors.cardBorder,
-                valueColor: const AlwaysStoppedAnimation(KestrelColors.gold),
+                valueColor: AlwaysStoppedAnimation(
+                  _cancelling ? KestrelColors.textDimmed : KestrelColors.gold,
+                ),
               ),
             ),
             const SizedBox(height: 8),
@@ -352,19 +376,25 @@ class _SandboxScreenState extends State<SandboxScreen>
             ),
             const SizedBox(height: 32),
             GestureDetector(
-              onTap: _cancelRun,
+              onTap: _cancelling ? null : _cancelRun,
               child: Container(
                 padding: const EdgeInsets.symmetric(
                     horizontal: 24, vertical: 10),
                 decoration: BoxDecoration(
                   color:        Colors.transparent,
                   borderRadius: BorderRadius.circular(8),
-                  border: Border.all(color: KestrelColors.cardBorder),
+                  border: Border.all(
+                    color: _cancelling
+                        ? KestrelColors.cardBorder.withOpacity(0.4)
+                        : KestrelColors.cardBorder,
+                  ),
                 ),
-                child: const Text(
-                  'Abbrechen',
+                child: Text(
+                  _cancelling ? 'Bitte warten…' : 'Abbrechen',
                   style: TextStyle(
-                    color:    KestrelColors.textGrey,
+                    color:    _cancelling
+                        ? KestrelColors.textDimmed
+                        : KestrelColors.textGrey,
                     fontSize: 13,
                   ),
                 ),
