@@ -13,16 +13,15 @@ class SandboxScreen extends StatefulWidget {
 class _SandboxScreenState extends State<SandboxScreen>
     with TickerProviderStateMixin {
 
-  // ── Parameter ─────────────────────────────────────────────
-  double _atrMultiplier = 2.0;
-  double _rsiMin        = 50;
-  double _rsiMax        = 70;
-  double _minPerf       = 3.0;
-  final Set<int> _years = {2022, 2023, 2024};
+  // ── Parameter ──────────────────────────────────────────────
+  double         _atrMultiplier = 2.0;
+  double         _rsiMin        = 50;
+  double         _rsiMax        = 70;
+  double         _minPerf       = 3.0;
+  final Set<int> _years         = {2022, 2023, 2024};
 
   // ── Job State ──────────────────────────────────────────────
   String?               _jobId;
-  String                _jobStatus  = '';
   String                _jobMessage = '';
   int                   _jobCurrent = 0;
   int                   _jobTotal   = 3;
@@ -44,7 +43,7 @@ class _SandboxScreenState extends State<SandboxScreen>
       vsync: this,
       duration: const Duration(milliseconds: 1800),
     )..repeat(reverse: true);
-    _hoverAnim = Tween<double>(begin: -10.0, end: 10.0).animate(
+    _hoverAnim = Tween<double>(begin: -8.0, end: 8.0).animate(
       CurvedAnimation(parent: _hoverCtrl, curve: Curves.easeInOut),
     );
   }
@@ -57,7 +56,7 @@ class _SandboxScreenState extends State<SandboxScreen>
     super.dispose();
   }
 
-  // ── Backtest starten ───────────────────────────────────────
+  // ── Run ────────────────────────────────────────────────────
   Future<void> _startRun() async {
     if (_years.isEmpty) return;
     setState(() {
@@ -68,7 +67,6 @@ class _SandboxScreenState extends State<SandboxScreen>
       _jobCurrent = 0;
       _jobTotal   = _years.length;
     });
-
     try {
       final res = await ApiService.postSandboxRun(
         atrMultiplier: _atrMultiplier,
@@ -78,47 +76,32 @@ class _SandboxScreenState extends State<SandboxScreen>
         years:         _years.toList()..sort(),
       );
       _jobId = res['job_id'] as String?;
-      _startPolling();
+      _pollTimer = Timer.periodic(const Duration(seconds: 2), (_) => _poll());
     } catch (e) {
-      setState(() {
-        _running = false;
-        _error   = e.toString();
-      });
+      setState(() { _running = false; _error = e.toString(); });
     }
-  }
-
-  void _startPolling() {
-    _pollTimer?.cancel();
-    _pollTimer = Timer.periodic(const Duration(seconds: 2), (_) => _poll());
   }
 
   Future<void> _poll() async {
     if (_jobId == null) return;
     try {
-      final status = await ApiService.getSandboxStatus(_jobId!);
-      final s = status['status'] as String? ?? '';
+      final s = await ApiService.getSandboxStatus(_jobId!);
+      final status = s['status'] as String? ?? '';
       setState(() {
-        _jobStatus  = s;
-        _jobMessage = status['message'] as String? ?? '';
-        _jobCurrent = (status['current'] as num?)?.toInt() ?? 0;
-        _jobTotal   = (status['total']   as num?)?.toInt() ?? 3;
+        _jobMessage = s['message'] as String? ?? '';
+        _jobCurrent = (s['current'] as num?)?.toInt() ?? 0;
+        _jobTotal   = (s['total']   as num?)?.toInt() ?? 3;
       });
-      if (s == 'done') {
+      if (status == 'done') {
         _pollTimer?.cancel();
-        setState(() {
-          _running = false;
-          _result  = status['result'] as Map<String, dynamic>?;
-        });
-      } else if (s == 'cancelled') {
+        setState(() { _running = false; _result = s['result'] as Map<String, dynamic>?; });
+      } else if (status == 'cancelled') {
         _pollTimer?.cancel();
         _cancelTimer?.cancel();
         setState(() { _running = false; _cancelling = false; });
-      } else if (s == 'error') {
+      } else if (status == 'error') {
         _pollTimer?.cancel();
-        setState(() {
-          _running = false;
-          _error   = status['error'] as String? ?? 'Unbekannter Fehler';
-        });
+        setState(() { _running = false; _error = s['error'] as String? ?? 'Fehler'; });
       }
     } catch (_) {}
   }
@@ -126,23 +109,18 @@ class _SandboxScreenState extends State<SandboxScreen>
   Future<void> _cancelRun() async {
     if (_jobId == null) return;
     setState(() => _cancelling = true);
-    try {
-      await ApiService.postSandboxCancel(_jobId!);
-    } catch (_) {}
-
-    // Timeout: nach 20s UI zurücksetzen auch wenn Backend noch läuft
+    try { await ApiService.postSandboxCancel(_jobId!); } catch (_) {}
     _cancelTimer = Timer(const Duration(seconds: 20), () {
-      if (mounted && _cancelling) {
-        setState(() {
-          _running    = false;
-          _cancelling = false;
-          _error      = 'Job läuft noch im Hintergrund. Bitte 30 Sekunden warten bevor du einen neuen Start versuchst.';
-          _jobId      = null;
-          _jobMessage = '';
-          _jobCurrent = 0;
-        });
-        _pollTimer?.cancel();
-      }
+      if (!mounted) return;
+      _pollTimer?.cancel();
+      setState(() {
+        _running    = false;
+        _cancelling = false;
+        _error      = 'Job läuft noch im Hintergrund. Bitte 30 Sekunden warten.';
+        _jobId      = null;
+        _jobMessage = '';
+        _jobCurrent = 0;
+      });
     });
   }
 
@@ -163,118 +141,127 @@ class _SandboxScreenState extends State<SandboxScreen>
   // ── Build ──────────────────────────────────────────────────
   @override
   Widget build(BuildContext context) {
-    return _running
-        ? _buildHoverScreen()
-        : _result != null
-        ? _buildResults()
-        : _buildParams();
+    if (_running) return _buildRunningScreen();
+    if (_result != null) return _buildResultsScreen();
+    return _buildParamsScreen();
   }
 
-  // ── Parameter-Screen ───────────────────────────────────────
-  Widget _buildParams() {
-    final canRun = _years.isNotEmpty;
+  // ═══════════════════════════════════════════════════════════
+  // PARAMETER SCREEN
+  // ═══════════════════════════════════════════════════════════
+
+  Widget _buildParamsScreen() {
     return SingleChildScrollView(
-      padding: const EdgeInsets.all(16),
+      padding: const EdgeInsets.fromLTRB(12, 12, 12, 24),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          if (_error != null) _ErrorCard(message: _error!, onDismiss: _reset),
-          _SandboxCard(
-            title: 'ATR-Multiplikator (Stop)',
-            child: _SliderRow(
+          if (_error != null) ...[
+            _ErrorBanner(message: _error!, onDismiss: () => setState(() => _error = null)),
+            const SizedBox(height: 10),
+          ],
+
+          // ── ATR ───────────────────────────────────────────
+          _ParamCard(
+            label: 'STOP-MULTIPLIKATOR',
+            child: _ParamSlider(
               value:     _atrMultiplier,
               min:       1.0,
               max:       4.0,
               divisions: 12,
-              label:     _atrMultiplier.toStringAsFixed(1),
-              onChanged: (v) => setState(() => _atrMultiplier = v),
+              display:   'ATR × ${_atrMultiplier.toStringAsFixed(1)}',
               baseline:  2.0,
+              onChanged: (v) => setState(() => _atrMultiplier = v),
             ),
           ),
-          const SizedBox(height: 12),
-          _SandboxCard(
-            title: 'RSI-Bereich',
+          const SizedBox(height: 8),
+
+          // ── RSI ───────────────────────────────────────────
+          _ParamCard(
+            label: 'RSI-BEREICH',
             child: Column(
               children: [
-                _SliderRow(
-                  label:     'Min ${_rsiMin.round()}',
+                _ParamSlider(
                   value:     _rsiMin,
                   min:       30,
                   max:       65,
                   divisions: 35,
+                  display:   'Min  ${_rsiMin.round()}',
+                  baseline:  50,
                   onChanged: (v) => setState(() {
                     _rsiMin = v;
                     if (_rsiMin >= _rsiMax) _rsiMax = _rsiMin + 5;
                   }),
-                  baseline: 50,
                 ),
-                _SliderRow(
-                  label:     'Max ${_rsiMax.round()}',
+                const SizedBox(height: 4),
+                _ParamSlider(
                   value:     _rsiMax,
                   min:       55,
                   max:       85,
                   divisions: 30,
+                  display:   'Max  ${_rsiMax.round()}',
+                  baseline:  70,
                   onChanged: (v) => setState(() {
                     _rsiMax = v;
                     if (_rsiMax <= _rsiMin) _rsiMin = _rsiMax - 5;
                   }),
-                  baseline: 70,
                 ),
               ],
             ),
           ),
-          const SizedBox(height: 12),
-          _SandboxCard(
-            title: 'Min. Performance nach Beat (%)',
-            child: _SliderRow(
+          const SizedBox(height: 8),
+
+          // ── Performance ───────────────────────────────────
+          _ParamCard(
+            label: 'MIN. PERFORMANCE NACH BEAT',
+            child: _ParamSlider(
               value:     _minPerf,
               min:       0.0,
               max:       10.0,
               divisions: 20,
-              label:     '+${_minPerf.toStringAsFixed(1)}%',
-              onChanged: (v) => setState(() => _minPerf = v),
+              display:   '+${_minPerf.toStringAsFixed(1)} %',
               baseline:  3.0,
+              onChanged: (v) => setState(() => _minPerf = v),
             ),
           ),
-          const SizedBox(height: 12),
-          _SandboxCard(
-            title: 'Zeitraum',
+          const SizedBox(height: 8),
+
+          // ── Zeitraum ──────────────────────────────────────
+          _ParamCard(
+            label: 'ZEITRAUM',
             child: Row(
-              mainAxisAlignment: MainAxisAlignment.spaceEvenly,
               children: [2022, 2023, 2024].map((y) {
-                final active = _years.contains(y);
-                return GestureDetector(
-                  onTap: () => setState(() {
-                    if (active && _years.length > 1) {
-                      _years.remove(y);
-                    } else {
-                      _years.add(y);
-                    }
-                  }),
-                  child: AnimatedContainer(
-                    duration: const Duration(milliseconds: 200),
-                    padding: const EdgeInsets.symmetric(
-                        horizontal: 20, vertical: 10),
-                    decoration: BoxDecoration(
-                      color: active
-                          ? KestrelColors.gold
-                          : Colors.transparent,
-                      borderRadius: BorderRadius.circular(8),
-                      border: Border.all(
-                        color: active
-                            ? KestrelColors.gold
-                            : KestrelColors.cardBorder,
-                      ),
-                    ),
-                    child: Text(
-                      '$y',
-                      style: TextStyle(
-                        color: active
-                            ? KestrelColors.appBarBg   // dunkel auf gold
-                            : KestrelColors.textGrey,
-                        fontWeight: active
-                            ? FontWeight.bold
-                            : FontWeight.normal,
+                final on = _years.contains(y);
+                return Expanded(
+                  child: Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 4),
+                    child: GestureDetector(
+                      onTap: () => setState(() {
+                        if (on && _years.length > 1) _years.remove(y);
+                        else _years.add(y);
+                      }),
+                      child: AnimatedContainer(
+                        duration: const Duration(milliseconds: 180),
+                        padding: const EdgeInsets.symmetric(vertical: 10),
+                        decoration: BoxDecoration(
+                          color: on ? KestrelColors.goldBg : KestrelColors.innerBg,
+                          borderRadius: BorderRadius.circular(8),
+                          border: Border.all(
+                            color: on
+                                ? KestrelColors.goldBorder
+                                : KestrelColors.cardBorder,
+                            width: on ? 1.5 : 1,
+                          ),
+                        ),
+                        alignment: Alignment.center,
+                        child: Text(
+                          '$y',
+                          style: TextStyle(
+                            color:      on ? KestrelColors.gold : KestrelColors.textDimmed,
+                            fontSize:   13,
+                            fontWeight: on ? FontWeight.w700 : FontWeight.normal,
+                          ),
+                        ),
                       ),
                     ),
                   ),
@@ -282,28 +269,23 @@ class _SandboxScreenState extends State<SandboxScreen>
               }).toList(),
             ),
           ),
-          const SizedBox(height: 24),
-          GestureDetector(
-            onTap: canRun ? _startRun : null,
-            child: Container(
-              padding: const EdgeInsets.symmetric(vertical: 14),
-              decoration: BoxDecoration(
-                color: canRun
-                    ? KestrelColors.gold
-                    : KestrelColors.cardBorder,
-                borderRadius: BorderRadius.circular(10),
-              ),
-              alignment: Alignment.center,
-              child: Text(
-                'Backtest starten',
-                style: TextStyle(
-                  color: canRun
-                      ? KestrelColors.appBarBg   // dunkel auf gold
-                      : KestrelColors.textGrey,
-                  fontWeight: FontWeight.bold,
-                  fontSize:   16,
-                ),
-              ),
+          const SizedBox(height: 20),
+
+          // ── CTA ───────────────────────────────────────────
+          ElevatedButton(
+            onPressed: _years.isNotEmpty ? _startRun : null,
+            style: ElevatedButton.styleFrom(
+              backgroundColor:  KestrelColors.gold,
+              foregroundColor:  KestrelColors.appBarBg,
+              disabledBackgroundColor: KestrelColors.cardBorder,
+              padding:          const EdgeInsets.symmetric(vertical: 14),
+              shape:            RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(10)),
+              elevation: 0,
+            ),
+            child: const Text(
+              'Backtest starten',
+              style: TextStyle(fontWeight: FontWeight.w700, fontSize: 15),
             ),
           ),
         ],
@@ -311,136 +293,297 @@ class _SandboxScreenState extends State<SandboxScreen>
     );
   }
 
-  // ── Hover-Screen ───────────────────────────────────────────
-  Widget _buildHoverScreen() {
-    final pct        = _jobTotal > 0 ? _jobCurrent / _jobTotal : 0.0;
-    final sortedYears = _years.toList()..sort();
+  // ═══════════════════════════════════════════════════════════
+  // RUNNING SCREEN
+  // ═══════════════════════════════════════════════════════════
 
-    return Center(
-      child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 32),
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            AnimatedBuilder(
-              animation: _hoverAnim,
-              builder: (_, __) => Transform.translate(
-                offset: Offset(0, _hoverAnim.value),
-                child: const KestrelLogo(size: 100),
-              ),
-            ),
-            const SizedBox(height: 32),
-            Text(
-              _cancelling ? 'Wird abgebrochen…' : _jobMessage,
-              style: TextStyle(
-                color:    _cancelling
-                    ? KestrelColors.textGrey
-                    : KestrelColors.textPrimary,
-                fontSize: 16,
-              ),
-            ),
-            const SizedBox(height: 16),
-            ClipRRect(
-              borderRadius: BorderRadius.circular(4),
-              child: LinearProgressIndicator(
-                value:           _cancelling ? null : pct,
-                minHeight:       6,
-                backgroundColor: KestrelColors.cardBorder,
-                valueColor: AlwaysStoppedAnimation(
-                  _cancelling ? KestrelColors.textDimmed : KestrelColors.gold,
-                ),
-              ),
-            ),
-            const SizedBox(height: 8),
-            Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: sortedYears.map((y) {
-                final idx    = sortedYears.indexOf(y);
-                final done   = idx < _jobCurrent;
-                final active = idx == _jobCurrent && _running;
-                return Text(
-                  done   ? '$y ✓'
-                      : active ? '$y…'
-                      : '$y',
-                  style: TextStyle(
-                    color: done
-                        ? KestrelColors.green
-                        : active
-                        ? KestrelColors.gold
-                        : KestrelColors.textGrey,
-                    fontSize:   13,
-                    fontWeight: active ? FontWeight.bold : FontWeight.normal,
+  Widget _buildRunningScreen() {
+    final sortedYears = _years.toList()..sort();
+    final pct = _jobTotal > 0 ? _jobCurrent / _jobTotal : 0.0;
+
+    return Column(
+      children: [
+        Expanded(
+          child: Center(
+            child: Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 32),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  // Hover Logo
+                  AnimatedBuilder(
+                    animation: _hoverAnim,
+                    builder: (_, __) => Transform.translate(
+                      offset: Offset(0, _hoverAnim.value),
+                      child: Opacity(
+                        opacity: _cancelling ? 0.4 : 1.0,
+                        child: const KestrelLogo(size: 88),
+                      ),
+                    ),
                   ),
-                );
-              }).toList(),
-            ),
-            const SizedBox(height: 32),
-            GestureDetector(
-              onTap: _cancelling ? null : _cancelRun,
-              child: Container(
-                padding: const EdgeInsets.symmetric(
-                    horizontal: 24, vertical: 10),
-                decoration: BoxDecoration(
-                  color:        Colors.transparent,
-                  borderRadius: BorderRadius.circular(8),
-                  border: Border.all(
-                    color: _cancelling
-                        ? KestrelColors.cardBorder.withOpacity(0.4)
-                        : KestrelColors.cardBorder,
+                  const SizedBox(height: 28),
+
+                  // Status Message
+                  Text(
+                    _cancelling ? 'Wird abgebrochen…' : _jobMessage,
+                    style: TextStyle(
+                      color:      _cancelling
+                          ? KestrelColors.textDimmed
+                          : KestrelColors.textPrimary,
+                      fontSize:   15,
+                      fontWeight: FontWeight.w500,
+                    ),
+                    textAlign: TextAlign.center,
                   ),
-                ),
-                child: Text(
-                  _cancelling ? 'Bitte warten…' : 'Abbrechen',
-                  style: TextStyle(
-                    color:    _cancelling
-                        ? KestrelColors.textDimmed
-                        : KestrelColors.textGrey,
-                    fontSize: 13,
+                  const SizedBox(height: 20),
+
+                  // Progress Bar
+                  ClipRRect(
+                    borderRadius: BorderRadius.circular(3),
+                    child: LinearProgressIndicator(
+                      value:           _cancelling ? null : pct,
+                      minHeight:       4,
+                      backgroundColor: KestrelColors.cardBorder,
+                      valueColor:      AlwaysStoppedAnimation(
+                        _cancelling
+                            ? KestrelColors.textDimmed
+                            : KestrelColors.gold,
+                      ),
+                    ),
                   ),
-                ),
+                  const SizedBox(height: 16),
+
+                  // Jahr-Status
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: sortedYears.asMap().entries.map((e) {
+                      final idx    = e.key;
+                      final year   = e.value;
+                      final done   = idx < _jobCurrent;
+                      final active = idx == _jobCurrent && !_cancelling;
+                      return Padding(
+                        padding: const EdgeInsets.symmetric(horizontal: 10),
+                        child: Column(
+                          children: [
+                            Text(
+                              done ? '✓' : active ? '●' : '○',
+                              style: TextStyle(
+                                color: done
+                                    ? KestrelColors.green
+                                    : active
+                                    ? KestrelColors.gold
+                                    : KestrelColors.textHint,
+                                fontSize: 12,
+                              ),
+                            ),
+                            const SizedBox(height: 4),
+                            Text(
+                              '$year',
+                              style: TextStyle(
+                                color: done
+                                    ? KestrelColors.green
+                                    : active
+                                    ? KestrelColors.gold
+                                    : KestrelColors.textDimmed,
+                                fontSize:   12,
+                                fontWeight: active
+                                    ? FontWeight.w700
+                                    : FontWeight.normal,
+                              ),
+                            ),
+                          ],
+                        ),
+                      );
+                    }).toList(),
+                  ),
+                ],
               ),
             ),
-          ],
+          ),
         ),
-      ),
+
+        // Abbrechen Button (sticky bottom)
+        Padding(
+          padding: const EdgeInsets.fromLTRB(16, 0, 16, 32),
+          child: GestureDetector(
+            onTap: _cancelling ? null : _cancelRun,
+            child: Container(
+              padding: const EdgeInsets.symmetric(vertical: 12),
+              decoration: BoxDecoration(
+                borderRadius: BorderRadius.circular(8),
+                border: Border.all(
+                  color: _cancelling
+                      ? KestrelColors.cardBorder.withOpacity(0.3)
+                      : KestrelColors.cardBorder,
+                ),
+              ),
+              alignment: Alignment.center,
+              child: Text(
+                _cancelling ? 'Bitte warten…' : 'Abbrechen',
+                style: TextStyle(
+                  color:    _cancelling
+                      ? KestrelColors.textHint
+                      : KestrelColors.textDimmed,
+                  fontSize: 13,
+                ),
+              ),
+            ),
+          ),
+        ),
+      ],
     );
   }
 
-  // ── Ergebnis-Screen ────────────────────────────────────────
-  Widget _buildResults() {
-    final yearResults = _result?['year_results'] as Map<String, dynamic>? ?? {};
-    final total       = _result?['total']        as Map<String, dynamic>? ?? {};
-    final params      = _result?['params']        as Map<String, dynamic>? ?? {};
+  // ═══════════════════════════════════════════════════════════
+  // RESULTS SCREEN
+  // ═══════════════════════════════════════════════════════════
+
+  Widget _buildResultsScreen() {
+    final yearResults = (_result?['year_results'] as Map<String, dynamic>?) ?? {};
+    final total       = (_result?['total']        as Map<String, dynamic>?) ?? {};
+    final params      = (_result?['params']        as Map<String, dynamic>?) ?? {};
+    final sortedYears = (yearResults.keys.toList()..sort());
+    final multiYear   = sortedYears.length > 1;
+    final hasTotal    = total.isNotEmpty && total['error'] == null;
+
+    // Baseline: Original-Backtest 2022–2024 (ATR×2.0, RSI 50–70, Perf >3%)
+    const _baseline = {
+      'all':  {'n': 64,  'win': 43.8, 'avg': 2.48,  'sharpe': 0.64},
+      '2022': {'n': 15,  'win': 46.7, 'avg': 1.32,  'sharpe': 0.66},
+      '2023': {'n': 30,  'win': 36.7, 'avg': 2.56,  'sharpe': 0.50},
+      '2024': {'n': 19,  'win': 52.6, 'avg': 3.28,  'sharpe': 1.16},
+    };
 
     return SingleChildScrollView(
-      padding: const EdgeInsets.all(16),
+      padding: const EdgeInsets.fromLTRB(12, 12, 12, 24),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          _ParamsChip(params: params),
-          const SizedBox(height: 16),
-          ...(yearResults.entries.toList()
-            ..sort((a, b) => a.key.compareTo(b.key)))
-              .map((e) => _MetricsCard(
-            year:    e.key,
-            metrics: e.value as Map<String, dynamic>,
-          )),
-          if (yearResults.length > 1)
-            _MetricsCard(year: 'Gesamt', metrics: total, isTotal: true),
-          const SizedBox(height: 20),
+          // ── Params Summary ────────────────────────────────
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 13, vertical: 10),
+            decoration: kCardDecoration(),
+            child: Row(
+              children: [
+                _ParamPill('ATR ×${params['atr_multiplier']}'),
+                const SizedBox(width: 6),
+                _ParamPill('RSI ${params['rsi_min']}–${params['rsi_max']}'),
+                const SizedBox(width: 6),
+                _ParamPill('Perf >${params['min_perf_pct']}%'),
+              ],
+            ),
+          ),
+          const SizedBox(height: 8),
+
+          // ── Total Card ────────────────────────────────────
+          if (multiYear) ...[
+            Container(
+              decoration: kCardDecoration(goldTop: true),
+              padding: const EdgeInsets.fromLTRB(13, 11, 13, 13),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      const Text('GESAMT',
+                          style: TextStyle(
+                            color:         KestrelColors.gold,
+                            fontSize:      10,
+                            fontWeight:    FontWeight.w700,
+                            letterSpacing: 0.8,
+                          )),
+                      if (hasTotal) _PnlBadge(total),
+                    ],
+                  ),
+                  const SizedBox(height: 10),
+                  if (hasTotal) ...[
+                    _MetricsRow(total),
+                    // ── Gegenüberstellung Baseline ─────────
+                    if (sortedYears.length == 3) ...[
+                      const SizedBox(height: 10),
+                      _BaselineComparison(
+                        sandbox:  total,
+                        baseline: _baseline['all']!,
+                      ),
+                    ],
+                  ] else
+                    const Text('Keine Trades',
+                        style: TextStyle(
+                            color: KestrelColors.textGrey, fontSize: 12)),
+                ],
+              ),
+            ),
+            const SizedBox(height: 8),
+          ],
+
+          // ── Jahr-Cards ────────────────────────────────────
+          ...sortedYears.map((year) {
+            final m        = yearResults[year] as Map<String, dynamic>? ?? {};
+            final hasData  = m.isNotEmpty && m['error'] == null;
+            final baseline = _baseline[year] as Map<String, dynamic>?;
+
+            return Padding(
+              padding: const EdgeInsets.only(bottom: 8),
+              child: Container(
+                decoration: kCardDecoration(),
+                padding: const EdgeInsets.fromLTRB(13, 11, 13, 13),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        Text(year,
+                            style: const TextStyle(
+                              color:         KestrelColors.textGrey,
+                              fontSize:      10,
+                              fontWeight:    FontWeight.w700,
+                              letterSpacing: 0.8,
+                            )),
+                        if (hasData) _PnlBadge(m),
+                      ],
+                    ),
+                    if (!hasData)
+                      Padding(
+                        padding: const EdgeInsets.only(top: 6),
+                        child: Text(
+                            m['error'] as String? ?? 'Keine Daten',
+                            style: const TextStyle(
+                                color: KestrelColors.textGrey, fontSize: 12)),
+                      )
+                    else ...[
+                      const SizedBox(height: 10),
+                      _MetricsRow(m),
+                      if (baseline != null) ...[
+                        const SizedBox(height: 10),
+                        _BaselineComparison(
+                          sandbox:  m,
+                          baseline: baseline,
+                        ),
+                      ],
+                    ],
+                  ],
+                ),
+              ),
+            );
+          }),
+
+          const SizedBox(height: 4),
+
+          // ── Neue Konfiguration ────────────────────────────
           GestureDetector(
             onTap: _reset,
             child: Container(
               padding: const EdgeInsets.symmetric(vertical: 12),
               decoration: BoxDecoration(
-                color:        Colors.transparent,
                 borderRadius: BorderRadius.circular(8),
-                border:       Border.all(color: KestrelColors.cardBorder),
+                border: Border.all(color: KestrelColors.cardBorder),
               ),
               alignment: Alignment.center,
               child: const Text(
                 'Neue Konfiguration',
-                style: TextStyle(color: KestrelColors.textGrey),
+                style: TextStyle(color: KestrelColors.textDimmed, fontSize: 13),
               ),
             ),
           ),
@@ -450,32 +593,32 @@ class _SandboxScreenState extends State<SandboxScreen>
   }
 }
 
-// ── Hilfs-Widgets ──────────────────────────────────────────────
+// ═══════════════════════════════════════════════════════════
+// HILFS-WIDGETS
+// ═══════════════════════════════════════════════════════════
 
-class _SandboxCard extends StatelessWidget {
-  final String title;
+// ── Param Card ─────────────────────────────────────────────
+
+class _ParamCard extends StatelessWidget {
+  final String label;
   final Widget child;
-  const _SandboxCard({required this.title, required this.child});
+  const _ParamCard({required this.label, required this.child});
 
   @override
   Widget build(BuildContext context) {
     return Container(
-      padding: const EdgeInsets.fromLTRB(14, 12, 14, 14),
-      decoration: BoxDecoration(
-        color:        KestrelColors.cardBg,
-        borderRadius: BorderRadius.circular(10),
-        border:       Border.all(color: KestrelColors.cardBorder),
-      ),
+      decoration: kCardDecoration(),
+      padding: const EdgeInsets.fromLTRB(13, 10, 13, 13),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text(
-            title,
-            style: const TextStyle(
-              color:   KestrelColors.textGrey,
-              fontSize: 12,
-            ),
-          ),
+          Text(label,
+              style: const TextStyle(
+                color:         KestrelColors.gold,
+                fontSize:      10,
+                fontWeight:    FontWeight.w700,
+                letterSpacing: 0.8,
+              )),
           const SizedBox(height: 10),
           child,
         ],
@@ -484,22 +627,22 @@ class _SandboxCard extends StatelessWidget {
   }
 }
 
-class _SliderRow extends StatelessWidget {
-  final double value;
-  final double min, max;
-  final int divisions;
-  final String label;
-  final ValueChanged<double> onChanged;
-  final double baseline;
+// ── Param Slider ───────────────────────────────────────────
 
-  const _SliderRow({
+class _ParamSlider extends StatelessWidget {
+  final double value, min, max, baseline;
+  final int divisions;
+  final String display;
+  final ValueChanged<double> onChanged;
+
+  const _ParamSlider({
     required this.value,
     required this.min,
     required this.max,
     required this.divisions,
-    required this.label,
-    required this.onChanged,
+    required this.display,
     required this.baseline,
+    required this.onChanged,
   });
 
   @override
@@ -508,15 +651,13 @@ class _SliderRow extends StatelessWidget {
     return Row(
       children: [
         SizedBox(
-          width: 72,
+          width: 80,
           child: Text(
-            label,
+            display,
             style: TextStyle(
-              color: changed
-                  ? KestrelColors.gold
-                  : KestrelColors.textPrimary,
-              fontWeight: changed ? FontWeight.bold : FontWeight.normal,
+              color:      changed ? KestrelColors.gold : KestrelColors.textPrimary,
               fontSize:   14,
+              fontWeight: changed ? FontWeight.w700 : FontWeight.w500,
             ),
           ),
         ),
@@ -526,8 +667,9 @@ class _SliderRow extends StatelessWidget {
               activeTrackColor:   KestrelColors.gold,
               inactiveTrackColor: KestrelColors.cardBorder,
               thumbColor:         KestrelColors.gold,
-              overlayColor:       KestrelColors.gold.withOpacity(0.2),
-              trackHeight:        3,
+              overlayColor:       KestrelColors.gold.withOpacity(0.15),
+              trackHeight:        2.5,
+              thumbShape: const RoundSliderThumbShape(enabledThumbRadius: 7),
             ),
             child: Slider(
               value:     value,
@@ -543,176 +685,223 @@ class _SliderRow extends StatelessWidget {
   }
 }
 
-class _MetricsCard extends StatelessWidget {
-  final String year;
-  final Map<String, dynamic> metrics;
-  final bool isTotal;
-  const _MetricsCard({
-    required this.year,
-    required this.metrics,
-    this.isTotal = false,
-  });
+// ── Metrics Row ────────────────────────────────────────────
+
+class _MetricsRow extends StatelessWidget {
+  final Map<String, dynamic> m;
+  const _MetricsRow(this.m);
 
   @override
   Widget build(BuildContext context) {
-    final err      = metrics['error'] as String?;
-    final pnl      = (metrics['total_pnl_eur'] as num?)?.toDouble() ?? 0;
-    final positive = pnl >= 0;
+    final n      = '${m['trades_total'] ?? '–'}';
+    final win    = m['win_rate_pct'] != null ? '${m['win_rate_pct']}%' : '–';
+    final avg    = (m['avg_return_pct'] as num?)?.toDouble();
+    final dd     = (m['max_drawdown_pct'] as num?)?.toDouble();
+    final sharpe = m['sharpe_ratio'];
 
     return Container(
-      margin: const EdgeInsets.only(bottom: 10),
-      padding: const EdgeInsets.all(14),
-      decoration: BoxDecoration(
-        color:        KestrelColors.cardBg,
-        borderRadius: BorderRadius.circular(10),
-        border: Border.all(
-          color: isTotal
-              ? KestrelColors.goldBorder
-              : KestrelColors.cardBorder,
-        ),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
+      decoration: kInnerCellDecoration(),
+      padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 4),
+      child: Row(
         children: [
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              Text(
-                year,
-                style: TextStyle(
-                  color: isTotal
-                      ? KestrelColors.gold
-                      : KestrelColors.textPrimary,
-                  fontWeight: FontWeight.bold,
-                  fontSize:   15,
-                ),
-              ),
-              if (err == null)
-                Text(
-                  '${positive ? '+' : ''}€${pnl.toStringAsFixed(0)}',
-                  style: TextStyle(
-                    color: positive
-                        ? KestrelColors.green
-                        : KestrelColors.red,
-                    fontWeight: FontWeight.bold,
-                    fontSize:   15,
-                  ),
-                ),
-            ],
+          _StatCell(value: n,                                            label: 'Trades'),
+          _StatCell(value: win,                                          label: 'Win%'),
+          _StatCell(
+            value: avg != null ? '${avg >= 0 ? '+' : ''}${avg.toStringAsFixed(1)}%' : '–',
+            label: 'Ø Rendite',
+            valueColor: avg == null ? null : avg >= 0 ? KestrelColors.green : KestrelColors.red,
           ),
-          if (err != null)
-            Padding(
-              padding: const EdgeInsets.only(top: 6),
-              child: Text(
-                err,
-                style: const TextStyle(
-                  color:    KestrelColors.textGrey,
-                  fontSize: 13,
-                ),
-              ),
-            )
-          else ...[
-            const SizedBox(height: 10),
-            _MetricsGrid(metrics: metrics),
-          ],
+          _StatCell(value: dd  != null ? '${dd.toStringAsFixed(1)}%'   : '–', label: 'MaxDD'),
+          _StatCell(value: sharpe != null ? '$sharpe'                   : '–', label: 'Sharpe'),
         ],
       ),
     );
   }
 }
 
-class _MetricsGrid extends StatelessWidget {
-  final Map<String, dynamic> metrics;
-  const _MetricsGrid({required this.metrics});
-
-  @override
-  Widget build(BuildContext context) {
-    final n      = metrics['trades_total'] ?? 0;
-    final win    = metrics['win_rate_pct'] ?? 0;
-    final avg    = (metrics['avg_return_pct'] as num?)?.toDouble() ?? 0;
-    final dd     = (metrics['max_drawdown_pct'] as num?)?.toDouble() ?? 0;
-    final sharpe = metrics['sharpe_ratio'] ?? 0;
-
-    return Row(
-      children: [
-        _Stat('Trades', '$n'),
-        _Stat('Win%',   '$win%'),
-        _Stat('Ø Ret',  '${avg >= 0 ? '+' : ''}${avg.toStringAsFixed(1)}%'),
-        _Stat('MaxDD',  '${dd.toStringAsFixed(1)}%'),
-        _Stat('Sharpe', '$sharpe'),
-      ],
-    );
-  }
-}
-
-class _Stat extends StatelessWidget {
-  final String label, value;
-  const _Stat(this.label, this.value);
+class _StatCell extends StatelessWidget {
+  final String value, label;
+  final Color? valueColor;
+  const _StatCell({required this.value, required this.label, this.valueColor});
 
   @override
   Widget build(BuildContext context) => Expanded(
     child: Column(
       children: [
-        Text(
-          label,
-          style: const TextStyle(
-            color:    KestrelColors.textGrey,
-            fontSize: 10,
-          ),
-        ),
-        const SizedBox(height: 2),
-        Text(
-          value,
-          style: const TextStyle(
-            color:      KestrelColors.textPrimary,
-            fontSize:   13,
-            fontWeight: FontWeight.bold,
-          ),
-        ),
+        Text(value,
+            style: TextStyle(
+              color:      valueColor ?? KestrelColors.textPrimary,
+              fontSize:   13,
+              fontWeight: FontWeight.w700,
+            )),
+        const SizedBox(height: 3),
+        Text(label,
+            style: const TextStyle(
+              color:   KestrelColors.textDimmed,
+              fontSize: 9,
+            )),
       ],
     ),
   );
 }
 
-class _ParamsChip extends StatelessWidget {
-  final Map<String, dynamic> params;
-  const _ParamsChip({required this.params});
+// ── P&L Badge ──────────────────────────────────────────────
+
+class _PnlBadge extends StatelessWidget {
+  final Map<String, dynamic> m;
+  const _PnlBadge(this.m);
 
   @override
   Widget build(BuildContext context) {
-    final atr    = params['atr_multiplier'];
-    final rsiMin = params['rsi_min'];
-    final rsiMax = params['rsi_max'];
-    final perf   = params['min_perf_pct'];
+    final pnl     = (m['total_pnl_eur'] as num?)?.toDouble();
+    if (pnl == null) return const SizedBox.shrink();
+    final pos     = pnl >= 0;
+    final label   = '${pos ? '+' : ''}€${pnl.toStringAsFixed(0)}';
 
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
       decoration: BoxDecoration(
-        color:        KestrelColors.cardBg,
-        borderRadius: BorderRadius.circular(8),
-        border:       Border.all(color: KestrelColors.cardBorder),
-      ),
-      child: Text(
-        'ATR ×$atr  ·  RSI $rsiMin–$rsiMax  ·  Perf >$perf%',
-        style: const TextStyle(
-          color:    KestrelColors.textGrey,
-          fontSize: 12,
+        color:        pos ? KestrelColors.greenBg  : KestrelColors.redBg,
+        borderRadius: BorderRadius.circular(5),
+        border: Border.all(
+          color: pos ? KestrelColors.greenBorder : KestrelColors.redBorder,
         ),
-        textAlign: TextAlign.center,
+      ),
+      child: Text(label,
+          style: TextStyle(
+            color:      pos ? KestrelColors.green : KestrelColors.red,
+            fontSize:   12,
+            fontWeight: FontWeight.w700,
+          )),
+    );
+  }
+}
+
+// ── Param Pill ─────────────────────────────────────────────
+
+class _ParamPill extends StatelessWidget {
+  final String label;
+  const _ParamPill(this.label);
+
+  @override
+  Widget build(BuildContext context) => Container(
+    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+    decoration: BoxDecoration(
+      color:        KestrelColors.innerBg,
+      borderRadius: BorderRadius.circular(5),
+      border:       Border.all(color: KestrelColors.cardBorder),
+    ),
+    child: Text(label,
+        style: const TextStyle(
+          color:   KestrelColors.textGrey,
+          fontSize: 11,
+        )),
+  );
+}
+
+// ── Baseline Comparison ────────────────────────────────────────
+
+class _BaselineComparison extends StatelessWidget {
+  final Map<String, dynamic> sandbox;
+  final Map<String, dynamic> baseline;
+  const _BaselineComparison({required this.sandbox, required this.baseline});
+
+  @override
+  Widget build(BuildContext context) {
+    final sWin    = (sandbox['win_rate_pct']  as num?)?.toDouble() ?? 0;
+    final sAvg    = (sandbox['avg_return_pct'] as num?)?.toDouble() ?? 0;
+    final sSharpe = (sandbox['sharpe_ratio']   as num?)?.toDouble() ?? 0;
+
+    final bWin    = (baseline['win']    as num).toDouble();
+    final bAvg    = (baseline['avg']    as num).toDouble();
+    final bSharpe = (baseline['sharpe'] as num).toDouble();
+
+    return Container(
+      padding: const EdgeInsets.fromLTRB(10, 8, 10, 8),
+      decoration: BoxDecoration(
+        color:        KestrelColors.innerBg,
+        borderRadius: BorderRadius.circular(7),
+        border:       Border.all(color: KestrelColors.cardBorder, width: 0.5),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Text(
+            'VS. BASELINE  (ATR×2.0 · RSI 50–70 · Perf >3%)',
+            style: TextStyle(
+              color:         KestrelColors.textDimmed,
+              fontSize:      9,
+              letterSpacing: 0.6,
+              fontWeight:    FontWeight.w600,
+            ),
+          ),
+          const SizedBox(height: 8),
+          Row(
+            children: [
+              _DeltaCell('Win%',   sWin,    bWin,    '%'),
+              _DeltaCell('Ø Ret',  sAvg,    bAvg,    '%'),
+              _DeltaCell('Sharpe', sSharpe, bSharpe, ''),
+            ],
+          ),
+        ],
       ),
     );
   }
 }
 
-class _ErrorCard extends StatelessWidget {
+class _DeltaCell extends StatelessWidget {
+  final String label;
+  final double sandbox, baseline;
+  final String unit;
+  const _DeltaCell(this.label, this.sandbox, this.baseline, this.unit);
+
+  @override
+  Widget build(BuildContext context) {
+    final delta   = sandbox - baseline;
+    final better  = delta > 0;
+    final neutral = delta.abs() < 0.05;
+    final color   = neutral
+        ? KestrelColors.textDimmed
+        : better
+        ? KestrelColors.green
+        : KestrelColors.red;
+    final arrow   = neutral ? '' : better ? ' ▲' : ' ▼';
+
+    return Expanded(
+      child: Column(
+        children: [
+          Text(
+            '${delta >= 0 && !neutral ? '+' : ''}${delta.toStringAsFixed(1)}$unit$arrow',
+            style: TextStyle(
+              color:      color,
+              fontSize:   12,
+              fontWeight: FontWeight.w700,
+            ),
+          ),
+          const SizedBox(height: 2),
+          Text(
+            '$label  (${baseline.toStringAsFixed(1)}$unit)',
+            style: const TextStyle(
+              color:   KestrelColors.textHint,
+              fontSize: 9,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+// ── Error Banner ───────────────────────────────────────────
+
+class _ErrorBanner extends StatelessWidget {
   final String message;
   final VoidCallback onDismiss;
-  const _ErrorCard({required this.message, required this.onDismiss});
+  const _ErrorBanner({required this.message, required this.onDismiss});
 
   @override
   Widget build(BuildContext context) => Container(
-    margin: const EdgeInsets.only(bottom: 12),
-    padding: const EdgeInsets.all(12),
+    padding: const EdgeInsets.fromLTRB(12, 10, 10, 10),
     decoration: BoxDecoration(
       color:        KestrelColors.redBg,
       borderRadius: BorderRadius.circular(8),
@@ -720,17 +909,16 @@ class _ErrorCard extends StatelessWidget {
     ),
     child: Row(
       children: [
-        const Icon(Icons.error_outline, color: KestrelColors.red, size: 16),
+        const Icon(Icons.error_outline, color: KestrelColors.red, size: 15),
         const SizedBox(width: 8),
-        Expanded(
-          child: Text(
-            message,
-            style: const TextStyle(color: KestrelColors.red, fontSize: 13),
-          ),
-        ),
+        Expanded(child: Text(message,
+            style: const TextStyle(color: KestrelColors.red, fontSize: 12))),
         GestureDetector(
           onTap: onDismiss,
-          child: const Icon(Icons.close, color: KestrelColors.red, size: 16),
+          child: const Padding(
+            padding: EdgeInsets.only(left: 8),
+            child: Icon(Icons.close, color: KestrelColors.red, size: 15),
+          ),
         ),
       ],
     ),
