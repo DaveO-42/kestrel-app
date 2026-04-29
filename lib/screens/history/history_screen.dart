@@ -393,7 +393,9 @@ class _EquityChartCard extends StatelessWidget {
   List<double>? _buildBenchmarkValues() {
     if (benchmarkPoints == null || benchmarkPoints!.isEmpty) return null;
     try {
-      return benchmarkPoints!.map((p) => (p as num).toDouble()).toList();
+      return benchmarkPoints!
+          .map((p) => ((p as Map)['cumulative_pnl_eur'] as num).toDouble())
+          .toList();
     } catch (_) {
       return null;
     }
@@ -480,7 +482,10 @@ class _EquityChartPainter extends CustomPainter {
     // Gemeinsame Y-Achse aus beiden Kurven
     final allVals = [...equityValues, if (hasBench) ...benchmarkValues!];
     final minVal   = allVals.reduce(math.min);
-    final maxVal   = allVals.reduce(math.max);
+    final maxVal = math.max(allVals.reduce(math.max), 0.0) +
+        (allVals.reduce(math.max) <= 0
+            ? (minVal.abs() * 0.12)
+            : 0.0);
     const vPad     = 8.0;
     final drawH    = size.height - 2 * vPad;
     final range    = maxVal - minVal;
