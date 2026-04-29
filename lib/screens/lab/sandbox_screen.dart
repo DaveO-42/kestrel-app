@@ -456,7 +456,8 @@ class _SandboxScreenState extends State<SandboxScreen>
       var count   = 0;
       for (final v in yearResults.values) {
         final m = v as Map?;
-        if (m == null || m['error'] != null || (m['trades_total'] as num?) == null || (m['trades_total'] as num) <= 0) continue;
+        if (m == null || m['error'] != null || m['trades_total'] == null) continue;
+        if ((m['trades_total'] as num).toInt() <= 0) continue;
         tTrades += (m['trades_total'] as num).toInt();
         tPnl    += (m['total_pnl_eur']   as num?)?.toDouble() ?? 0;
         tWin    += (m['win_rate_pct']     as num?)?.toDouble() ?? 0;
@@ -478,7 +479,8 @@ class _SandboxScreenState extends State<SandboxScreen>
       }
     }
 
-    final hasTotal = total.isNotEmpty && total['error'] == null;
+    // hasTotal NACH dem Fallback evaluieren
+    final hasTotal = total.isNotEmpty && total['error'] == null && (total['trades_total'] as num? ?? 0) > 0;
 
     // Baseline: Original-Backtest 2022–2024 (ATR×2.0, RSI 50–70, Perf >3%)
     const _baseline = {

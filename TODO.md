@@ -5,28 +5,24 @@
 
 ---
 
-## 🟠 Kurzfristig
+## 🟡 Features – Nächste Schritte
 
-- [ ] **CORS einschränken** – Abhängig vom Backend-Task
+- [ ] **Trade-Journal / Notizen** – Freitextfeld pro Position (offen + geschlossen).
+  Primär für die 30-Trade-Review: Dokumentation warum ein Trade funktioniert / nicht funktioniert hat.
+  Backend: neue Spalte `notes` in `history`-Tabelle + `PATCH /positions/{ticker}/notes` Endpoint.
 
----
+- [ ] **Equity-Kurve in History** – P&L-Chart über Zeit statt nur Tabelle.
+  Drawdown-Phasen und Performance-Trend auf einen Blick. Daten aus vorhandenen History-Endpoints.
 
-## 🟡 Features – V2
+- [ ] **Earnings-Warnung in Position Detail** – "Nächste Earnings in X Tagen" mit Ampelfarbe.
+  Grün (> 14 Tage) / Orange (7–14 Tage) / Rot (< 7 Tage = Earnings-Sperre fast erreicht).
+  Daten via FMP kommen bereits durch die Pipeline.
 
-- [ ] **Charts V2: Lightweight Charts + FMP-Daten** – Ersetzt TradingView WebView.
-  Entry-Preis und Stop-Level als Overlays direkt im Chart einzeichnen.
-  Abhängigkeit: FMP-Key muss aus Backend durchgereicht werden oder App nutzt eigenen Key.
+- [ ] **Budget-Anpassung aus der App** – `TOTAL_BUDGET` via POST ändern ohne SSH auf den Pi.
+  Backend: `POST /system/budget` schreibt neuen Wert in `.env` oder `tracker.db`.
 
-- [x] **Push Notifications via Firebase Cloud Messaging** – Ersetzt Telegram-Alerts vollständig.
-  EXIT/WARN-Signale sollen direkt auf dem Telefon ankommen, nicht mehr nur per Telegram.
-  Voraussetzung: Firebase-Projekt anlegen, `firebase_messaging`-Package, Backend-seitiger FCM-Push.
-
-- [ ] **Position Detail: Stop-Update anzeigen** – Wenn Pass 2 den Trailing Stop angepasst hat,
-  soll der neue Stop-Wert in der Position-Detail-Ansicht sofort sichtbar sein.
-  Aktuell nur über Dashboard-Refresh erkennbar.
-
-- [ ] **History: Filter & Sortierung** – Nach Ticker, Zeitraum, P&L filtern.
-  Aktuell chronologisch, kein Filter.
+- [ ] **History: Filter & Sortierung** – Nach Ticker, Zeitraum, Win/Loss filtern.
+  Aktuell chronologisch ohne Filter.
 
 ---
 
@@ -35,13 +31,8 @@
 - [ ] **Widget-Tests schreiben** – Aktuell keine Tests im Frontend.
   Priorität: `ApiService` (Mock-Mode), `CacheService`, `ShortlistScreen` (Bought-Flow).
 
-- [x] **`useMock` Build-Flag** – Aktuell hardcodiert in `api_service.dart`.
-  Besser: `--dart-define=USE_MOCK=true` als Build-Argument damit Mock-Modus ohne Code-Änderung aktivierbar.
-
-- [ ] **CORS in `src/api/main.py` einschränken** – Aktuell `allow_origins=["*"]`.
-  Sobald Cloudflare-Domain bekannt ist: auf App-Origin beschränken.
-
-- [x] **`--no-enable-impeller` Flag entfernen** – Bug behoben, Flag nicht mehr nötig.
+- [ ] **EUR/USD-Rate-Caching optimieren** – Backend macht bei bestimmten Endpoints
+  mehrfach FMP-Requests für die Rate. Einmal pro Session/Stunde reicht.
 
 ---
 
@@ -53,12 +44,20 @@
 - [x] `PauseBanner` wenn System pausiert ist
 - [x] Action-Endpoints: bought, sold, skip, resume
 - [x] Shortlist: Top-Kandidat hervorgehoben, Skip-Funktion, Bought-Flow
-- [x] System-Screen: Services-Status, Run-Log, Resume-Button
+- [x] System-Screen: Services-Status, Run-Log, Resume-Button, Pi-Shutdown
 - [x] KestrelNav InheritedWidget für app-weite Navigation + Fehler-State
-- [x] IndexedStack Navigation mit 4 Tabs
-- [x] TradingView Chart via WebView in Position Detail
-- [x] Tailscale-Connectivity (Tailscale-IP hardcodiert)
-- [x] FCM Push Notifications via Firebase – ersetzt Telegram parallel.
-     Token-Handling, HARD/WARN/CANDIDATES Events, Deep Links implementiert.
-- [x] Cloudflare Tunnel – App verbindet ohne VPN über HTTPS
-- [x] JWT Bearer Auth – Login-Screen, flutter_secure_storage, Auto-Refresh
+- [x] IndexedStack Navigation mit 5 Tabs (inkl. Lab)
+- [x] FCM Push Notifications via Firebase – HARD/WARN/CANDIDATES Events, Deep Links
+- [x] Cloudflare Tunnel – App verbindet ohne VPN über HTTPS (`api.kestrel-trading.com`)
+- [x] JWT Bearer Auth – Login-Screen, `flutter_secure_storage`, Auto-Refresh
+- [x] CORS einschränken – `allow_origins=["https://api.kestrel-trading.com"]` aktiv
+- [x] Charts V2: Lightweight Charts (assets/chart.html via WebView)
+  Candlestick + EMA20 + EMA50 + Entry-Overlay + Stop-Overlay
+  Implementiert in Position Detail und Shortlist
+- [x] Manueller Run-Trigger – `POST /actions/trigger-run` (Backend + Frontend implementiert)
+  409 wenn bereits ein Run aktiv ist (Lock-File-Check)
+- [x] Lab-Tab: Sandbox (Parameter-Backtest mit Job-Polling + Abbrechen) +
+  Earnings-Kalender (14 Tage, getaggt nach position/shortlist/universe)
+- [x] `--dart-define=USE_MOCK=true` Build-Flag (Impeller-Bug behoben, Flag entfernt)
+- [x] `GET /positions/{ticker}/chart` Endpoint (OHLCV + EMA20/50 + Entry/Stop-Overlays)
+- [x] Sandbox: Backtest-Ergebnis cachen (kein Re-Run bei Tab-Wechsel)
