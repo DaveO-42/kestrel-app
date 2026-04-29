@@ -1,7 +1,7 @@
 # ANDROID_APP_CONTEXT.md
 # Kestrel App – Vollständiger Projektkontext
 
-> Erstellt: April 2026 | Repo: `DaveO-42/kestrel-app`
+> Zuletzt aktualisiert: April 2026 | Repo: `DaveO-42/kestrel-app`
 > Dieses Dokument dient als Kontext-Transfer für neue Claude-Sessions.
 
 ---
@@ -9,7 +9,7 @@
 ## 1. Projektübersicht
 
 **Was ist das?**
-Flutter-basierte Android-App als primäre Schnittstelle für das Kestrel-Swing-Trading-System. Ersetzt den bisherigen Telegram-Bot-Workflow vollständig. Läuft read-only gegen ein FastAPI-Backend auf einem Raspberry Pi 3B, das seinerseits eine SQLite-Datenbank (`tracker.db`) mit Handelsdaten befüllt.
+Flutter-basierte Android-App als primäre Schnittstelle für das Kestrel-Swing-Trading-System. Ersetzt den bisherigen Telegram-Bot-Workflow vollständig. Kommuniziert read/write mit einem FastAPI-Backend auf einem Raspberry Pi 3B, das seinerseits eine SQLite-Datenbank (`tracker.db`) mit Handelsdaten befüllt.
 
 **Kestrel-Backend (Python)** läuft headless auf dem Pi als `kestrel.service` (systemd) und führt täglich eine Two-Pass-Pipeline aus:
 - Pass 1 (~15:00): Screener, Detail-Analyse, Claude-Katalysator-Bewertung, Kaufentscheidung → TelegramBroker (Human-in-the-Loop)
@@ -30,17 +30,19 @@ Flutter-basierte Android-App als primäre Schnittstelle für das Kestrel-Swing-T
 | App | Flutter | Android-first, iOS später möglich |
 | Sprache | Dart | Kein TypeScript, kein React Native |
 | Backend-API | FastAPI (Python 3.11) | Eigener systemd-Service (`kestrel-api.service`) auf Pi, isoliert von `kestrel.service` |
-| Datenbank | SQLite (`tracker.db`) | Read-only via FastAPI — niemals direkter Zugriff aus der App |
-| Connectivity | Tailscale VPN | Pi von unterwegs über `100.103.235.113:8000` erreichbar |
+| Datenbank | SQLite (`tracker.db`) | Nur via FastAPI — niemals direkter Zugriff aus der App |
+| Connectivity | Cloudflare Tunnel | Primary: `https://api.kestrel-trading.com` (kein VPN nötig). Tailscale (`100.103.235.113:8000`) als Fallback/Entwicklung |
+| Auth | JWT Bearer | Login mit bcrypt-Passwort → Access Token (7d) + Refresh Token (30d), `flutter_secure_storage` |
 | Mock-Server | FastAPI lokal | `~/Development/kestrel-mock/` für Entwicklung ohne Pi-Zugriff |
-| Charts V1 | TradingView WebView Widget | Eingebettet per WebView |
-| Charts V2 | Lightweight Charts + FMP-Daten | Geplant: Entry/Stop-Overlays |
-| Notifications V2 | Firebase Cloud Messaging | Geplant: ersetzt Telegram |
+| Charts | Lightweight Charts 4.x | `assets/chart.html` via WebView; Candles + EMA20/EMA50/Entry/Stop-Overlays |
+| Notifications | Firebase Cloud Messaging | Implementiert; HARD/WARN/CANDIDATES-Events, Deep Links |
 | IDE | Android Studio (Mac) | VS Code wird nicht verwendet |
-| Build-Flag | `--no-enable-impeller` | Pflicht – Shader-Kompilierungsbug auf aktuellem Flutter/Mac-Setup |
 
 **Flutter-Dependencies (pubspec.yaml, relevant):**
 - `http` – HTTP-Calls zu FastAPI
+- `flutter_secure_storage` – JWT-Token-Speicherung
+- `firebase_messaging`, `firebase_core` – Push Notifications
+- `shared_preferences` – Offline-Cache (`CacheService`)
 - `flutter_lints` – Linting
 
 ---
@@ -51,41 +53,58 @@ Flutter-basierte Android-App als primäre Schnittstelle für das Kestrel-Swing-T
 
 ```
 lib/
-├── main.dart                          ← App-Einstieg, SplashScreen
-├── main_screen.dart                   ← MainScreen + KestrelNav (InheritedWidget) + Settings-Sheet
+├── main.dart                              ← App-Einstieg, SplashScreen
+├── main_screen.dart                       ← MainScreen + KestrelNav (InheritedWidget) + Settings-Sheet
 ├── theme/
-│   └── kestrel_theme.dart             ← KestrelColors (einzige Farbquelle), KestrelLogo
+│   └── kestrel_theme.dart                 ← KestrelColors (einzige Farbquelle), KestrelLogo
 ├── services/
-│   └── api_service.dart               ← HTTP-Client, Mock-Toggle, alle Endpoints
+│   ├── api_service.dart                   ← HTTP-Client, Mock-Toggle, alle Endpoints
+│   ├── auth_service.dart                  ← Login, Logout, Token-Refresh, isLoggedIn
+│   └── cache_service.dart                 ← Offline-Cache via SharedPreferences
 ├── screens/
-│   ├── splash/splash_screen.dart      ← Animated Progress, Fade zu MainScreen
+│   ├── splash/splash_screen.dart          ← Animated Progress, Auth-Check, Fade zu Main/Login
+│   ├── login/login_screen.dart            ← Passwort-Login, JWT-Flow
 │   ├── dashboard/dashboard_screen.dart
-│   ├── positions/position_detail_screen.dart
-│   ├── shortlist/shortlist_screen.dart
+│   ├── positions/position_detail_screen.dart ← inkl. Lightweight Chart
+│   ├── shortlist/shortlist_screen.dart    ← inkl. Chart-Overlay, Bought-Flow
 │   ├── history/history_screen.dart
-│   └── system/system_screen.dart
+│   ├── system/system_screen.dart          ← Run-Log, Service-Status, Resume, Shutdown
+│   └── lab/
+│       ├── lab_screen.dart                ← Tab-Container (Sandbox + Kalender)
+│       ├── sandbox_screen.dart            ← Parameter-Backtest mit Job-Polling
+│       └── calendar_screen.dart           ← Earnings-Kalender (nächste 14 Tage)
 └── widgets/
-    └── info_sheet.dart                ← Wiederverwendbares Info-Bottom-Sheet
+    ├── info_sheet.dart                    ← Wiederverwendbares Info-Bottom-Sheet
+    └── offline_banner.dart                ← Roter Banner bei fehlender Verbindung
 ```
 
 ### Backend-API-Struktur (im Kestrel-Repo)
 
 ```
 src/api/
-├── main.py                  ← FastAPI-App, CORS, Router-Import
-├── db.py                    ← SQLite-Helpers (read-only)
+├── main.py              ← FastAPI-App, CORS (Cloudflare-Domain), Router-Import, Rate-Limiter
+├── auth.py              ← POST /auth/login, /auth/refresh; JWT-Erzeugung, verify_token Dependency
+├── db.py                ← SQLite-Helpers (read-only für die meisten Routes)
+├── limiter.py           ← slowapi Rate-Limiting (5/min auf /auth/login)
 └── routes/
-    ├── dashboard.py         ← GET /dashboard, /positions, /positions/{ticker}
-    └── system.py            ← GET /system/status, /history, /history/summary, /runs, /shortlist
+    ├── dashboard.py     ← GET /dashboard, /positions, /positions/{ticker}, /positions/{ticker}/chart
+    ├── system.py        ← GET /system/status, /system/health, /runs, /shortlist;
+    │                       POST /system/fcm-token, /system/shutdown
+    ├── actions.py       ← POST /actions/bought, /sold, /skip, /resume, /trigger-run
+    ├── sandbox.py       ← POST /sandbox/run, /sandbox/cancel/{job_id};
+    │                       GET /sandbox/status/{job_id}
+    └── lab_calendar.py  ← GET /lab/calendar (4h In-Memory-Cache)
 ```
 
 ### Patterns
 
-**KestrelNav (InheritedWidget):** Stellt app-weite Callbacks bereit (`goToSystem()`, `goToSettings()`, `setConnectionError(bool)`, `connectionError` bool). Screens nutzen `KestrelNav.of(context)?.setConnectionError(true)` im Fehlerfall.
+**KestrelNav (InheritedWidget):** Stellt app-weite Callbacks bereit (`goToSystem()`, `goToSettings()`, `setConnectionError(bool)`, `refreshDashboard()`). Screens nutzen `KestrelNav.of(context)?.setConnectionError(true)` im Fehlerfall.
 
-**IndexedStack Navigation:** `MainScreen` nutzt `IndexedStack` mit 4 Tabs. Navigation per Bottom-Nav-Bar. Tab-Index: 0=Dashboard, 1=Shortlist, 2=History, 3=System.
+**IndexedStack Navigation:** `MainScreen` nutzt `IndexedStack` mit 5 Tabs. Navigation per Bottom-Nav-Bar. Tab-Index: 0=Dashboard, 1=Shortlist, 2=History, 3=System, 4=Lab.
 
-**Screen-Pattern:** Alle Screens sind `StatefulWidget` mit `_load()` via `Future.wait([...])`, `RefreshIndicator`, Error-Handling über `KestrelNav.setConnectionError`.
+**Screen-Pattern:** Alle Screens sind `StatefulWidget` mit `_load()` via `Future.wait([...])`, `RefreshIndicator`, Offline-Fallback via `CacheService`.
+
+**Auth-Flow:** `SplashScreen` prüft `AuthService.isLoggedIn()` → bei fehlendem/abgelaufenem Token Weiterleitung zu `LoginScreen`. Alle API-Calls nutzen JWT Bearer; bei 401 automatischer Token-Refresh, bei erneutem 401 Logout + Redirect.
 
 ---
 
@@ -93,16 +112,17 @@ src/api/
 
 ### Protokoll
 - REST/HTTP, JSON
-- Basis-URL Produktion: `http://100.103.235.113:8000` (Tailscale-IP des Pi)
+- Basis-URL Produktion: `https://api.kestrel-trading.com` (Cloudflare Tunnel)
+- Basis-URL Entwicklung: `http://100.103.235.113:8000` (Tailscale-IP des Pi)
 - Basis-URL Mock: `http://10.0.2.2:8000` (Android-Emulator → localhost)
 - Timeout: 8 Sekunden
-- Nur GET-Methoden in V1
+- Auth: `Authorization: Bearer <access_token>` auf allen Endpoints außer `/auth/*` und `/health`
 
 ### Mock-Toggle
 ```dart
 // lib/services/api_service.dart
 static const bool useMock = false;  // true = assets/mock/*.json
-static const String baseUrl = 'http://100.103.235.113:8000';
+static const String baseUrl = 'https://api.kestrel-trading.com';
 ```
 
 **Mock-Server starten:**
@@ -110,120 +130,120 @@ static const String baseUrl = 'http://100.103.235.113:8000';
 cd ~/Development/kestrel-mock && source venv/bin/activate && uvicorn main:app --reload --host 0.0.0.0 --port 8000
 ```
 
-### Endpoints (alle implementiert)
+### GET Endpoints
 
-| Endpoint | Methode | Rückgabe | Flutter-Methode |
-|---|---|---|---|
-| `/dashboard` | GET | Budget, Positionen, Drawdown, letzter Run | `ApiService.getDashboard()` |
-| `/positions` | GET | Liste offener Positionen | `ApiService.getPositions()` |
-| `/positions/{ticker}` | GET | Einzelne Position (404 wenn nicht offen) | `ApiService.getPosition(ticker)` |
-| `/shortlist` | GET | Kandidaten aus letztem Run-Log | `ApiService.getShortlist()` |
-| `/history` | GET | Abgeschlossene Trades (limit/offset) | `ApiService.getHistory()` |
-| `/history/summary` | GET | Aggregierte Stats (Win%, Avg P&L etc.) | `ApiService.getHistorySummary()` |
-| `/system/status` | GET | Drawdown %, Pause-Zustand | `ApiService.getSystemStatus()` |
-| `/runs` | GET | Letzte Pipeline-Run-Logs | `ApiService.getRuns(limit: 10)` |
-| `/health` | GET | Liveness-Check | `ApiService.testConnection()` |
+| Endpoint | Rückgabe | Flutter-Methode |
+|---|---|---|
+| `GET /health` | Liveness-Check | `ApiService.testConnection()` |
+| `GET /dashboard` | Budget, Positionen, Drawdown, letzter Run | `ApiService.getDashboard()` |
+| `GET /positions` | Liste offener Positionen | `ApiService.getPositions()` |
+| `GET /positions/{ticker}` | Einzelne Position (404 wenn nicht offen) | `ApiService.getPosition(ticker)` |
+| `GET /positions/{ticker}/chart` | OHLCV-Candles + EMA20/50/Entry/Stop-Overlays (40 Tage) | `ApiService.getPositionChart(ticker)` |
+| `GET /shortlist` | Kandidaten aus letztem Run-Log | `ApiService.getShortlist()` |
+| `GET /history` | Abgeschlossene Trades (limit/offset) | `ApiService.getHistory()` |
+| `GET /history/summary` | Aggregierte Stats (Win%, Avg P&L etc.) | `ApiService.getHistorySummary()` |
+| `GET /system/status` | Drawdown %, Pause-Zustand, Services | `ApiService.getSystemStatus()` |
+| `GET /system/health` | Service-Ping-Checks (pi, fmp, claude, healthchecks) | `ApiService.getSystemHealth()` |
+| `GET /runs` | Letzte Pipeline-Run-Logs | `ApiService.getRuns(limit: 10)` |
+| `GET /sandbox/status/{job_id}` | Fortschritt/Ergebnis eines Backtest-Jobs | `ApiService.getSandboxStatus(jobId)` |
+| `GET /lab/calendar` | Earnings nächste 14 Tage, getaggt (position/shortlist/universe) | `ApiService.getCalendar()` |
+
+### POST Endpoints
+
+| Endpoint | Beschreibung | Flutter-Methode |
+|---|---|---|
+| `POST /auth/login` | Passwort → Access + Refresh Token | `AuthService.login(password)` |
+| `POST /auth/refresh` | Refresh Token → neuer Access Token | `AuthService.refreshToken()` |
+| `POST /actions/bought` | Position nach manuellem Kauf erfassen | `ApiService.postBought(...)` |
+| `POST /actions/sold` | Position nach manuellem Verkauf schließen | `ApiService.postSold(...)` |
+| `POST /actions/skip` | Shortlist-Kandidat überspringen | `ApiService.postSkip(ticker)` |
+| `POST /actions/resume` | Drawdown-Pause aufheben | `ApiService.postResume()` |
+| `POST /actions/trigger-run` | Neuen Pipeline-Run starten (409 wenn bereits aktiv) | `ApiService.triggerRun()` |
+| `POST /sandbox/run` | Backtest-Job starten → job_id | `ApiService.postSandboxRun(...)` |
+| `POST /sandbox/cancel/{job_id}` | Laufenden Backtest-Job abbrechen | `ApiService.cancelSandboxRun(jobId)` |
+| `POST /system/fcm-token` | FCM-Token auf Pi hinterlegen | `ApiService.postFcmToken(token)` |
+| `POST /system/shutdown` | Pi herunterfahren | `ApiService.postShutdown()` |
 
 ### Wichtige Datenfeld-Konventionen
 
 - **Position-Identifier:** `ticker` (String, z.B. `"NVDA"`) — keine numerische ID
 - **Kurs:** `last_known_price_eur` + `price_updated_at` — kein Live-Kurs, nur aus letztem Pipeline-Run
-- **Shortlist-Status:** `pending` / `confirmed` / `skipped` / `expired` (abgeleitet aus `run_date` vs. heute)
+- **Chart-Overlays:** Werte in USD (FMP-Daten); App rechnet intern um wenn nötig
+- **Shortlist-Status:** `pending` / `confirmed` / `skipped` / `expired`
 - **Shortlist-Quelle:** neuestes `logs/run_*.json` auf dem Pi
 - **Währung:** Alle EUR-Werte sind fertig konvertiert (FastAPI nutzt FMP für EUR/USD-Rate); App zeigt nur EUR
 - **RSI in Signalen:** `signals[].severity` = `INFO` / `WARN` / `HARD`
-
-### Geplanter Endpoint (noch nicht implementiert)
-
-```yaml
-GET /system/health
-Response:
-  checked_at: datetime
-  services:
-    - name: string          # pi | fmp | claude | healthchecks | sec_edgar
-      status: string        # ok | degraded | error | unknown
-      latency_ms: int|null
-      last_checked_at: datetime
-      message: string|null
-```
-Degraded-Schwellen: FMP >2000ms, Claude >5000ms, SEC EDGAR >3000ms.
+- **Sandbox-Jobs:** In-Memory auf Pi (kein DB-Zugriff); Status: `running` / `done` / `error` / `cancelled`
+- **Earnings-Kalender:** In-Memory-Cache 4h TTL; Tags: `position` / `shortlist` / `universe`
 
 ---
 
-## 5. Implementierte Features (V1 – Stand April 2026)
+## 5. Implementierte Features (Stand v1.2.2 – April 2026)
 
-### ✅ Splash Screen
-Animierter Ladebalken (0% → 100%), Kestrel-Logo + Name, Fade-Transition zu MainScreen.
+### ✅ Auth & Splash
+Login-Screen mit Passwort-Eingabe → JWT-Flow. Splash prüft Token-Status, leitet zu Login oder MainScreen weiter.
 
 ### ✅ Bottom Navigation
-4 Tabs mit Icons: Dashboard · Shortlist · History · System. `IndexedStack` (keine Rebuilds beim Tab-Wechsel).
+5 Tabs: Dashboard · Shortlist · History · System · Lab. `IndexedStack` (keine Rebuilds beim Tab-Wechsel).
 
 ### ✅ Globale Mechanismen
-- **ErrorBanner:** Roter Streifen unter AppBar bei Verbindungsfehler
+- **OfflineBanner:** Roter Streifen unter AppBar bei Verbindungsfehler + Datenalter
 - **PauseBanner:** Roter Streifen bei `is_paused: true` — alle Screens, navigiert bei Tap zu System-Tab
 - **KestrelNav InheritedWidget:** App-weite State-Propagation
-- **Settings-Sheet:** Server-URL-Anzeige, Verbindungstest mit Latenz-Feedback
+- **Settings-Sheet:** Server-URL, Verbindungstest, Notification-Toggles (FCM Topics)
+- **Offline-Cache:** Alle GET-Endpoints via `CacheService` (SharedPreferences) gecacht
 
 ### ✅ Dashboard Screen
-- Budget-Hero-Card: 28px Gesamtbudget, investiert/verfügbar, Gold-Progress-Bar, Drawdown-Bar (orange ab 70%)
-- System-Card: Drawdown %, consecutive Losses, letzter Ping, letzter Run
-- Positions-Liste: Ticker, Entry/Stop, P&L (abs + %), Gesamtwert
-- **Traffic-Light-Ampel:** 3px farbige Linke Borderlinie pro Zeile basierend auf `signals[].severity`
-  - 🟢 Grün = keine aktiven Signale
-  - 🟠 Orange = mindestens ein `WARN`-Signal
-  - 🔴 Rot = mindestens ein `HARD`-Signal
+- Budget-Hero-Card: Gesamtbudget, investiert/verfügbar, Gold-Progress-Bar, Drawdown-Bar
+- System-Card: Drawdown %, consecutive Losses, letzter Run
+- Positions-Liste mit Traffic-Light-Ampel (Signalfarbe als linke Borderlinie)
 
 ### ✅ Position Detail Screen
-- Price-Hero: 32px aktueller Kurs, Entry-Preis, P&L-Badge
-- **Price Range Bar:** Stop–Entry–Kurs visuell als farbige Segmente
-  - Plus-Zustand (Kurs > Entry): Rot (Stop-Zone) → Rot gedimmt (Risiko) → Grün (Gewinn) → Track (Potenzial)
-  - Minus-Zustand (Kurs < Entry): Rot → Rot gedimmt → Orange gedimmt → Track
-  - Entry-Position berechnet: `8% + ((entry-stop)/(kurs-stop)) × 84%`
-- Trade-Parameter-Card: Entry-Datum, Stück, ATR, Stop initial, Stop aktuell, Höchstkurs, Stop-Modus-Badge
-- Signal-Card: HARD/WARN/INFO Badges mit zugehörigen Beschreibungen
-- Katalysator-Card: Earnings-Beat + Claude-Analyse
-- HARD-Alert-Banner (rot, sticky) wenn HARD-Signal aktiv
-- „Verkaufen →"-Button (V2-Platzhalter, Gold-CTA, sticky am unteren Rand)
+- Price-Hero: aktueller Kurs, Entry, P&L-Badge
+- Lightweight-Chart: Candlestick (40 Tage) + EMA20 (blau) + EMA50 (lila) + Entry-Linie (gold) + Stop-Linie (rot)
+- Signal-Badges (HARD/WARN/INFO)
+- Verkaufen-Action mit Fill-Preis-Eingabe
 
 ### ✅ Shortlist Screen
-- Status-Badge in AppBar: pending / confirmed / skipped / expired
-- Pause-Banner wenn System pausiert
-- Kandidaten-Cards mit Gold-`border-top`: Ticker, Score, Sektor, 4W-Performance, EPS-Surprise
-- Claude-Box (linker Gold-Akzentstreifen): `katalysator_intakt`, `katalysator_eingeschaetzt`, `gegenargumente`, `gap_risiko`
-- Trade-Parameter-Box: RSI, EMA20, EMA50, Steigung
-- Aktions-Buttons (Kaufen/Skippen) als V2-Platzhalter
+- Top-Kandidat hervorgehoben (Gold-Akzentlinie)
+- Chart-Overlay pro Kandidat (Lightweight Charts)
+- Kaufen-Flow: Menge + Fill-Preis → `POST /actions/bought`
+- Skip-Funktion → `POST /actions/skip`
+- Nach Kauf: Kandidaten-Card wird durch "Gekauft"-Card ersetzt
 
 ### ✅ History Screen
-- P&L-Hero: Gesamtgewinn/-verlust, Win-Rate, Avg P&L
-- Trade-Liste absteigend nach Datum: Ticker, Entry/Exit-Datum, Haltedauer, P&L
-- Summary-Stats-Card
+- Liste abgeschlossener Trades (chronologisch)
+- Aggregierte Stats via `/history/summary`
 
 ### ✅ System Screen
-- Pause-Card (nur wenn `is_paused: true`): Grund, Datum, Resume-Button (V2-Platzhalter)
-- Drawdown-Card: aktueller Drawdown vs. 25%-Limit
-- Run-Log: letzte 10 Pipeline-Runs mit Zeit, Shortlist-Count, Order-Status-Badge
+- Services-Status (pi, fmp, claude, healthchecks)
+- Run-Log (letzte 10 Runs)
+- Resume-Button (nur sichtbar wenn pausiert)
+- Pi-Shutdown-Button
+
+### ✅ Lab Screen
+- **Sandbox-Tab:** Parameter-Backtest (ATR-Multiplikator, RSI-Range, Min-Performance, Jahresauswahl). Asynchroner Job-Polling, Abbrechen-Button, Baseline-Vergleich (vs. Produktions-Parametern 2022–2024), clientseitige Aggregation bei fehlendem Server-Total.
+- **Kalender-Tab:** Earnings der nächsten 14 Tage; getaggt nach position / shortlist / universe; Filter-Toggles
 
 ---
 
-## 6. Offene TODOs & bekannte Probleme
+## 6. Offene Punkte
 
-### TODOs V1 (App)
-- [ ] `GET /system/health` Endpoint im Backend implementieren → Service-Health-Card auf System-Screen aktivieren
-- [ ] Traffic-Light-Logik: Kurs ≤ 5% über Stop → Rot (aktuell nur via Signal-Severity)
-- [ ] Charts: TradingView WebView Widget auf Position Detail Screen einbauen
-- [ ] Settings-Sheet: Server-URL konfigurierbar machen (aktuell hardcoded)
-- [ ] `useMock = false` und `baseUrl` sollten aus einer Config-Datei kommen, nicht hardcoded sein
+### TODOs App
+- [ ] Trade-Journal: Notizfeld pro Position (offen + geschlossen) für 30-Trade-Review
+- [ ] Equity-Kurve in History: P&L-Chart über Zeit
+- [ ] Earnings-Warnung in Position Detail: "Nächste Earnings in X Tagen" (< 7 Tage = rot)
+- [ ] Budget-Anpassung aus der App: `TOTAL_BUDGET` via POST ändern
+- [ ] History: Filter & Sortierung (Ticker, Zeitraum, Win/Loss)
+- [ ] Widget-Tests schreiben (ApiService Mock-Mode, CacheService, ShortlistScreen)
 
 ### TODOs Backend (FastAPI-Layer)
-- [ ] `GET /system/health` implementieren (Service-Ping-Checks in `system_state`-Tabelle cachen)
-- [ ] `kestrel-api.service` als systemd-Service auf Pi deployen und durchtesten
-- [ ] EUR/USD-Rate-Caching optimieren (aktuell bei jedem API-Call ein FMP-Request)
+- [ ] EUR/USD-Rate-Caching optimieren (aktuell bei bestimmten Calls mehrfach FMP-Request)
 
-### Bekannte Probleme / Einschränkungen
-- **Kein Live-Kurs:** `last_known_price_eur` wird nur während Pipeline-Runs aktualisiert. App zeigt immer den Kurs des letzten Runs, nicht Echtzeit.
-- **Impeller deaktiviert:** `--no-enable-impeller` erforderlich — Shader-Kompilierungsbug auf aktuellem Flutter/Mac-Setup. Bei Flutter-Update prüfen ob Problem behoben.
-- **Shortlist veraltet nach Börsenschluss:** `status: expired` ab dem Folgetag — App zeigt leere Shortlist außerhalb von Handelstagen.
-- **`useMock`-Flag ist hardcoded:** Muss manuell geändert werden für Mock vs. echte Verbindung.
+### Bekannte Einschränkungen
+- **Kein Live-Kurs:** `last_known_price_eur` wird nur während Pipeline-Runs aktualisiert.
+- **Shortlist veraltet nach Börsenschluss:** `status: expired` ab dem Folgetag.
+- **Sandbox begrenzt aussagekräftig:** Backtest nutzt historische FMP-Daten mit Survivorship Bias; dient Orientierung, nicht Optimierung.
 
 ---
 
@@ -231,31 +251,24 @@ Animierter Ladebalken (0% → 100%), Kestrel-Logo + Name, Fade-Transition zu Mai
 
 ### Mock-first-Entwicklung
 **Entscheidung:** App vollständig gegen lokalen FastAPI-Mock entwickeln, bevor echte Pi-Anbindung.
-**Begründung:** Schutz des laufenden Trading-Systems. Der Pi läuft 24/7 produktiv. Fehler in der App dürfen den `kestrel.service` nicht beeinflussen.
-
-### API-Kontrakt vor Implementierung
-**Entscheidung:** `kestrel_api.yaml` (OpenAPI) als verbindlicher Kontrakt definiert, bevor ein einziger Screen gebaut wurde.
-**Begründung:** Verhindert Mid-Development-Überraschungen bei Datenformaten. Korrekturen wurden frühzeitig erkannt (z.B. `ticker` als String statt numerische ID).
+**Begründung:** Schutz des laufenden Trading-Systems. Der Pi läuft 24/7 produktiv.
 
 ### FastAPI als isolierter Layer
 **Entscheidung:** Eigener `kestrel-api.service` (systemd), unabhängig von `kestrel.service`.
-**Begründung:** API-Server-Absturz darf die Trading-Pipeline nicht stoppen. Getrennte Prozesse, getrennte Verantwortlichkeiten.
+**Begründung:** API-Server-Absturz darf die Trading-Pipeline nicht stoppen.
 
-### Kein Live-Kurs in V1
+### Kein Live-Kurs
 **Entscheidung:** Nur `last_known_price_eur` (aus Pipeline-Run), kein separater Kurs-Feed.
-**Begründung:** Kein kostenpflichtiger Real-Time-Datenfeed nötig für reine Monitoring-App. Kestrel handelt Swing-Positionen über Tage/Wochen – Sekundengenauigkeit nicht erforderlich.
+**Begründung:** Swing-Positionen über Tage/Wochen — Sekundengenauigkeit nicht erforderlich.
 
 ### InheritedWidget statt Provider/Riverpod
-**Entscheidung:** `KestrelNav` als natives Flutter `InheritedWidget` für App-State.
-**Begründung:** App-State ist minimal (Verbindungsfehler, Tab-Navigation). Kein Overhead durch externes State-Management-Framework gerechtfertigt.
+**Begründung:** App-State ist minimal. Kein Overhead durch externes Framework gerechtfertigt.
 
-### Design: Card-Labels inside, nie floating
-**Entscheidung:** Alle Section-Labels (z.B. „OFFENE POSITIONEN") befinden sich **innerhalb** der Card, nie als freistehende Header darüber.
+### Card-Labels inside, nie floating
 **Begründung:** Konsistenz mit Kestrel-Designsystem, verhindert visuelle Fragmentierung.
 
 ### Batch-UI-Änderungen
-**Entscheidung:** Screen-Level-Anpassungen werden gesammelt und in einem Block umgesetzt.
-**Begründung:** Verhindert endlose Ping-Pong-Iterationen. Volle Screen-Architektur erst definieren, dann implementieren.
+**Begründung:** Screen-Level-Anpassungen gesammelt in einem Block umsetzen statt Ping-Pong.
 
 ---
 
@@ -263,47 +276,34 @@ Animierter Ladebalken (0% → 100%), Kestrel-Logo + Name, Fade-Transition zu Mai
 
 ### Was nicht funktioniert hat
 
-**Impeller-Renderer:** Shader-Kompilierungsfehler beim Start auf dem aktuellen Flutter/Mac-Setup. Lösung: `--no-enable-impeller` als permanentes Run-Flag. Bei Flutter-Upgrades erneut prüfen.
+**`10.0.2.2` als Mock-URL:** Korrekt für Android-Emulator (mapped auf localhost des Hosts), aber irreführend beim Wechsel auf echte Verbindung.
 
-**`10.0.2.2` als Mock-URL:** Korrekt für Android-Emulator (mapped auf localhost des Hosts), aber irreführend. Sobald `useMock = false` gesetzt wird, muss die echte Pi-Tailscale-IP verwendet werden. Das Flag und die URL sind aktuell hardcoded — fehleranfällig.
+**Position-ID als Integer:** Frühe API-Spezifikation. Korrigiert zu `ticker` (String). Hätte ohne frühen OpenAPI-Kontrakt zu aufwändigem Refactoring geführt.
 
-**Position-ID als Integer:** Frühe API-Spezifikation nutzte numerische IDs. Korrigiert zu `ticker` (String), da Kestrel intern immer Ticker als Identifier verwendet. Hätte ohne frühen Kontrakt zu aufwändigen Refactorings geführt.
+**INTERNET Permission fehlt im Release-Build:** Flutter-Templates legen Permission nur in `debug/` und `profile/` an. Fix: in `android/app/src/main/AndroidManifest.xml` eintragen. Bei jedem Flutter-Setup zuerst prüfen.
 
-**INTERNET Permission fehlt im Release-Build:** Flutter-Templates legen
-`<uses-permission android:name="android.permission.INTERNET"/>` nur in
-`android/app/src/debug/AndroidManifest.xml` und `profile/` an – nicht in `main/`.
-Release-APKs blockieren dann alle Netzwerkzugriffe lautlos (OS Error: errno=1,
-Operation not permitted). Symptom: Debug-APK funktioniert, Release-APK nicht.
-Fix: Permission in `android/app/src/main/AndroidManifest.xml` eintragen.
-Bei jedem Flutter-Projekt-Setup als erstes prüfen.
+**Impeller-Renderer:** Shader-Kompilierungsfehler beim Start — behoben, kein Workaround mehr nötig.
 
 ### Was verworfen wurde
 
-**RSI direkt in Trade-Parameter:** Entschieden, RSI **nicht** als eigenes Feld in Position-Detail zu zeigen — es ist bereits implizit im WARN-Signal enthalten. Doppelte Info vermieden.
-
-**Consecutive-Loss-Counter auf System-Screen:** Gehört auf Dashboard (Systemübersicht), nicht auf System-Tab. Verworfen um Redundanz zu vermeiden.
-
-**AI Sentiment Gauge:** Aus Falcon-Command-Design-Referenz evaluiert. Verworfen — zu vage, kein konkreter Handlungsimpuls für Nutzer.
-
-**Panic-Exit-Button in V1:** Evaluiert, verschoben auf frühestens V2. V1 ist bewusst read-only.
-
-**IBKR als Broker:** Technisch implementierbar, aber Client Portal API erfordert 2FA bei jedem Session-Reset (täglich Mitternacht MEZ). Nicht vollautomatisierbar für Privatanleger ohne OAuth. → Trading 212 als Favorit für V3.
+- RSI als eigenes Feld in Position-Detail (implizit im WARN-Signal enthalten)
+- AI Sentiment Gauge (zu vage, kein Handlungsimpuls)
+- Panic-Exit-Button in V1 (verschoben auf frühestens V3)
+- IBKR als Broker (2FA täglich → nicht automatisierbar)
+- Backtesting als zentrales App-Feature (begrenzte Aussagekraft im Sandbox-Format)
 
 ---
 
 ## 9. Versions-Roadmap
 
-### V1 – Read-only (in Arbeit / nahezu abgeschlossen)
-Alle Screens implementiert: Dashboard, Position Detail, Shortlist, History, System, Splash, Navigation. Echte Pi-Verbindung aktiv.
+### V1 – Monitoring (abgeschlossen)
+Read-only: Dashboard, Position Detail, Shortlist, History, System, Splash.
 
-### V2 – Control (geplant)
-- Kaufen, Verkaufen, Skippen, Resume als App-Actions
-- FCM Push Notifications (Shortlist-Alert, WARN, HARD)
-- Telegram vollständig ersetzen
+### V2 – Control (abgeschlossen)
+Kaufen, Verkaufen, Skippen, Resume. FCM Push Notifications. JWT-Auth. Cloudflare Tunnel. Lab (Sandbox + Kalender). Charts V2.
 
 ### V3 – Broker-Integration (nach 30-Trade-Meilenstein)
-- Trading 212 API-Integration (Beta-API, API-Key reicht, kostenlos)
-- Vollautomatische Order-Ausführung
+Trading 212 API-Integration. Vollautomatische Order-Ausführung.
 
 ---
 
@@ -314,6 +314,7 @@ Alle Screens implementiert: Dashboard, Position Detail, Shortlist, History, Syst
 ```dart
 // Hintergründe
 screenBg   = Color(0xFF0F1822)  // Ebene 1: App-Hintergrund
+innerBg    = Color(0xFF121C28)  // Ebene 1.5: innere Container
 cardBg     = Color(0xFF1B2A3E)  // Ebene 2: Cards
 cardBorder = Color(0xFF2E4A6A)  // Card-Kante
 appBarBg   = Color(0xFF131F2E)  // AppBar / Nav
@@ -329,9 +330,13 @@ textDimmed  = Color(0xFF6A8AAA) // Sekundäre Info, Timestamps
 textHint    = Color(0xFF334D68) // Wirklich unwichtig
 
 // Semantisch (nie zweckentfremden)
-green  = Color(0xFF27C97A)  // P&L positiv, Trend intakt
-red    = Color(0xFFE84040)  // P&L negativ, Stop, HARD
-orange = Color(0xFFE07820)  // WARN-Signale
+green       = Color(0xFF27C97A)  // P&L positiv, Trend intakt
+greenBg     = Color(0xFF0D2318)
+greenBorder = Color(0xFF1A4A2E)
+red         = Color(0xFFE84040)  // P&L negativ, Stop, HARD
+redBg       = Color(0xFF2A0D0D)
+redBorder   = Color(0xFF5A1A1A)
+orange      = Color(0xFFE07820)  // WARN-Signale
 ```
 
 ### Layout-Regeln
@@ -349,32 +354,13 @@ orange = Color(0xFFE07820)  // WARN-Signale
 # Mock-Server starten (jede Session)
 cd ~/Development/kestrel-mock && source venv/bin/activate && uvicorn main:app --reload --host 0.0.0.0 --port 8000
 
-# Flutter starten (Impeller deaktiviert)
-flutter run --no-enable-impeller
+# Flutter starten
+flutter run
 ```
 
-## 12. Arbeitsweise & Tool-Aufteilung
-### Claude Chat (dieses Fenster):
-- Architektur- und Designentscheidungen
-- Feature-Spezifikationen ausarbeiten
-- Komplette Dateien generieren
-- Konzepte diskutieren und validieren
-
-### Claude Code (cd ~/Development/kestrel_app && claude):
-- Konkrete Implementierung direkt im Repo
-- Debugging mit Dateizugriff
-- Fehler fixen die Datei-Kontext brauchen
-
-### Workflow:
-1. Design hier im Chat klären
-2. Claude Chat generiert Dateien oder formuliert Prompt
-3. Claude Code setzt im Repo um
-
-Wichtig: Claude Code hat keinen Zugriff auf diesen Chat-Kontext. Relevanter Kestrel-Kontext muss bei Bedarf als Prompt mitgegeben werden – z.B. Verweis auf ANDROID_APP_CONTEXT.md und TRADING_RULES.md.
-
-### Pi-Verbindung (Tailscale)
-- Pi-IP (Tailscale): `100.103.235.113`
-- API-Port: `8000`
+### Pi-Verbindung
+- Cloudflare Tunnel: `https://api.kestrel-trading.com` (primär, kein VPN)
+- Tailscale-Fallback: `http://100.103.235.113:8000`
 - API-Start auf Pi: `uvicorn src.api.main:app --host 0.0.0.0 --port 8000`
 
 ### Umgebungsvariablen (`.env` im Kestrel-Repo)
@@ -387,4 +373,28 @@ TOTAL_BUDGET=700.0
 MIN_POSITION_SIZE=500.0
 TRACKER_DB_PATH=tracker.db
 LOGS_DIR=logs
+APP_PASSWORD_HASH=...   ← bcrypt-Hash: python3 -c "import bcrypt; print(bcrypt.hashpw(b'pw', bcrypt.gensalt()).decode())"
+APP_JWT_SECRET=...      ← openssl rand -hex 32
 ```
+
+---
+
+## 12. Arbeitsweise & Tool-Aufteilung
+
+### Claude Chat (dieses Fenster)
+- Architektur- und Designentscheidungen
+- Feature-Spezifikationen ausarbeiten
+- Komplette Dateien generieren
+- Konzepte diskutieren und validieren
+
+### Claude Code (`cd ~/Development/kestrel-app && claude`)
+- Konkrete Implementierung direkt im Repo
+- Debugging mit Dateizugriff
+- Fehler fixen die Datei-Kontext brauchen
+
+### Workflow
+1. Design hier im Chat klären
+2. Claude Chat generiert Dateien oder formuliert Prompt
+3. Claude Code setzt im Repo um
+
+**Wichtig:** Claude Code hat keinen Zugriff auf diesen Chat-Kontext. Relevanter Kontext muss als Prompt mitgegeben werden – Verweis auf `ANDROID_APP_CONTEXT.md` reicht.
