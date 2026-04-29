@@ -440,11 +440,45 @@ class _SandboxScreenState extends State<SandboxScreen>
 
   Widget _buildResultsScreen() {
     final yearResults = (_result?['year_results'] as Map<String, dynamic>?) ?? {};
-    final total       = (_result?['total']        as Map<String, dynamic>?) ?? {};
+    var   total       = (_result?['total']        as Map<String, dynamic>?) ?? {};
     final params      = (_result?['params']        as Map<String, dynamic>?) ?? {};
     final sortedYears = (yearResults.keys.toList()..sort());
     final multiYear   = sortedYears.length > 1;
-    final hasTotal    = total.isNotEmpty && total['error'] == null;
+
+    // Fallback: Gesamt clientseitig aus Jahres-Ergebnissen aggregieren
+    if ((total.isEmpty || total['error'] != null) && yearResults.isNotEmpty) {
+      var tTrades = 0;
+      var tPnl    = 0.0;
+      var tWin    = 0.0;
+      var tAvg    = 0.0;
+      var tSharpe = 0.0;
+      var tDd     = 0.0;
+      var count   = 0;
+      for (final v in yearResults.values) {
+        final m = v as Map?;
+        if (m == null || m['error'] != null || (m['trades_total'] as num?) == null || (m['trades_total'] as num) <= 0) continue;
+        tTrades += (m['trades_total'] as num).toInt();
+        tPnl    += (m['total_pnl_eur']   as num?)?.toDouble() ?? 0;
+        tWin    += (m['win_rate_pct']     as num?)?.toDouble() ?? 0;
+        tAvg    += (m['avg_return_pct']   as num?)?.toDouble() ?? 0;
+        tSharpe += (m['sharpe_ratio']     as num?)?.toDouble() ?? 0;
+        final dd = (m['max_drawdown_pct'] as num?)?.toDouble() ?? 0;
+        if (dd < tDd) tDd = dd;
+        count++;
+      }
+      if (count > 0) {
+        total = {
+          'trades_total':     tTrades,
+          'total_pnl_eur':    tPnl,
+          'win_rate_pct':     double.parse((tWin / count).toStringAsFixed(1)),
+          'avg_return_pct':   double.parse((tAvg / count).toStringAsFixed(2)),
+          'max_drawdown_pct': tDd,
+          'sharpe_ratio':     double.parse((tSharpe / count).toStringAsFixed(2)),
+        };
+      }
+    }
+
+    final hasTotal = total.isNotEmpty && total['error'] == null;
 
     // Baseline: Original-Backtest 2022–2024 (ATR×2.0, RSI 50–70, Perf >3%)
     const _baseline = {
