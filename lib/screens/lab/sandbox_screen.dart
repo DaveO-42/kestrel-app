@@ -794,23 +794,20 @@ class _PnlBadge extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final pnl     = (m['total_pnl_eur'] as num?)?.toDouble();
+    final pnl   = (m['total_pnl_eur'] as num?)?.toDouble();
     if (pnl == null) return const SizedBox.shrink();
-    final pos     = pnl >= 0;
-    final label   = '${pos ? '+' : ''}€${pnl.toStringAsFixed(0)}';
+    final label = '${pnl >= 0 ? '+' : ''}€${pnl.toStringAsFixed(0)}';
 
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
       decoration: BoxDecoration(
-        color:        pos ? KestrelColors.greenBg  : KestrelColors.redBg,
+        color:        KestrelColors.innerBg,
         borderRadius: BorderRadius.circular(5),
-        border: Border.all(
-          color: pos ? KestrelColors.greenBorder : KestrelColors.redBorder,
-        ),
+        border: Border.all(color: KestrelColors.cardBorder),
       ),
       child: Text(label,
-          style: TextStyle(
-            color:      pos ? KestrelColors.green : KestrelColors.red,
+          style: const TextStyle(
+            color:      KestrelColors.textPrimary,
             fontSize:   12,
             fontWeight: FontWeight.w700,
           )),
@@ -900,7 +897,7 @@ class _DeltaCell extends StatelessWidget {
   Widget build(BuildContext context) {
     final delta   = sandbox - baseline;
     final better  = delta > 0;
-    final neutral = delta.abs() < 0.05;
+    final neutral = delta.abs() < 0.1;
     final color   = neutral
         ? KestrelColors.textDimmed
         : better
