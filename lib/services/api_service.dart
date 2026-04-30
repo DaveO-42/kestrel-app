@@ -26,6 +26,7 @@ class ApiService {
   static const String _keyHistory = 'cache_history';
   static const String _keyHistorySummary   = 'cache_history_summary';
   static const String _keyHistoryBenchmark = 'cache_history_benchmark';
+  static const String _keySandboxBaseline  = 'sandbox_baseline';
   static const String _keySystemStatus = 'cache_system_status';
   static const String _keyRuns = 'cache_runs';
 
@@ -193,6 +194,10 @@ class ApiService {
   static Future<CachedResult<Map<String, dynamic>>> getHistoryBenchmark() =>
       getMapCached('assets/mock/history_benchmark.json', '/history/benchmark',
           _keyHistoryBenchmark);
+
+  static Future<CachedResult<Map<String, dynamic>>> getSandboxBaseline() =>
+      getMapCached('assets/mock/sandbox_baseline.json', '/sandbox/baseline',
+          _keySandboxBaseline);
 
   static Future<CachedResult<Map<String, dynamic>>> getSystemStatus() =>
       getMapCached('assets/mock/system_status.json', '/system/status',

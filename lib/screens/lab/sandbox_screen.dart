@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
 import '../../services/api_service.dart';
+import '../../services/cache_service.dart';
 import '../../theme/kestrel_theme.dart';
 
 class SandboxScreen extends StatefulWidget {
@@ -31,6 +32,7 @@ class _SandboxScreenState extends State<SandboxScreen>
   bool                  _cancelling = false;
   Timer?                _pollTimer;
   Timer?                _cancelTimer;
+  CachedResult<Map<String, dynamic>>? _baselineResult;
 
   // ── Hover Animation ────────────────────────────────────────
   late final AnimationController _hoverCtrl;
@@ -46,6 +48,7 @@ class _SandboxScreenState extends State<SandboxScreen>
     _hoverAnim = Tween<double>(begin: -8.0, end: 8.0).animate(
       CurvedAnimation(parent: _hoverCtrl, curve: Curves.easeInOut),
     );
+    _load();
   }
 
   @override
@@ -137,6 +140,17 @@ class _SandboxScreenState extends State<SandboxScreen>
       _jobCurrent = 0;
     });
   }
+
+  Future<void> _load() async {
+    try {
+      final result = await ApiService.getSandboxBaseline();
+      if (!mounted) return;
+      setState(() => _baselineResult = result);
+    } catch (_) {}
+  }
+
+  Map<String, dynamic>? _getBaselineForYear(String year) =>
+      (_baselineResult?.data)?['year_results']?[year] as Map<String, dynamic>?;
 
   // ── Build ──────────────────────────────────────────────────
   @override
@@ -482,14 +496,6 @@ class _SandboxScreenState extends State<SandboxScreen>
     // hasTotal NACH dem Fallback evaluieren
     final hasTotal = total.isNotEmpty && total['error'] == null && (total['trades_total'] as num? ?? 0) > 0;
 
-    // Baseline: Original-Backtest 2022–2024 (ATR×2.0, RSI 50–70, Perf >3%)
-    const _baseline = {
-      'all':  {'n': 64,  'win': 43.8, 'avg': 2.48,  'sharpe': 0.64},
-      '2022': {'n': 15,  'win': 46.7, 'avg': 1.32,  'sharpe': 0.66},
-      '2023': {'n': 30,  'win': 36.7, 'avg': 2.56,  'sharpe': 0.50},
-      '2024': {'n': 19,  'win': 52.6, 'avg': 3.28,  'sharpe': 1.16},
-    };
-
     return SingleChildScrollView(
       padding: const EdgeInsets.fromLTRB(12, 12, 12, 24),
       child: Column(
@@ -535,12 +541,11 @@ class _SandboxScreenState extends State<SandboxScreen>
                   const SizedBox(height: 10),
                   if (hasTotal) ...[
                     _MetricsRow(total),
-                    // ── Gegenüberstellung Baseline ─────────
-                    if (sortedYears.length == 3) ...[
+                    if (_getBaselineForYear('all') != null) ...[
                       const SizedBox(height: 10),
                       _BaselineComparison(
                         sandbox:  total,
-                        baseline: _baseline['all']!,
+                        baseline: _getBaselineForYear('all')!,
                       ),
                     ],
                   ] else
@@ -557,7 +562,7 @@ class _SandboxScreenState extends State<SandboxScreen>
           ...sortedYears.map((year) {
             final m        = yearResults[year] as Map<String, dynamic>? ?? {};
             final hasData  = m.isNotEmpty && m['error'] == null;
-            final baseline = _baseline[year] as Map<String, dynamic>?;
+            final baseline = _getBaselineForYear(year);
 
             return Padding(
               padding: const EdgeInsets.only(bottom: 8),
@@ -848,9 +853,9 @@ class _BaselineComparison extends StatelessWidget {
     final sAvg    = (sandbox['avg_return_pct'] as num?)?.toDouble() ?? 0;
     final sSharpe = (sandbox['sharpe_ratio']   as num?)?.toDouble() ?? 0;
 
-    final bWin    = (baseline['win']    as num).toDouble();
-    final bAvg    = (baseline['avg']    as num).toDouble();
-    final bSharpe = (baseline['sharpe'] as num).toDouble();
+    final bWin    = (baseline['win_rate_pct']   as num).toDouble();
+    final bAvg    = (baseline['avg_return_pct'] as num).toDouble();
+    final bSharpe = (baseline['sharpe_ratio']   as num).toDouble();
 
     return Container(
       padding: const EdgeInsets.fromLTRB(10, 8, 10, 8),
