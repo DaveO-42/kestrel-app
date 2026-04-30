@@ -4,6 +4,13 @@ import '../../services/api_service.dart';
 import '../../services/cache_service.dart';
 import '../../theme/kestrel_theme.dart';
 
+const Map<int, String> _yearContext = {
+  2022: 'Bärenjahr −33%',
+  2023: 'Erholung +43%',
+  2024: 'Bullenmarkt +25%',
+  2025: 'Zoll-Schock −15%',
+};
+
 class SandboxScreen extends StatefulWidget {
   const SandboxScreen({super.key});
 
@@ -152,6 +159,17 @@ class _SandboxScreenState extends State<SandboxScreen>
   Map<String, dynamic>? _getBaselineForYear(String year) =>
       (_baselineResult?.data)?['year_results']?[year] as Map<String, dynamic>?;
 
+  Map<String, dynamic>? get _baselineParams =>
+      (_baselineResult?.data)?['params'] as Map<String, dynamic>?;
+  double? get _baselineAtr   =>
+      (_baselineParams?['atr_multiplier'] as num?)?.toDouble();
+  int?    get _baselineRsiMin =>
+      (_baselineParams?['rsi_min']        as num?)?.toInt();
+  int?    get _baselineRsiMax =>
+      (_baselineParams?['rsi_max']        as num?)?.toInt();
+  double? get _baselinePerf  =>
+      (_baselineParams?['min_perf_pct']   as num?)?.toDouble();
+
   // ── Build ──────────────────────────────────────────────────
   @override
   Widget build(BuildContext context) {
@@ -176,111 +194,83 @@ class _SandboxScreenState extends State<SandboxScreen>
           ],
 
           // ── ATR ───────────────────────────────────────────
-          _ParamCard(
-            label: 'STOP-MULTIPLIKATOR',
-            child: _ParamSlider(
-              value:     _atrMultiplier,
-              min:       1.0,
-              max:       4.0,
-              divisions: 12,
-              display:   'ATR × ${_atrMultiplier.toStringAsFixed(1)}',
-              baseline:  2.0,
-              onChanged: (v) => setState(() => _atrMultiplier = v),
+          Container(
+            decoration: kCardDecoration(),
+            padding: const EdgeInsets.fromLTRB(13, 11, 13, 13),
+            child: _KestrelSlider(
+              label:         'ATR-MULTIPLIKATOR',
+              value:         _atrMultiplier,
+              min:           1.0,
+              max:           4.0,
+              divisions:     30,
+              unit:          '×',
+              ticks:         const [1.0, 1.5, 2.0, 2.5, 3.0, 3.5, 4.0],
+              baselineValue: _baselineAtr,
+              onChanged:     (v) => setState(() => _atrMultiplier = v),
             ),
           ),
           const SizedBox(height: 8),
 
           // ── RSI ───────────────────────────────────────────
-          _ParamCard(
-            label: 'RSI-BEREICH',
-            child: Column(
-              children: [
-                _ParamSlider(
-                  value:     _rsiMin,
-                  min:       30,
-                  max:       65,
-                  divisions: 35,
-                  display:   'Min  ${_rsiMin.round()}',
-                  baseline:  50,
-                  onChanged: (v) => setState(() {
-                    _rsiMin = v;
-                    if (_rsiMin >= _rsiMax) _rsiMax = _rsiMin + 5;
-                  }),
-                ),
-                const SizedBox(height: 4),
-                _ParamSlider(
-                  value:     _rsiMax,
-                  min:       55,
-                  max:       85,
-                  divisions: 30,
-                  display:   'Max  ${_rsiMax.round()}',
-                  baseline:  70,
-                  onChanged: (v) => setState(() {
-                    _rsiMax = v;
-                    if (_rsiMax <= _rsiMin) _rsiMin = _rsiMax - 5;
-                  }),
-                ),
-              ],
+          Container(
+            decoration: kCardDecoration(),
+            padding: const EdgeInsets.fromLTRB(13, 11, 13, 13),
+            child: _KestrelRangeSlider(
+              label:       'RSI-BEREICH',
+              minValue:    _rsiMin,
+              maxValue:    _rsiMax,
+              min:         30,
+              max:         85,
+              divisions:   55,
+              ticks:       const [30.0, 40.0, 50.0, 60.0, 70.0, 85.0],
+              baselineMin: _baselineRsiMin?.toDouble(),
+              baselineMax: _baselineRsiMax?.toDouble(),
+              onChanged:   (v) => setState(() {
+                _rsiMin = v.start.roundToDouble();
+                _rsiMax = v.end.roundToDouble();
+              }),
             ),
           ),
           const SizedBox(height: 8),
 
           // ── Performance ───────────────────────────────────
-          _ParamCard(
-            label: 'MIN. PERFORMANCE NACH BEAT',
-            child: _ParamSlider(
-              value:     _minPerf,
-              min:       0.0,
-              max:       10.0,
-              divisions: 20,
-              display:   '+${_minPerf.toStringAsFixed(1)} %',
-              baseline:  3.0,
-              onChanged: (v) => setState(() => _minPerf = v),
+          Container(
+            decoration: kCardDecoration(),
+            padding: const EdgeInsets.fromLTRB(13, 11, 13, 13),
+            child: _KestrelSlider(
+              label:         'MIN. PERFORMANCE NACH BEAT',
+              value:         _minPerf,
+              min:           0.0,
+              max:           10.0,
+              divisions:     20,
+              unit:          '+',
+              ticks:         const [0.0, 2.0, 4.0, 6.0, 8.0, 10.0],
+              baselineValue: _baselinePerf,
+              onChanged:     (v) => setState(() => _minPerf = v),
             ),
           ),
           const SizedBox(height: 8),
 
           // ── Zeitraum ──────────────────────────────────────
-          _ParamCard(
-            label: 'ZEITRAUM',
-            child: Row(
-              children: [2022, 2023, 2024].map((y) {
-                final on = _years.contains(y);
-                return Expanded(
-                  child: Padding(
-                    padding: const EdgeInsets.symmetric(horizontal: 4),
-                    child: GestureDetector(
-                      onTap: () => setState(() {
-                        if (on && _years.length > 1) _years.remove(y);
-                        else _years.add(y);
-                      }),
-                      child: AnimatedContainer(
-                        duration: const Duration(milliseconds: 180),
-                        padding: const EdgeInsets.symmetric(vertical: 10),
-                        decoration: BoxDecoration(
-                          color: on ? KestrelColors.goldBg : KestrelColors.innerBg,
-                          borderRadius: BorderRadius.circular(8),
-                          border: Border.all(
-                            color: on
-                                ? KestrelColors.goldBorder
-                                : KestrelColors.cardBorder,
-                            width: on ? 1.5 : 1,
-                          ),
-                        ),
-                        alignment: Alignment.center,
-                        child: Text(
-                          '$y',
-                          style: TextStyle(
-                            color:      on ? KestrelColors.gold : KestrelColors.textDimmed,
-                            fontSize:   13,
-                            fontWeight: on ? FontWeight.w700 : FontWeight.normal,
-                          ),
-                        ),
-                      ),
-                    ),
-                  ),
-                );
-              }).toList(),
+          Container(
+            decoration: kCardDecoration(),
+            padding: const EdgeInsets.fromLTRB(13, 11, 13, 13),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Text('ZEITRÄUME', style: kCardLabelStyle),
+                const SizedBox(height: 10),
+                _YearGrid(
+                  selected: _years,
+                  onToggle: (year) => setState(() {
+                    if (_years.contains(year)) {
+                      if (_years.length > 1) _years.remove(year);
+                    } else {
+                      _years.add(year);
+                    }
+                  }),
+                ),
+              ],
             ),
           ),
           const SizedBox(height: 20),
@@ -540,7 +530,7 @@ class _SandboxScreenState extends State<SandboxScreen>
                   ),
                   const SizedBox(height: 10),
                   if (hasTotal) ...[
-                    _MetricsRow(total),
+                    _MetricsRow(total, baseline: _getBaselineForYear('all')),
                     if (_getBaselineForYear('all') != null) ...[
                       const SizedBox(height: 10),
                       _BaselineComparison(
@@ -595,7 +585,7 @@ class _SandboxScreenState extends State<SandboxScreen>
                       )
                     else ...[
                       const SizedBox(height: 10),
-                      _MetricsRow(m),
+                      _MetricsRow(m, baseline: baseline),
                       if (baseline != null) ...[
                         const SizedBox(height: 10),
                         _BaselineComparison(
@@ -638,122 +628,61 @@ class _SandboxScreenState extends State<SandboxScreen>
 // HILFS-WIDGETS
 // ═══════════════════════════════════════════════════════════
 
-// ── Param Card ─────────────────────────────────────────────
-
-class _ParamCard extends StatelessWidget {
-  final String label;
-  final Widget child;
-  const _ParamCard({required this.label, required this.child});
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      decoration: kCardDecoration(),
-      padding: const EdgeInsets.fromLTRB(13, 10, 13, 13),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(label,
-              style: const TextStyle(
-                color:         KestrelColors.gold,
-                fontSize:      10,
-                fontWeight:    FontWeight.w700,
-                letterSpacing: 0.8,
-              )),
-          const SizedBox(height: 10),
-          child,
-        ],
-      ),
-    );
-  }
-}
-
-// ── Param Slider ───────────────────────────────────────────
-
-class _ParamSlider extends StatelessWidget {
-  final double value, min, max, baseline;
-  final int divisions;
-  final String display;
-  final ValueChanged<double> onChanged;
-
-  const _ParamSlider({
-    required this.value,
-    required this.min,
-    required this.max,
-    required this.divisions,
-    required this.display,
-    required this.baseline,
-    required this.onChanged,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    final changed = (value - baseline).abs() > 0.05;
-    return Row(
-      children: [
-        SizedBox(
-          width: 80,
-          child: Text(
-            display,
-            style: TextStyle(
-              color:      changed ? KestrelColors.gold : KestrelColors.textPrimary,
-              fontSize:   14,
-              fontWeight: changed ? FontWeight.w700 : FontWeight.w500,
-            ),
-          ),
-        ),
-        Expanded(
-          child: SliderTheme(
-            data: SliderTheme.of(context).copyWith(
-              activeTrackColor:   KestrelColors.gold,
-              inactiveTrackColor: KestrelColors.cardBorder,
-              thumbColor:         KestrelColors.gold,
-              overlayColor:       KestrelColors.gold.withOpacity(0.15),
-              trackHeight:        2.5,
-              thumbShape: const RoundSliderThumbShape(enabledThumbRadius: 7),
-            ),
-            child: Slider(
-              value:     value,
-              min:       min,
-              max:       max,
-              divisions: divisions,
-              onChanged: onChanged,
-            ),
-          ),
-        ),
-      ],
-    );
-  }
-}
 
 // ── Metrics Row ────────────────────────────────────────────
 
+Color _compareColor(double? val, double? base) {
+  if (val == null || base == null) return KestrelColors.textPrimary;
+  final delta = double.parse((val - base).toStringAsFixed(1));
+  if (delta == 0.0) return KestrelColors.gold;
+  return delta > 0 ? KestrelColors.green : KestrelColors.red;
+}
+
 class _MetricsRow extends StatelessWidget {
   final Map<String, dynamic> m;
-  const _MetricsRow(this.m);
+  final Map<String, dynamic>? baseline;
+  const _MetricsRow(this.m, {this.baseline});
 
   @override
   Widget build(BuildContext context) {
     final n      = '${m['trades_total'] ?? '–'}';
-    final win    = m['win_rate_pct'] != null ? '${m['win_rate_pct']}%' : '–';
-    final avg    = (m['avg_return_pct'] as num?)?.toDouble();
+    final win    = (m['win_rate_pct']    as num?)?.toDouble();
+    final avg    = (m['avg_return_pct']  as num?)?.toDouble();
     final dd     = (m['max_drawdown_pct'] as num?)?.toDouble();
-    final sharpe = m['sharpe_ratio'];
+    final sharpe = (m['sharpe_ratio']    as num?)?.toDouble();
+
+    final bWin    = (baseline?['win_rate_pct']   as num?)?.toDouble();
+    final bAvg    = (baseline?['avg_return_pct'] as num?)?.toDouble();
+    final bDd     = (baseline?['max_drawdown_pct'] as num?)?.toDouble();
+    final bSharpe = (baseline?['sharpe_ratio']   as num?)?.toDouble();
 
     return Container(
       decoration: kInnerCellDecoration(),
       padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 4),
       child: Row(
         children: [
-          _StatCell(value: n,                                            label: 'Trades'),
-          _StatCell(value: win,                                          label: 'Win%'),
+          _StatCell(value: n, label: 'Trades'),
           _StatCell(
-            value: avg != null ? '${avg >= 0 ? '+' : ''}${avg.toStringAsFixed(1)}%' : '–',
-            label: 'Ø Rendite',
-            valueColor: avg == null ? null : avg >= 0 ? KestrelColors.green : KestrelColors.red,
+            value:      win != null ? '${win.toStringAsFixed(1)}%' : '–',
+            label:      'Win%',
+            valueColor: baseline == null ? null : _compareColor(win, bWin),
           ),
-          _StatCell(value: dd  != null ? '${dd.toStringAsFixed(1)}%'   : '–', label: 'MaxDD'),
-          _StatCell(value: sharpe != null ? '$sharpe'                   : '–', label: 'Sharpe'),
+          _StatCell(
+            value:      avg != null ? '${avg >= 0 ? '+' : ''}${avg.toStringAsFixed(1)}%' : '–',
+            label:      'Ø Rendite',
+            valueColor: baseline == null ? null : _compareColor(avg, bAvg),
+          ),
+          _StatCell(
+            value:      dd != null ? '${dd.toStringAsFixed(1)}%' : '–',
+            label:      'MaxDD',
+            // weniger negativ = besser → direkter Vergleich (−5 > −15 → grün)
+            valueColor: baseline == null ? null : _compareColor(dd, bDd),
+          ),
+          _StatCell(
+            value:      sharpe != null ? sharpe.toStringAsFixed(2) : '–',
+            label:      'Sharpe',
+            valueColor: baseline == null ? null : _compareColor(sharpe, bSharpe),
+          ),
         ],
       ),
     );
@@ -897,7 +826,8 @@ class _DeltaCell extends StatelessWidget {
   Widget build(BuildContext context) {
     final delta   = sandbox - baseline;
     final better  = delta > 0;
-    final neutral = delta.abs() < 0.1;
+    final roundedDelta = double.parse(delta.toStringAsFixed(1));
+    final neutral = roundedDelta == 0.0;
     final color   = neutral
         ? KestrelColors.textDimmed
         : better
@@ -961,4 +891,536 @@ class _ErrorBanner extends StatelessWidget {
       ],
     ),
   );
+}
+
+// ── Kestrel Slider ─────────────────────────────────────────
+
+class _KestrelSlider extends StatelessWidget {
+  final String label;
+  final double value;
+  final double min;
+  final double max;
+  final int divisions;
+  final String unit;
+  final List<double> ticks;
+  final double? baselineValue;
+  final ValueChanged<double> onChanged;
+
+  const _KestrelSlider({
+    required this.label,
+    required this.value,
+    required this.min,
+    required this.max,
+    required this.divisions,
+    required this.unit,
+    required this.ticks,
+    required this.onChanged,
+    this.baselineValue,
+  });
+
+  void _showEditDialog(BuildContext context) {
+    final controller = TextEditingController(text: value.toStringAsFixed(1));
+    showDialog(
+      context: context,
+      builder: (_) => AlertDialog(
+        backgroundColor: KestrelColors.cardBg,
+        title: Text(label,
+            style: const TextStyle(
+                color: KestrelColors.textPrimary, fontSize: 14)),
+        content: TextField(
+          controller: controller,
+          keyboardType:
+              const TextInputType.numberWithOptions(decimal: true),
+          autofocus: true,
+          style: const TextStyle(color: KestrelColors.textPrimary),
+          decoration: InputDecoration(
+            hintText: '$min – $max',
+            hintStyle:
+                const TextStyle(color: KestrelColors.textHint),
+            enabledBorder: const UnderlineInputBorder(
+                borderSide:
+                    BorderSide(color: KestrelColors.cardBorder)),
+            focusedBorder: const UnderlineInputBorder(
+                borderSide: BorderSide(color: KestrelColors.gold)),
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('Abbrechen',
+                style: TextStyle(color: KestrelColors.textGrey)),
+          ),
+          TextButton(
+            onPressed: () {
+              final v = double.tryParse(
+                  controller.text.replaceAll(',', '.'));
+              if (v != null) onChanged(v.clamp(min, max));
+              Navigator.pop(context);
+            },
+            child: const Text('OK',
+                style: TextStyle(color: KestrelColors.gold)),
+          ),
+        ],
+      ),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          children: [
+            Text(label, style: kCardLabelStyle),
+            GestureDetector(
+              onTap: () => _showEditDialog(context),
+              child: Container(
+                padding: const EdgeInsets.symmetric(
+                    horizontal: 10, vertical: 3),
+                decoration: BoxDecoration(
+                  color: KestrelColors.innerBg,
+                  border: Border.all(color: KestrelColors.gold),
+                  borderRadius: BorderRadius.circular(6),
+                ),
+                child: Text(
+                  '$unit${value.toStringAsFixed(1)}',
+                  style: const TextStyle(
+                    color:      KestrelColors.gold,
+                    fontSize:   13,
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
+              ),
+            ),
+          ],
+        ),
+        const SizedBox(height: 8),
+        Stack(
+          children: [
+            SliderTheme(
+              data: SliderTheme.of(context).copyWith(
+                trackHeight:        5.0,
+                activeTrackColor:   KestrelColors.gold,
+                inactiveTrackColor: KestrelColors.cardBorder,
+                thumbColor:         KestrelColors.gold,
+                overlayColor:
+                    KestrelColors.gold.withValues(alpha: 0.15),
+                overlappingShapeStrokeColor: KestrelColors.appBarBg,
+                thumbShape: const RoundSliderThumbShape(
+                    enabledThumbRadius: 9, elevation: 0),
+              ),
+              child: Slider(
+                value:     value,
+                min:       min,
+                max:       max,
+                divisions: divisions,
+                onChanged: onChanged,
+              ),
+            ),
+            if (baselineValue != null)
+              Positioned.fill(
+                child: IgnorePointer(
+                  child: CustomPaint(
+                    painter: _BaselineMarkerPainter(
+                      value: baselineValue!,
+                      min:   min,
+                      max:   max,
+                      label: baselineValue!.toStringAsFixed(1),
+                    ),
+                  ),
+                ),
+              ),
+          ],
+        ),
+        Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 4),
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: ticks.map((t) => Column(
+              children: [
+                Container(
+                    width: 1, height: 4,
+                    color: KestrelColors.textHint),
+                const SizedBox(height: 2),
+                Text(
+                  t % 1 == 0
+                      ? t.toInt().toString()
+                      : t.toStringAsFixed(1),
+                  style: const TextStyle(
+                      color: KestrelColors.textHint,
+                      fontSize: 9),
+                ),
+              ],
+            )).toList(),
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+// ── Kestrel Range Slider ────────────────────────────────────
+
+class _KestrelRangeSlider extends StatelessWidget {
+  final String label;
+  final double minValue;
+  final double maxValue;
+  final double min;
+  final double max;
+  final int divisions;
+  final List<double> ticks;
+  final double? baselineMin;
+  final double? baselineMax;
+  final ValueChanged<RangeValues> onChanged;
+
+  const _KestrelRangeSlider({
+    required this.label,
+    required this.minValue,
+    required this.maxValue,
+    required this.min,
+    required this.max,
+    required this.divisions,
+    required this.ticks,
+    required this.onChanged,
+    this.baselineMin,
+    this.baselineMax,
+  });
+
+  void _showRangeEditDialog(BuildContext context, {required bool isMin}) {
+    final current    = isMin ? minValue : maxValue;
+    final controller = TextEditingController(
+        text: current.toInt().toString());
+    showDialog(
+      context: context,
+      builder: (_) => AlertDialog(
+        backgroundColor: KestrelColors.cardBg,
+        title: Text(
+          isMin ? '$label – Minimum' : '$label – Maximum',
+          style: const TextStyle(
+              color: KestrelColors.textPrimary, fontSize: 14),
+        ),
+        content: TextField(
+          controller: controller,
+          keyboardType: TextInputType.number,
+          autofocus:    true,
+          style: const TextStyle(color: KestrelColors.textPrimary),
+          decoration: InputDecoration(
+            hintText:  '${min.toInt()} – ${max.toInt()}',
+            hintStyle: const TextStyle(color: KestrelColors.textHint),
+            enabledBorder: const UnderlineInputBorder(
+                borderSide: BorderSide(color: KestrelColors.cardBorder)),
+            focusedBorder: const UnderlineInputBorder(
+                borderSide: BorderSide(color: KestrelColors.gold)),
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('Abbrechen',
+                style: TextStyle(color: KestrelColors.textGrey)),
+          ),
+          TextButton(
+            onPressed: () {
+              final v = double.tryParse(controller.text);
+              if (v != null) {
+                final clamped = v.clamp(min, max);
+                if (isMin) {
+                  onChanged(RangeValues(
+                      clamped.clamp(min, maxValue - 1), maxValue));
+                } else {
+                  onChanged(RangeValues(
+                      minValue, clamped.clamp(minValue + 1, max)));
+                }
+              }
+              Navigator.pop(context);
+            },
+            child: const Text('OK',
+                style: TextStyle(color: KestrelColors.gold)),
+          ),
+        ],
+      ),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          children: [
+            Text(label, style: kCardLabelStyle),
+            Row(
+              children: [
+                GestureDetector(
+                  onTap: () => _showRangeEditDialog(context, isMin: true),
+                  child: _RangeValueBadge(
+                      value: minValue.toInt().toString()),
+                ),
+                const Padding(
+                  padding: EdgeInsets.symmetric(horizontal: 4),
+                  child: Text('–',
+                      style: TextStyle(
+                          color: KestrelColors.textHint,
+                          fontSize: 10)),
+                ),
+                GestureDetector(
+                  onTap: () => _showRangeEditDialog(context, isMin: false),
+                  child: _RangeValueBadge(
+                      value: maxValue.toInt().toString()),
+                ),
+              ],
+            ),
+          ],
+        ),
+        const SizedBox(height: 8),
+        Stack(
+          children: [
+            SliderTheme(
+              data: SliderTheme.of(context).copyWith(
+                trackHeight:        5.0,
+                activeTrackColor:   KestrelColors.gold,
+                inactiveTrackColor: KestrelColors.cardBorder,
+                thumbColor:         KestrelColors.gold,
+                overlayColor:
+                    KestrelColors.gold.withValues(alpha: 0.15),
+                rangeThumbShape: const RoundRangeSliderThumbShape(
+                    enabledThumbRadius: 9, elevation: 0),
+              ),
+              child: RangeSlider(
+                values:    RangeValues(minValue, maxValue),
+                min:       min,
+                max:       max,
+                divisions: divisions,
+                onChanged: onChanged,
+              ),
+            ),
+            if (baselineMin != null && baselineMax != null)
+              Positioned.fill(
+                child: IgnorePointer(
+                  child: CustomPaint(
+                    painter: _RangeBaselineMarkerPainter(
+                      minValue: baselineMin!,
+                      maxValue: baselineMax!,
+                      min:      min,
+                      max:      max,
+                      minLabel: baselineMin!.toInt().toString(),
+                      maxLabel: baselineMax!.toInt().toString(),
+                    ),
+                  ),
+                ),
+              ),
+          ],
+        ),
+        Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 4),
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: ticks.map((t) => Column(
+              children: [
+                Container(
+                    width: 1, height: 4,
+                    color: KestrelColors.textHint),
+                const SizedBox(height: 2),
+                Text(
+                  t.toInt().toString(),
+                  style: const TextStyle(
+                      color: KestrelColors.textHint,
+                      fontSize: 9),
+                ),
+              ],
+            )).toList(),
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+// ── Year Grid ──────────────────────────────────────────────
+
+class _YearGrid extends StatelessWidget {
+  final Set<int> selected;
+  final ValueChanged<int> onToggle;
+  const _YearGrid({required this.selected, required this.onToggle});
+
+  @override
+  Widget build(BuildContext context) {
+    const years = [2022, 2023, 2024, 2025];
+    return GridView.count(
+      crossAxisCount:  2,
+      shrinkWrap:      true,
+      physics:         const NeverScrollableScrollPhysics(),
+      crossAxisSpacing: 6,
+      mainAxisSpacing:  6,
+      childAspectRatio: 3.2,
+      children: years.map((year) {
+        final active = selected.contains(year);
+        return GestureDetector(
+          onTap: () => onToggle(year),
+          child: AnimatedContainer(
+            duration: const Duration(milliseconds: 150),
+            decoration: BoxDecoration(
+              color:        active ? KestrelColors.cardBg : KestrelColors.innerBg,
+              borderRadius: BorderRadius.circular(8),
+              border: Border.all(
+                color: active ? KestrelColors.gold : KestrelColors.cardBorder,
+              ),
+            ),
+            padding: const EdgeInsets.symmetric(horizontal: 11, vertical: 9),
+            child: Stack(
+              children: [
+                Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  mainAxisAlignment:  MainAxisAlignment.center,
+                  children: [
+                    Text(
+                      '$year',
+                      style: TextStyle(
+                        color:      active
+                            ? KestrelColors.gold
+                            : KestrelColors.textDimmed,
+                        fontSize:   14,
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
+                    const SizedBox(height: 2),
+                    Text(
+                      _yearContext[year] ?? '',
+                      style: TextStyle(
+                        color:    active
+                            ? KestrelColors.textDimmed
+                            : KestrelColors.textHint,
+                        fontSize: 9,
+                      ),
+                    ),
+                  ],
+                ),
+                if (active)
+                  Positioned(
+                    top:   0,
+                    right: 0,
+                    child: Container(
+                      width:  7,
+                      height: 7,
+                      decoration: const BoxDecoration(
+                        color: KestrelColors.gold,
+                        shape: BoxShape.circle,
+                      ),
+                    ),
+                  ),
+              ],
+            ),
+          ),
+        );
+      }).toList(),
+    );
+  }
+}
+
+// ── Range Value Badge ───────────────────────────────────────
+
+class _RangeValueBadge extends StatelessWidget {
+  final String value;
+  const _RangeValueBadge({required this.value});
+
+  @override
+  Widget build(BuildContext context) => Container(
+    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+    decoration: BoxDecoration(
+      color: KestrelColors.innerBg,
+      border: Border.all(color: KestrelColors.gold),
+      borderRadius: BorderRadius.circular(6),
+    ),
+    child: Text(value,
+        style: const TextStyle(
+            color:      KestrelColors.gold,
+            fontSize:   12,
+            fontWeight: FontWeight.w700)),
+  );
+}
+
+// ── Baseline Marker Painters ───────────────────────────────
+
+class _BaselineMarkerPainter extends CustomPainter {
+  final double value, min, max;
+  final String label;
+  const _BaselineMarkerPainter({
+    required this.value,
+    required this.min,
+    required this.max,
+    required this.label,
+  });
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    const thumbPad  = 13.0;
+    final trackWidth = size.width - thumbPad * 2;
+    final x          = thumbPad + (value - min) / (max - min) * trackWidth;
+    final centerY    = size.height / 2;
+
+    final paint = Paint()
+      ..color      = KestrelColors.gold
+      ..strokeWidth = 3
+      ..strokeCap  = StrokeCap.round;
+    canvas.drawLine(Offset(x, centerY - 7), Offset(x, centerY + 7), paint);
+
+    final tp = TextPainter(
+      text: TextSpan(
+        text:  label,
+        style: const TextStyle(color: Color(0xFF334D68), fontSize: 9),
+      ),
+      textDirection: TextDirection.ltr,
+    )..layout();
+    tp.paint(canvas, Offset(x - tp.width / 2, centerY + 9));
+  }
+
+  @override
+  bool shouldRepaint(_BaselineMarkerPainter old) =>
+      old.value != value || old.min != min || old.max != max;
+}
+
+class _RangeBaselineMarkerPainter extends CustomPainter {
+  final double minValue, maxValue, min, max;
+  final String minLabel, maxLabel;
+  const _RangeBaselineMarkerPainter({
+    required this.minValue,
+    required this.maxValue,
+    required this.min,
+    required this.max,
+    required this.minLabel,
+    required this.maxLabel,
+  });
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    const thumbPad   = 13.0;
+    final trackWidth = size.width - thumbPad * 2;
+    final centerY    = size.height / 2;
+
+    final paint = Paint()
+      ..color      = KestrelColors.gold
+      ..strokeWidth = 3
+      ..strokeCap  = StrokeCap.round;
+
+    for (final (val, lbl) in [(minValue, minLabel), (maxValue, maxLabel)]) {
+      final x = thumbPad + (val - min) / (max - min) * trackWidth;
+      canvas.drawLine(Offset(x, centerY - 7), Offset(x, centerY + 7), paint);
+      final tp = TextPainter(
+        text: TextSpan(
+          text:  lbl,
+          style: const TextStyle(color: Color(0xFF334D68), fontSize: 9),
+        ),
+        textDirection: TextDirection.ltr,
+      )..layout();
+      tp.paint(canvas, Offset(x - tp.width / 2, centerY + 9));
+    }
+  }
+
+  @override
+  bool shouldRepaint(_RangeBaselineMarkerPainter old) =>
+      old.minValue != minValue || old.maxValue != maxValue;
 }

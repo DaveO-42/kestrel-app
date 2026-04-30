@@ -10,22 +10,8 @@ class LabScreen extends StatefulWidget {
   State<LabScreen> createState() => _LabScreenState();
 }
 
-class _LabScreenState extends State<LabScreen>
-    with SingleTickerProviderStateMixin {
-  late final TabController _tabController;
-
-  @override
-  void initState() {
-    super.initState();
-    _tabController = TabController(length: 2, vsync: this);
-    _tabController.addListener(() => setState(() {}));
-  }
-
-  @override
-  void dispose() {
-    _tabController.dispose();
-    super.dispose();
-  }
+class _LabScreenState extends State<LabScreen> {
+  int _selectedIndex = 0;
 
   @override
   Widget build(BuildContext context) {
@@ -43,58 +29,95 @@ class _LabScreenState extends State<LabScreen>
             const Text(
               'Lab',
               style: TextStyle(
-                color:       KestrelColors.goldLight,
-                fontSize:    16,
-                fontWeight:  FontWeight.w700,
+                color:         KestrelColors.goldLight,
+                fontSize:      16,
+                fontWeight:    FontWeight.w700,
                 letterSpacing: 0.8,
               ),
             ),
           ],
         ),
         bottom: PreferredSize(
-          preferredSize: const Size.fromHeight(41),
-          child: Column(
-            children: [
-              _LabTabBar(controller: _tabController),
-              Container(height: 1, color: KestrelColors.cardBorder),
-            ],
-          ),
+          preferredSize: const Size.fromHeight(1),
+          child: Container(height: 1, color: KestrelColors.cardBorder),
         ),
       ),
-      body: TabBarView(
-        controller: _tabController,
-        physics:    const NeverScrollableScrollPhysics(),
-        children: const [
-          SandboxScreen(),
-          CalendarScreen(),
+      body: Column(
+        children: [
+          _SegmentedControl(
+            selectedIndex: _selectedIndex,
+            onChanged: (i) => setState(() => _selectedIndex = i),
+            labels: const ['Sandbox', 'Kalender'],
+          ),
+          Container(height: 1, color: KestrelColors.cardBorder),
+          Expanded(
+            child: IndexedStack(
+              index: _selectedIndex,
+              children: const [
+                SandboxScreen(),
+                CalendarScreen(),
+              ],
+            ),
+          ),
         ],
       ),
     );
   }
 }
 
-// ── Tab Bar ────────────────────────────────────────────────────
+// ── Segmented Control ──────────────────────────────────────────
 
-class _LabTabBar extends StatelessWidget {
-  final TabController controller;
-  const _LabTabBar({required this.controller});
+class _SegmentedControl extends StatelessWidget {
+  final int selectedIndex;
+  final ValueChanged<int> onChanged;
+  final List<String> labels;
+  const _SegmentedControl({
+    required this.selectedIndex,
+    required this.onChanged,
+    required this.labels,
+  });
 
   @override
   Widget build(BuildContext context) {
-    return TabBar(
-      controller:       controller,
-      labelColor:       KestrelColors.gold,
-      unselectedLabelColor: KestrelColors.textGrey,
-      labelStyle:       const TextStyle(fontSize: 13, fontWeight: FontWeight.w600),
-      unselectedLabelStyle: const TextStyle(fontSize: 13, fontWeight: FontWeight.normal),
-      indicatorColor:   KestrelColors.gold,
-      indicatorWeight:  2,
-      indicatorSize:    TabBarIndicatorSize.label,
-      dividerColor:     Colors.transparent,
-      tabs: const [
-        Tab(text: 'Sandbox'),
-        Tab(text: 'Kalender'),
-      ],
+    return Container(
+      color: KestrelColors.appBarBg,
+      padding: const EdgeInsets.fromLTRB(12, 8, 12, 8),
+      child: Container(
+        decoration: BoxDecoration(
+          color:        KestrelColors.cardBg,
+          borderRadius: BorderRadius.circular(10),
+          border:       Border.all(color: KestrelColors.cardBorder),
+        ),
+        padding: const EdgeInsets.all(3),
+        child: Row(
+          children: List.generate(labels.length, (i) {
+            final active = i == selectedIndex;
+            return Expanded(
+              child: GestureDetector(
+                onTap: () => onChanged(i),
+                child: AnimatedContainer(
+                  duration: const Duration(milliseconds: 150),
+                  curve: Curves.easeInOut,
+                  decoration: BoxDecoration(
+                    color:        active ? KestrelColors.gold : Colors.transparent,
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  padding: const EdgeInsets.symmetric(vertical: 7),
+                  alignment: Alignment.center,
+                  child: Text(
+                    labels[i],
+                    style: TextStyle(
+                      color:      active ? KestrelColors.appBarBg : KestrelColors.textGrey,
+                      fontSize:   13,
+                      fontWeight: active ? FontWeight.w700 : FontWeight.normal,
+                    ),
+                  ),
+                ),
+              ),
+            );
+          }),
+        ),
+      ),
     );
   }
 }
