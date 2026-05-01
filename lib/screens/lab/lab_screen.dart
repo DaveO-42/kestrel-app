@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import '../../theme/kestrel_theme.dart';
 import 'sandbox_screen.dart';
+import 'favorites_screen.dart';
 import 'calendar_screen.dart';
 
 class LabScreen extends StatefulWidget {
@@ -47,7 +48,7 @@ class _LabScreenState extends State<LabScreen> {
           _SegmentedControl(
             selectedIndex: _selectedIndex,
             onChanged: (i) => setState(() => _selectedIndex = i),
-            labels: const ['Sandbox', 'Kalender'],
+            labels: const ['Sandbox', 'Favoriten', 'Kalender'],
           ),
           Container(height: 1, color: KestrelColors.cardBorder),
           Expanded(
@@ -55,6 +56,7 @@ class _LabScreenState extends State<LabScreen> {
               index: _selectedIndex,
               children: const [
                 SandboxScreen(),
+                FavoritesScreen(),
                 CalendarScreen(),
               ],
             ),

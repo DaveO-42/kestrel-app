@@ -11,6 +11,7 @@ import 'screens/shortlist/shortlist_screen.dart';
 import 'screens/history/history_screen.dart';
 import 'screens/system/system_screen.dart';
 import 'screens/lab/lab_screen.dart';
+import 'package:material_symbols_icons/symbols.dart';
 
 // ── KestrelNav – InheritedWidget ──────────────────────────────
 // Stellt app-weite Callbacks bereit:
@@ -153,7 +154,7 @@ class _KestrelNavBar extends StatelessWidget {
               _NavItem(icon: Icons.dashboard_outlined,    label: 'Dashboard', active: currentIndex == 0, onTap: () => onTap(0)),
               _NavItem(icon: Icons.list_alt_outlined,     label: 'Shortlist', active: currentIndex == 1, onTap: () => onTap(1)),
               _NavItem(icon: Icons.history,      label: 'History',   active: currentIndex == 2, onTap: () => onTap(2)),
-              _NavItem(icon: Icons.science_outlined, label: 'Lab',    active: currentIndex == 3, onTap: () => onTap(3)),
+              _NavItem(icon: Symbols.lab_research, label: 'Lab',    active: currentIndex == 3, onTap: () => onTap(3)),
               _NavItem(icon: Icons.monitor_heart_outlined, label: 'Status', active: currentIndex == 4, onTap: () => onTap(4)),
             ],
           ),

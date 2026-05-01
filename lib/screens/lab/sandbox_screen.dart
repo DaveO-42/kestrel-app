@@ -1,8 +1,74 @@
 import 'dart:async';
+import 'dart:convert';
 import 'package:flutter/material.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import '../../services/api_service.dart';
 import '../../services/cache_service.dart';
 import '../../theme/kestrel_theme.dart';
+
+// ── Saved Config Model ─────────────────────────────────────────
+
+class SavedConfig {
+  final String id;
+  final String name;
+  final String date;
+  final double atr;
+  final int rsiMin;
+  final int rsiMax;
+  final double minPerf;
+  final List<int> years;
+  final Map<String, dynamic> results;
+
+  const SavedConfig({
+    required this.id,
+    required this.name,
+    required this.date,
+    required this.atr,
+    required this.rsiMin,
+    required this.rsiMax,
+    required this.minPerf,
+    required this.years,
+    required this.results,
+  });
+
+  Map<String, dynamic> toJson() => {
+    'id': id, 'name': name, 'date': date,
+    'atr': atr, 'rsiMin': rsiMin, 'rsiMax': rsiMax,
+    'minPerf': minPerf, 'years': years, 'results': results,
+  };
+
+  factory SavedConfig.fromJson(Map<String, dynamic> j) => SavedConfig(
+    id:      j['id']      as String,
+    name:    j['name']    as String,
+    date:    j['date']    as String,
+    atr:     (j['atr']    as num).toDouble(),
+    rsiMin:  j['rsiMin']  as int,
+    rsiMax:  j['rsiMax']  as int,
+    minPerf: (j['minPerf'] as num).toDouble(),
+    years:   (j['years']  as List).cast<int>(),
+    results: j['results'] as Map<String, dynamic>,
+  );
+}
+
+const kFavoritesKey = 'sandbox_favorites';
+
+Future<List<SavedConfig>> loadFavorites() async {
+  final prefs = await SharedPreferences.getInstance();
+  final raw   = prefs.getStringList(kFavoritesKey) ?? [];
+  return raw
+      .map((s) => SavedConfig.fromJson(
+          jsonDecode(s) as Map<String, dynamic>))
+      .toList();
+}
+
+Future<void> saveFavorites(List<SavedConfig> configs) async {
+  final prefs = await SharedPreferences.getInstance();
+  await prefs.setStringList(
+      kFavoritesKey,
+      configs.map((c) => jsonEncode(c.toJson())).toList());
+}
+
+// ── Year Context ────────────────────────────────────────────────
 
 const Map<int, String> _yearContext = {
   2022: 'Bärenjahr −33%',
@@ -146,6 +212,71 @@ class _SandboxScreenState extends State<SandboxScreen>
       _jobMessage = '';
       _jobCurrent = 0;
     });
+  }
+
+  void _showSaveDialog() {
+    final controller = TextEditingController();
+    showDialog(
+      context: context,
+      builder: (_) => AlertDialog(
+        backgroundColor: KestrelColors.cardBg,
+        title: const Text('Konfiguration speichern',
+            style: TextStyle(
+                color: KestrelColors.textPrimary, fontSize: 14)),
+        content: TextField(
+          controller: controller,
+          autofocus: true,
+          style: const TextStyle(color: KestrelColors.textPrimary),
+          decoration: const InputDecoration(
+            hintText: 'Name (z.B. "Aggressiv")',
+            hintStyle: TextStyle(color: KestrelColors.textHint),
+            enabledBorder: UnderlineInputBorder(
+                borderSide: BorderSide(color: KestrelColors.cardBorder)),
+            focusedBorder: UnderlineInputBorder(
+                borderSide: BorderSide(color: KestrelColors.gold)),
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('Abbrechen',
+                style: TextStyle(color: KestrelColors.textGrey)),
+          ),
+          TextButton(
+            onPressed: () async {
+              final name = controller.text.trim();
+              if (name.isEmpty) return;
+              final configs = await loadFavorites();
+              final now = DateTime.now();
+              configs.insert(0, SavedConfig(
+                id:      now.millisecondsSinceEpoch.toString(),
+                name:    name,
+                date:    '${now.day.toString().padLeft(2, '0')}.'
+                         '${now.month.toString().padLeft(2, '0')}.'
+                         '${now.year}',
+                atr:     _atrMultiplier,
+                rsiMin:  _rsiMin.round(),
+                rsiMax:  _rsiMax.round(),
+                minPerf: _minPerf,
+                years:   _years.toList()..sort(),
+                results: _result!,
+              ));
+              await saveFavorites(configs);
+              if (!mounted) return;
+              Navigator.pop(context);
+              ScaffoldMessenger.of(context).showSnackBar(
+                SnackBar(
+                  content: Text('„$name" gespeichert'),
+                  backgroundColor: KestrelColors.cardBg,
+                ),
+              );
+            },
+            child: const Text('Speichern',
+                style: TextStyle(color: KestrelColors.gold)),
+          ),
+        ],
+      ),
+    );
   }
 
   Future<void> _load() async {
@@ -497,11 +628,11 @@ class _SandboxScreenState extends State<SandboxScreen>
             decoration: kCardDecoration(),
             child: Row(
               children: [
-                _ParamPill('ATR ×${params['atr_multiplier']}'),
+                ParamPill('ATR ×${params['atr_multiplier']}'),
                 const SizedBox(width: 6),
-                _ParamPill('RSI ${params['rsi_min']}–${params['rsi_max']}'),
+                ParamPill('RSI ${params['rsi_min']}–${params['rsi_max']}'),
                 const SizedBox(width: 6),
-                _ParamPill('Perf >${params['min_perf_pct']}%'),
+                ParamPill('Perf >${params['min_perf_pct']}%'),
               ],
             ),
           ),
@@ -601,6 +732,22 @@ class _SandboxScreenState extends State<SandboxScreen>
           }),
 
           const SizedBox(height: 4),
+
+          // ── Speichern ────────────────────────────────────
+          ElevatedButton.icon(
+            onPressed: _showSaveDialog,
+            icon: const Icon(Icons.bookmark_add_outlined, size: 16),
+            label: const Text('Konfiguration speichern'),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: KestrelColors.cardBg,
+              foregroundColor: KestrelColors.gold,
+              side: const BorderSide(color: KestrelColors.cardBorder),
+              shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(8)),
+              minimumSize: const Size.fromHeight(40),
+            ),
+          ),
+          const SizedBox(height: 8),
 
           // ── Neue Konfiguration ────────────────────────────
           GestureDetector(
@@ -746,9 +893,9 @@ class _PnlBadge extends StatelessWidget {
 
 // ── Param Pill ─────────────────────────────────────────────
 
-class _ParamPill extends StatelessWidget {
+class ParamPill extends StatelessWidget {
   final String label;
-  const _ParamPill(this.label);
+  const ParamPill(this.label);
 
   @override
   Widget build(BuildContext context) => Container(
