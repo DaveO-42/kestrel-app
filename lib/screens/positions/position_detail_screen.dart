@@ -338,6 +338,42 @@ class _PriceHero extends StatelessWidget {
         '${l.minute.toString().padLeft(2, '0')} Uhr';
   }
 
+  Widget? _earningsLine(Map<String, dynamic> position) {
+    final raw = position['next_earnings'] as String?;
+    if (raw == null || raw.isEmpty) return null;
+    final dt = DateTime.tryParse(raw);
+    if (dt == null) return null;
+    final days = dt.toLocal().difference(DateTime.now()).inDays;
+    if (days < 0 || days > 14) return null;
+
+    final soon    = days < 7;
+    final color   = soon ? KestrelColors.orange : KestrelColors.gold;
+    final daysTxt = days == 0
+        ? 'heute'
+        : days == 1
+        ? 'morgen'
+        : 'in $days Tagen';
+    final dateTxt = '${dt.day.toString().padLeft(2, '0')}.'
+        '${dt.month.toString().padLeft(2, '0')}.'
+        '${dt.year}';
+    final label   = soon
+        ? 'Earnings $daysTxt · $dateTxt  —  Sperre aktiv'
+        : 'Earnings $daysTxt · $dateTxt';
+
+    return Padding(
+      padding: const EdgeInsets.only(top: 4),
+      child: Text(
+        label,
+        style: TextStyle(
+          color:      color,
+          fontSize:   11,
+          fontWeight: soon ? FontWeight.w600 : FontWeight.normal,
+        ),
+        textAlign: TextAlign.center,
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final price     = position['last_known_price_eur'];
@@ -382,10 +418,10 @@ class _PriceHero extends StatelessWidget {
             const SizedBox(height: 6),
             Text(
               _fmtTimestamp(updatedAt),
-              style: const TextStyle(
-                  color: KestrelColors.textDimmed, fontSize: 11),
+              style: const TextStyle(color: KestrelColors.textDimmed, fontSize: 11),
             ),
           ],
+          if (_earningsLine(position) != null) _earningsLine(position)!,
         ],
       ),
     );
