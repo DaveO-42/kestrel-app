@@ -261,6 +261,8 @@ class _SandboxScreenState extends State<SandboxScreen>
                 years:   _years.toList()..sort(),
                 results: _result!,
               ));
+              debugPrint('_result keys: ${_result!.keys.toList()}');
+              debugPrint('_result total: ${_result!['total']}');
               await saveFavorites(configs);
               if (!mounted) return;
               Navigator.pop(context);

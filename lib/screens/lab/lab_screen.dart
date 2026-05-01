@@ -13,6 +13,7 @@ class LabScreen extends StatefulWidget {
 
 class _LabScreenState extends State<LabScreen> {
   int _selectedIndex = 0;
+  final _favoritesKey = GlobalKey<FavoritesScreenState>();
 
   @override
   Widget build(BuildContext context) {
@@ -47,17 +48,21 @@ class _LabScreenState extends State<LabScreen> {
         children: [
           _SegmentedControl(
             selectedIndex: _selectedIndex,
-            onChanged: (i) => setState(() => _selectedIndex = i),
-            labels: const ['Sandbox', 'Favoriten', 'Kalender'],
+            onChanged: (i) {
+              setState(() => _selectedIndex = i);
+              if (i == 1) {
+                _favoritesKey.currentState?.reload();
+              }
+            },
+            labels: const ['Sandbox', 'Favoriten'],
           ),
           Container(height: 1, color: KestrelColors.cardBorder),
           Expanded(
             child: IndexedStack(
               index: _selectedIndex,
-              children: const [
-                SandboxScreen(),
-                FavoritesScreen(),
-                CalendarScreen(),
+              children: [
+                const SandboxScreen(),
+                FavoritesScreen(key: _favoritesKey),
               ],
             ),
           ),
