@@ -118,12 +118,10 @@ class _SegmentedControl extends StatelessWidget {
           ),
           child: Stack(
             children: [
-              // Gold-Linie oben
               Positioned(
                 top: 0, left: 0, right: 0,
                 child: Container(height: 2, color: KestrelColors.gold),
               ),
-              // Padding damit Inhalt nicht hinter Linie liegt
               Padding(
                 padding: const EdgeInsets.fromLTRB(3, 5, 3, 3),
                 child: Row(
@@ -153,7 +151,6 @@ class _SegmentedControl extends StatelessWidget {
                       ),
                     );
                   }),
-
                 ),
               ),
             ],

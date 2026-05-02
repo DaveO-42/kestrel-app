@@ -1520,7 +1520,7 @@ class _BaselineMarkerPainter extends CustomPainter {
     final tp = TextPainter(
       text: TextSpan(
         text:  label,
-        style: const TextStyle(color: Color(0xFF334D68), fontSize: 9),
+        style: const TextStyle(color: KestrelColors.gold, fontSize: 9),
       ),
       textDirection: TextDirection.ltr,
     )..layout();
@@ -1561,7 +1561,7 @@ class _RangeBaselineMarkerPainter extends CustomPainter {
       final tp = TextPainter(
         text: TextSpan(
           text:  lbl,
-          style: const TextStyle(color: Color(0xFF334D68), fontSize: 9),
+          style: const TextStyle(color: KestrelColors.gold, fontSize: 9),
         ),
         textDirection: TextDirection.ltr,
       )..layout();
