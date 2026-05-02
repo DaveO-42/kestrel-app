@@ -208,7 +208,7 @@ class _ConfigCard extends StatelessWidget {
               ),
               IconButton(
                 icon: const Icon(Symbols.delete,
-                    size: 18, color: KestrelColors.textHint),
+                    size: 18, color: KestrelColors.textDimmed),
                 onPressed: onDelete,
                 padding:     EdgeInsets.zero,
                 constraints: const BoxConstraints(),
@@ -298,7 +298,7 @@ class _ComparisonCard extends StatelessWidget {
                     GestureDetector(
                       onTap: onDeleteA,
                       child: const Icon(Symbols.delete,
-                          size: 14, color: KestrelColors.textHint),
+                          size: 14, color: KestrelColors.textDimmed),
                     ),
                   ],
                 ),
@@ -322,7 +322,7 @@ class _ComparisonCard extends StatelessWidget {
                     GestureDetector(
                       onTap: onDeleteB,
                       child: const Icon(Symbols.delete,
-                          size: 14, color: KestrelColors.textHint),
+                          size: 14, color: KestrelColors.textDimmed),
                     ),
                   ],
                 ),

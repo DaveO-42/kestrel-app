@@ -1405,7 +1405,7 @@ class _YearGrid extends StatelessWidget {
       physics:         const NeverScrollableScrollPhysics(),
       crossAxisSpacing: 6,
       mainAxisSpacing:  6,
-      childAspectRatio: 3.2,
+      childAspectRatio: 3.1,
       children: years.map((year) {
         final active = selected.contains(year);
         return GestureDetector(
