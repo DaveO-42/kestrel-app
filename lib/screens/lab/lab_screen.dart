@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import '../../theme/kestrel_theme.dart';
 import 'sandbox_screen.dart';
-import 'favorites_screen.dart';
+import 'setups_screen.dart';
 import '../../main_screen.dart';
 
 class LabScreen extends StatefulWidget {
@@ -13,7 +13,7 @@ class LabScreen extends StatefulWidget {
 
 class _LabScreenState extends State<LabScreen> {
   int _selectedIndex = 0;
-  final _favoritesKey = GlobalKey<FavoritesScreenState>();
+  final _setupsKey = GlobalKey<SetupsScreenState>();
   bool _infoOpen = false;
 
   void _showInfoSheet(BuildContext context) {
@@ -67,10 +67,10 @@ class _LabScreenState extends State<LabScreen> {
             onChanged: (i) {
               setState(() => _selectedIndex = i);
               if (i == 1) {
-                _favoritesKey.currentState?.reload();
+                _setupsKey.currentState?.reload();
               }
             },
-            labels: const ['Sandbox', 'Favoriten'],
+            labels: const ['Sandbox', 'Setups'],
           ),
           Container(height: 1, color: KestrelColors.cardBorder),
           Expanded(
@@ -78,7 +78,7 @@ class _LabScreenState extends State<LabScreen> {
               index: _selectedIndex,
               children: [
                 const SandboxScreen(),
-                FavoritesScreen(key: _favoritesKey),
+                SetupsScreen(key: _setupsKey),
               ],
             ),
           ),
@@ -210,7 +210,7 @@ class _LabInfoSheet extends StatelessWidget {
                           letterSpacing: 2,
                         )),
                         const SizedBox(height: 2),
-                        const Text('SANDBOX · FAVORITEN', style: TextStyle(
+                        const Text('SANDBOX · SETUP', style: TextStyle(
                           color:         Color(0xFF8A6E2A),
                           fontSize:      10,
                           letterSpacing: 1.5,
@@ -312,7 +312,7 @@ class _LabInfoSheet extends StatelessWidget {
                           'geeignet.',
                     ),
                     _InfoSection(
-                      title:   'FAVORITEN',
+                      title:   'SETUP',
                       content: 'Gespeicherte Konfigurationen können verglichen werden. '
                           'Zwei auswählen → Vergleich erscheint automatisch. '
                           'Die schlechtere Konfiguration löschen und weiter optimieren.',

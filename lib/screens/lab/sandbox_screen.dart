@@ -50,21 +50,21 @@ class SavedConfig {
   );
 }
 
-const kFavoritesKey = 'sandbox_favorites';
+const kSetupsKey = 'sandbox_setups';
 
-Future<List<SavedConfig>> loadFavorites() async {
+Future<List<SavedConfig>> loadSetups() async {
   final prefs = await SharedPreferences.getInstance();
-  final raw   = prefs.getStringList(kFavoritesKey) ?? [];
+  final raw   = prefs.getStringList(kSetupsKey) ?? [];
   return raw
       .map((s) => SavedConfig.fromJson(
           jsonDecode(s) as Map<String, dynamic>))
       .toList();
 }
 
-Future<void> saveFavorites(List<SavedConfig> configs) async {
+Future<void> saveSetups(List<SavedConfig> configs) async {
   final prefs = await SharedPreferences.getInstance();
   await prefs.setStringList(
-      kFavoritesKey,
+      kSetupsKey,
       configs.map((c) => jsonEncode(c.toJson())).toList());
 }
 
@@ -246,7 +246,7 @@ class _SandboxScreenState extends State<SandboxScreen>
             onPressed: () async {
               final name = controller.text.trim();
               if (name.isEmpty) return;
-              final configs = await loadFavorites();
+              final configs = await loadSetups();
               final now = DateTime.now();
               configs.insert(0, SavedConfig(
                 id:      now.millisecondsSinceEpoch.toString(),
@@ -263,7 +263,7 @@ class _SandboxScreenState extends State<SandboxScreen>
               ));
               debugPrint('_result keys: ${_result!.keys.toList()}');
               debugPrint('_result total: ${_result!['total']}');
-              await saveFavorites(configs);
+              await saveSetups(configs);
               if (!mounted) return;
               Navigator.pop(context);
               ScaffoldMessenger.of(context).showSnackBar(

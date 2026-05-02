@@ -9,7 +9,7 @@ import 'theme/kestrel_theme.dart';
 import 'screens/dashboard/dashboard_screen.dart';
 import 'screens/shortlist/shortlist_screen.dart';
 import 'screens/history/history_screen.dart';
-import 'screens/system/system_screen.dart';
+import 'screens/system/status_screen.dart';
 import 'screens/lab/lab_screen.dart';
 import 'package:material_symbols_icons/symbols.dart';
 

@@ -1,15 +1,16 @@
 import 'package:flutter/material.dart';
 import '../../theme/kestrel_theme.dart';
 import 'sandbox_screen.dart';
+import 'package:material_symbols_icons/symbols.dart';
 
-class FavoritesScreen extends StatefulWidget {
-  const FavoritesScreen({super.key});
+class SetupsScreen extends StatefulWidget {
+  const SetupsScreen({super.key});
 
   @override
-  State<FavoritesScreen> createState() => FavoritesScreenState();
+  State<SetupsScreen> createState() => SetupsScreenState();
 }
 
-class FavoritesScreenState extends State<FavoritesScreen> {
+class SetupsScreenState extends State<SetupsScreen> {
   List<SavedConfig> _configs  = [];
   final Set<String> _selected = {};
 
@@ -20,7 +21,7 @@ class FavoritesScreenState extends State<FavoritesScreen> {
   }
 
   Future<void> reload() async {
-    final configs = await loadFavorites();
+    final configs = await loadSetups();
     if (!mounted) return;
     setState(() => _configs = configs);
   }
@@ -36,9 +37,9 @@ class FavoritesScreenState extends State<FavoritesScreen> {
   }
 
   Future<void> _delete(String id) async {
-    final configs = await loadFavorites();
+    final configs = await loadSetups();
     configs.removeWhere((c) => c.id == id);
-    await saveFavorites(configs);
+    await saveSetups(configs);
     setState(() {
       _configs.removeWhere((c) => c.id == id);
       _selected.remove(id);
@@ -202,7 +203,7 @@ class _ConfigCard extends StatelessWidget {
                 ),
               ),
               IconButton(
-                icon: const Icon(Icons.delete_outline,
+                icon: const Icon(Symbols.delete,
                     size: 18, color: KestrelColors.textHint),
                 onPressed: onDelete,
                 padding:     EdgeInsets.zero,
