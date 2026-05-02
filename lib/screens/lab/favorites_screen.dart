@@ -88,23 +88,18 @@ class FavoritesScreenState extends State<FavoritesScreen> {
           // ── Vergleich-Button ──────────────────────────────
           if (_configs.isNotEmpty) ...[
             const SizedBox(height: 4),
-            ElevatedButton(
-              onPressed: canCompare ? () {} : null,
-              style: ElevatedButton.styleFrom(
-                backgroundColor:        canCompare
-                    ? KestrelColors.gold : KestrelColors.cardBg,
-                foregroundColor:        canCompare
-                    ? KestrelColors.appBarBg : KestrelColors.textHint,
-                disabledBackgroundColor: KestrelColors.innerBg,
-                disabledForegroundColor: KestrelColors.textHint,
-                shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(8)),
-                minimumSize: const Size.fromHeight(40),
+            if (_configs.isNotEmpty && !canCompare) ...[
+              const SizedBox(height: 8),
+              const Center(
+                child: Text(
+                  'Zwei Konfigurationen auswählen zum Vergleichen',
+                  style: TextStyle(
+                    color:    KestrelColors.textDimmed,
+                    fontSize: 12,
+                  ),
+                ),
               ),
-              child: Text(canCompare
-                  ? 'Vergleichen'
-                  : 'Zwei Konfigurationen auswählen'),
-            ),
+            ],
           ],
 
           // ── Vergleichs-Card ───────────────────────────────

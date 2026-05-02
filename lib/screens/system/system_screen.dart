@@ -368,12 +368,7 @@ class _ServicesCard extends StatelessWidget {
       return ms != null ? '${ms}ms' : null;
     }
 
-    return Container(
-      decoration: BoxDecoration(
-        color: KestrelColors.cardBg,
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: KestrelColors.cardBorder),
-      ),
+    return KGoldTopCard(
       padding: const EdgeInsets.fromLTRB(13, 11, 13, 4),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,

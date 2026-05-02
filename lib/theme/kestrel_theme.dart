@@ -243,3 +243,39 @@ class KestrelLogo extends StatelessWidget {
     );
   }
 }
+
+class KGoldTopCard extends StatelessWidget {
+  final Widget child;
+  final EdgeInsetsGeometry padding;
+  const KGoldTopCard({
+    super.key,
+    required this.child,
+    this.padding = const EdgeInsets.fromLTRB(13, 11, 13, 13),
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return ClipRRect(
+      borderRadius: BorderRadius.circular(12),
+      child: Container(
+        decoration: BoxDecoration(
+          color:        KestrelColors.cardBg,
+          borderRadius: BorderRadius.circular(12),
+          border:       Border.all(color: KestrelColors.cardBorder),
+        ),
+        child: Stack(
+          children: [
+            Positioned(
+              top: 0, left: 0, right: 0,
+              child: Container(height: 2, color: KestrelColors.gold),
+            ),
+            Padding(
+              padding: padding,
+              child: child,
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
