@@ -53,68 +53,72 @@ class SetupsScreenState extends State<SetupsScreen> {
         .where((c) => _selected.contains(c.id))
         .toList();
 
-    return SingleChildScrollView(
-      padding: const EdgeInsets.fromLTRB(12, 12, 12, 24),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          // ── Config-Liste ──────────────────────────────────
-          if (_configs.isEmpty)
-            Container(
-              padding: const EdgeInsets.all(24),
-              decoration: kCardDecoration(),
-              child: const Center(
-                child: Text(
-                  'Noch keine Konfigurationen gespeichert.\n'
-                  'Nach einem Sandbox-Run auf „Speichern" tippen.',
-                  textAlign: TextAlign.center,
-                  style: TextStyle(
-                      color: KestrelColors.textDimmed, fontSize: 12),
-                ),
-              ),
-            )
-          else ...[
-            const Text('KONFIGURATIONEN', style: kCardLabelStyle),
-            const SizedBox(height: 8),
-            ..._configs.map((c) => _ConfigCard(
-              config:   c,
-              selected: _selected.contains(c.id),
-              disabled: _selected.length == 2 &&
-                        !_selected.contains(c.id),
-              onTap:    () => _toggle(c.id),
-              onDelete: () => _delete(c.id),
-            )),
-          ],
+    return Column(
+      children: [
+        Expanded(
+          child: SingleChildScrollView(
+            padding: const EdgeInsets.fromLTRB(12, 12, 12, 12),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                // ── Config-Liste ────────────────────────────
+                if (_configs.isEmpty)
+                  Container(
+                    padding: const EdgeInsets.all(24),
+                    decoration: kCardDecoration(),
+                    child: const Center(
+                      child: Text(
+                        'Noch keine Konfigurationen gespeichert.\n'
+                        'Nach einem Sandbox-Run auf „Speichern" tippen.',
+                        textAlign: TextAlign.center,
+                        style: TextStyle(
+                            color: KestrelColors.textDimmed, fontSize: 12),
+                      ),
+                    ),
+                  )
+                else ...[
+                  const Text('KONFIGURATIONEN', style: kCardLabelStyle),
+                  const SizedBox(height: 8),
+                  ..._configs.map((c) => _ConfigCard(
+                    config:   c,
+                    selected: _selected.contains(c.id),
+                    disabled: _selected.length == 2 &&
+                              !_selected.contains(c.id),
+                    onTap:    () => _toggle(c.id),
+                    onDelete: () => _delete(c.id),
+                  )),
+                ],
 
-          // ── Vergleich-Button ──────────────────────────────
-          if (_configs.isNotEmpty) ...[
-            const SizedBox(height: 4),
-            if (_configs.isNotEmpty && !canCompare) ...[
-              const SizedBox(height: 8),
-              const Center(
-                child: Text(
-                  'Zwei Konfigurationen auswählen zum Vergleichen',
-                  style: TextStyle(
-                    color:    KestrelColors.textDimmed,
-                    fontSize: 12,
+                // ── Hinweis ──────────────────────────────────
+                if (_configs.isNotEmpty && !canCompare) ...[
+                  const SizedBox(height: 12),
+                  const Center(
+                    child: Text(
+                      'Zwei Konfigurationen auswählen zum Vergleichen',
+                      style: TextStyle(
+                          color: KestrelColors.textDimmed, fontSize: 12),
+                    ),
                   ),
-                ),
-              ),
-            ],
-          ],
+                ],
+              ],
+            ),
+          ),
+        ),
 
-          // ── Vergleichs-Card ───────────────────────────────
-          if (canCompare && selected.length == 2) ...[
-            const SizedBox(height: 12),
-            _ComparisonCard(
+        // ── Fixiertes Vergleichs-Panel ────────────────────
+        if (canCompare && selected.length == 2) ...[
+          Container(height: 1, color: KestrelColors.cardBorder),
+          Padding(
+            padding: const EdgeInsets.fromLTRB(12, 10, 12, 12),
+            child: _ComparisonCard(
               a:         selected[0],
               b:         selected[1],
               onDeleteA: () => _delete(selected[0].id),
               onDeleteB: () => _delete(selected[1].id),
             ),
-          ],
+          ),
         ],
-      ),
+      ],
     );
   }
 }
@@ -257,146 +261,99 @@ class _ComparisonCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final aSharpe = (a.results['total']?['sharpe_ratio'] as num?)
-            ?.toDouble() ??
-        0;
-    final bSharpe = (b.results['total']?['sharpe_ratio'] as num?)
-            ?.toDouble() ??
-        0;
-    final aWins = aSharpe >= bSharpe;
+    final aSharpe  = (a.results['total']?['sharpe_ratio'] as num?)?.toDouble() ?? 0;
+    final bSharpe  = (b.results['total']?['sharpe_ratio'] as num?)?.toDouble() ?? 0;
+    final aWins    = aSharpe >= bSharpe;
+    final aMetrics = a.results['total'] as Map<String, dynamic>? ?? {};
+    final bMetrics = b.results['total'] as Map<String, dynamic>? ?? {};
 
-    return Container(
-      decoration: kCardDecoration(goldTop: true),
-      padding: const EdgeInsets.fromLTRB(13, 11, 13, 13),
+    return KGoldTopCard(
+      padding: const EdgeInsets.fromLTRB(13, 11, 13, 12),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           const Text('VERGLEICH', style: kCardLabelStyle),
           const SizedBox(height: 10),
-          _ComparedConfig(
-            config:   a,
-            other:    b,
-            isBetter: aWins,
-            onDelete: onDeleteA,
-          ),
-          const SizedBox(height: 6),
-          _ComparedConfig(
-            config:   b,
-            other:    a,
-            isBetter: !aWins,
-            onDelete: onDeleteB,
-          ),
-        ],
-      ),
-    );
-  }
-}
 
-// ── Compared Config ────────────────────────────────────────
-
-class _ComparedConfig extends StatelessWidget {
-  final SavedConfig  config, other;
-  final bool         isBetter;
-  final VoidCallback onDelete;
-  const _ComparedConfig({
-    required this.config,
-    required this.other,
-    required this.isBetter,
-    required this.onDelete,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    final m  = config.results['total'] as Map<String, dynamic>? ?? {};
-    final mo = other.results['total']  as Map<String, dynamic>? ?? {};
-
-    final win     = (m['win_rate_pct']    as num?)?.toDouble();
-    final ret     = (m['avg_return_pct']  as num?)?.toDouble();
-    final sharpe  = (m['sharpe_ratio']    as num?)?.toDouble();
-    final bWin    = (mo['win_rate_pct']   as num?)?.toDouble();
-    final bRet    = (mo['avg_return_pct'] as num?)?.toDouble();
-    final bSharpe = (mo['sharpe_ratio']   as num?)?.toDouble();
-
-    return Container(
-      decoration: BoxDecoration(
-        color:        KestrelColors.innerBg,
-        borderRadius: BorderRadius.circular(8),
-        border: Border.all(
-          color: isBetter
-              ? KestrelColors.green : KestrelColors.cardBorder,
-        ),
-      ),
-      padding: const EdgeInsets.fromLTRB(11, 9, 8, 9),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
+          // ── Header: names ──────────────────────────────
           Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              Row(children: [
-                Text(config.name,
-                    style: TextStyle(
-                      color:      isBetter
-                          ? KestrelColors.green
-                          : KestrelColors.textGrey,
-                      fontSize:   12,
-                      fontWeight: FontWeight.w700,
-                    )),
-                if (isBetter) ...[
-                  const SizedBox(width: 6),
-                  Container(
-                    padding: const EdgeInsets.symmetric(
-                        horizontal: 6, vertical: 1),
-                    decoration: BoxDecoration(
-                      color:        KestrelColors.greenBg,
-                      borderRadius: BorderRadius.circular(4),
-                      border: Border.all(
-                          color: KestrelColors.greenBorder),
-                    ),
-                    child: const Text('Besser',
+              const SizedBox(width: 80),
+              Expanded(
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    Text(a.name,
                         style: TextStyle(
-                            color:      KestrelColors.green,
-                            fontSize:   9,
-                            fontWeight: FontWeight.w700)),
-                  ),
-                ],
-              ]),
-              IconButton(
-                icon: const Icon(Icons.delete_outline,
-                    size: 16, color: KestrelColors.textHint),
-                onPressed: onDelete,
-                padding:     EdgeInsets.zero,
-                constraints: const BoxConstraints(),
+                          color:      aWins
+                              ? KestrelColors.green : KestrelColors.textGrey,
+                          fontSize:   12,
+                          fontWeight: FontWeight.w700,
+                        )),
+                    if (aWins) ...[
+                      const SizedBox(width: 5),
+                      const _BesserBadge(),
+                    ],
+                    const SizedBox(width: 6),
+                    GestureDetector(
+                      onTap: onDeleteA,
+                      child: const Icon(Symbols.delete,
+                          size: 14, color: KestrelColors.textHint),
+                    ),
+                  ],
+                ),
+              ),
+              Expanded(
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    Text(b.name,
+                        style: TextStyle(
+                          color:      !aWins
+                              ? KestrelColors.green : KestrelColors.textGrey,
+                          fontSize:   12,
+                          fontWeight: FontWeight.w700,
+                        )),
+                    if (!aWins) ...[
+                      const SizedBox(width: 5),
+                      const _BesserBadge(),
+                    ],
+                    const SizedBox(width: 6),
+                    GestureDetector(
+                      onTap: onDeleteB,
+                      child: const Icon(Symbols.delete,
+                          size: 14, color: KestrelColors.textHint),
+                    ),
+                  ],
+                ),
               ),
             ],
           ),
-          const SizedBox(height: 6),
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              if (win != null && bWin != null)
-                _DeltaMetric(
-                  label:  'Win%',
-                  value:  win,
-                  delta:  win - bWin,
-                  format: (v) => '${v.toStringAsFixed(1)}%',
-                ),
-              if (ret != null && bRet != null)
-                _DeltaMetric(
-                  label:  'Ø Ret',
-                  value:  ret,
-                  delta:  ret - bRet,
-                  format: (v) =>
-                      '${v >= 0 ? '+' : ''}${v.toStringAsFixed(1)}%',
-                ),
-              if (sharpe != null && bSharpe != null)
-                _DeltaMetric(
-                  label:  'Sharpe',
-                  value:  sharpe,
-                  delta:  sharpe - bSharpe,
-                  format: (v) => v.toStringAsFixed(2),
-                ),
-            ],
+
+          const SizedBox(height: 8),
+          Container(height: 1, color: KestrelColors.cardBorder),
+          const SizedBox(height: 4),
+
+          // ── Metric rows ────────────────────────────────
+          _CmpRow(
+            label: 'Win%',
+            aVal:  (aMetrics['win_rate_pct']   as num?)?.toDouble(),
+            bVal:  (bMetrics['win_rate_pct']   as num?)?.toDouble(),
+            fmt:   (v) => v != null ? '${v.toStringAsFixed(1)}%' : '–',
+          ),
+          _CmpRow(
+            label: 'Ø Rendite',
+            aVal:  (aMetrics['avg_return_pct'] as num?)?.toDouble(),
+            bVal:  (bMetrics['avg_return_pct'] as num?)?.toDouble(),
+            fmt:   (v) => v != null
+                ? '${v >= 0 ? '+' : ''}${v.toStringAsFixed(1)}%'
+                : '–',
+          ),
+          _CmpRow(
+            label: 'Sharpe',
+            aVal:  (aMetrics['sharpe_ratio']   as num?)?.toDouble(),
+            bVal:  (bMetrics['sharpe_ratio']   as num?)?.toDouble(),
+            fmt:   (v) => v != null ? v.toStringAsFixed(2) : '–',
           ),
         ],
       ),
@@ -404,44 +361,109 @@ class _ComparedConfig extends StatelessWidget {
   }
 }
 
-// ── Delta Metric ───────────────────────────────────────────
+// ── Cmp Row ────────────────────────────────────────────────
 
-class _DeltaMetric extends StatelessWidget {
+class _CmpRow extends StatelessWidget {
   final String label;
-  final double value, delta;
-  final String Function(double) format;
-  const _DeltaMetric({
+  final double? aVal, bVal;
+  final String Function(double?) fmt;
+  const _CmpRow({
     required this.label,
-    required this.value,
-    required this.delta,
-    required this.format,
+    required this.aVal,
+    required this.bVal,
+    required this.fmt,
   });
 
   @override
   Widget build(BuildContext context) {
-    final rounded = double.parse(delta.toStringAsFixed(1));
-    final neutral = rounded == 0.0;
-    final better  = delta > 0;
-    final color   = neutral
-        ? KestrelColors.gold
-        : better ? KestrelColors.green : KestrelColors.red;
-    final arrow   = neutral ? '' : better ? ' ▲' : ' ▼';
-    final deltaStr = rounded == 0.0
-        ? ''
-        : ' ${delta >= 0 ? '+' : ''}${delta.toStringAsFixed(1)}$arrow';
+    final aBetter = aVal != null && bVal != null && aVal! > bVal!;
+    final bBetter = aVal != null && bVal != null && bVal! > aVal!;
+    final delta   = (aVal != null && bVal != null)
+        ? (aVal! - bVal!).abs().toStringAsFixed(1)
+        : '–';
+    // Arrow points toward winner: ◀ if a is better, ▶ if b is better
+    final arrow   = aBetter ? '◀' : bBetter ? '▶' : '–';
 
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Text(format(value),
-            style: TextStyle(
-                color:      color,
-                fontSize:   13,
-                fontWeight: FontWeight.w700)),
-        Text('$label$deltaStr',
-            style: const TextStyle(
-                color: KestrelColors.textDimmed, fontSize: 9)),
-      ],
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 5),
+      child: Row(
+        children: [
+          SizedBox(
+            width: 80,
+            child: Text(label,
+                style: const TextStyle(
+                    color: KestrelColors.textDimmed, fontSize: 11)),
+          ),
+          Expanded(
+            child: Text(fmt(aVal),
+                textAlign: TextAlign.center,
+                style: TextStyle(
+                  color:      aBetter ? KestrelColors.green
+                      : bBetter ? KestrelColors.red
+                      : KestrelColors.textPrimary,
+                  fontSize:   12,
+                  fontWeight: FontWeight.w700,
+                )),
+          ),
+          SizedBox(
+            width: 52,
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                if (aBetter) ...[
+                  const Icon(Icons.arrow_left,
+                      size: 14, color: KestrelColors.green),
+                  Text(delta,
+                      style: const TextStyle(
+                          color: KestrelColors.textDimmed, fontSize: 10)),
+                ] else if (bBetter) ...[
+                  Text(delta,
+                      style: const TextStyle(
+                          color: KestrelColors.textDimmed, fontSize: 10)),
+                  const Icon(Icons.arrow_right,
+                      size: 14, color: KestrelColors.green),
+                ] else
+                  Text(delta,
+                      style: const TextStyle(
+                          color: KestrelColors.textDimmed, fontSize: 10)),
+              ],
+            ),
+          ),
+          Expanded(
+            child: Text(fmt(bVal),
+                textAlign: TextAlign.center,
+                style: TextStyle(
+                  color:      bBetter ? KestrelColors.green
+                      : aBetter ? KestrelColors.red
+                      : KestrelColors.textPrimary,
+                  fontSize:   12,
+                  fontWeight: FontWeight.w700,
+                )),
+          ),
+        ],
+      ),
     );
   }
 }
+
+// ── Besser Badge ───────────────────────────────────────────
+
+class _BesserBadge extends StatelessWidget {
+  const _BesserBadge();
+
+  @override
+  Widget build(BuildContext context) => Container(
+    padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1),
+    decoration: BoxDecoration(
+      color:        KestrelColors.greenBg,
+      borderRadius: BorderRadius.circular(4),
+      border:       Border.all(color: KestrelColors.greenBorder),
+    ),
+    child: const Text('Besser',
+        style: TextStyle(
+            color:      KestrelColors.green,
+            fontSize:   9,
+            fontWeight: FontWeight.w600)),
+  );
+}
+

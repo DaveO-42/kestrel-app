@@ -1420,47 +1420,47 @@ class _YearGrid extends StatelessWidget {
               ),
             ),
             padding: const EdgeInsets.symmetric(horizontal: 11, vertical: 9),
-            child: Stack(
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.center,
               children: [
-                Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  mainAxisAlignment:  MainAxisAlignment.center,
-                  children: [
-                    Text(
-                      '$year',
-                      style: TextStyle(
-                        color:      active
-                            ? KestrelColors.gold
-                            : KestrelColors.textDimmed,
-                        fontSize:   14,
-                        fontWeight: FontWeight.w700,
-                      ),
-                    ),
-                    const SizedBox(height: 2),
-                    Text(
-                      _yearContext[year] ?? '',
-                      style: TextStyle(
-                        color:    active
-                            ? KestrelColors.textDimmed
-                            : KestrelColors.textHint,
-                        fontSize: 9,
-                      ),
-                    ),
-                  ],
-                ),
-                if (active)
-                  Positioned(
-                    top:   0,
-                    right: 0,
-                    child: Container(
-                      width:  7,
-                      height: 7,
-                      decoration: const BoxDecoration(
-                        color: KestrelColors.gold,
-                        shape: BoxShape.circle,
-                      ),
-                    ),
+                Container(
+                  width:  8,
+                  height: 8,
+                  margin: const EdgeInsets.only(right: 10),
+                  decoration: BoxDecoration(
+                    color:  active ? KestrelColors.gold : KestrelColors.cardBorder,
+                    shape:  BoxShape.circle,
                   ),
+                ),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    mainAxisAlignment:  MainAxisAlignment.center,
+                    children: [
+                      Text(
+                        '$year',
+                        style: TextStyle(
+                          color:      active
+                              ? KestrelColors.gold
+                              : KestrelColors.textDimmed,
+                          fontSize:   14,
+                          fontWeight: FontWeight.w700,
+                        ),
+                      ),
+                      const SizedBox(height: 2),
+                      Text(
+                        _yearContext[year] ?? '',
+                        style: TextStyle(
+                          color:    active
+                              ? KestrelColors.textDimmed
+                              : KestrelColors.textHint,
+                          fontSize: 9,
+                        ),
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ],
+                  ),
+                ),
               ],
             ),
           ),
