@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import '../../theme/kestrel_theme.dart';
 import 'sandbox_screen.dart';
 import 'setups_screen.dart';
+import 'paper_tab.dart';
 import '../../main_screen.dart';
 import '../../widgets/offline_banner.dart';
 
@@ -73,7 +74,7 @@ class _LabScreenState extends State<LabScreen> {
                 _setupsKey.currentState?.reload();
               }
             },
-            labels: const ['Sandbox', 'Setups'],
+            labels: const ['Sandbox', 'Setups', 'Paper'],
           ),
           Container(height: 1, color: KestrelColors.cardBorder),
           Expanded(
@@ -82,6 +83,7 @@ class _LabScreenState extends State<LabScreen> {
               children: [
                 const SandboxScreen(),
                 SetupsScreen(key: _setupsKey),
+                const PaperTab(),
               ],
             ),
           ),

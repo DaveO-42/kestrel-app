@@ -480,6 +480,105 @@ class ApiService {
     }
   }
 
+// ── Paper Trading ─────────────────────────────────────────────
+
+  static Future<Map<String, dynamic>> getPaperSummary() async {
+    if (useMock) return {'total_trades': 0, 'win_rate': null,
+        'avg_return': null, 'sharpe': null, 'open_positions': 0};
+    try {
+      final headers = await _authHeaders();
+      var response = await http
+          .get(Uri.parse('$baseUrl/paper/summary'), headers: headers)
+          .timeout(_timeout);
+      if (response.statusCode == 401) {
+        final newToken = await AuthService().refreshToken();
+        if (newToken != null) {
+          response = await http
+              .get(Uri.parse('$baseUrl/paper/summary'),
+              headers: {...headers, 'Authorization': 'Bearer $newToken'})
+              .timeout(_timeout);
+        }
+        if (response.statusCode == 401) {
+          await AuthService().logout();
+          onAuthError?.call();
+          throw const ActionException('Sitzung abgelaufen.',
+              statusCode: 401, isAuthError: true);
+        }
+      }
+      if (response.statusCode == 200)
+        return jsonDecode(response.body) as Map<String, dynamic>;
+      throw Exception('HTTP ${response.statusCode}');
+    } on ActionException {
+      rethrow;
+    } catch (e) {
+      throw ActionException('Verbindungsfehler: $e');
+    }
+  }
+
+  static Future<List<dynamic>> getPaperPositions() async {
+    if (useMock) return [];
+    try {
+      final headers = await _authHeaders();
+      var response = await http
+          .get(Uri.parse('$baseUrl/paper/positions'), headers: headers)
+          .timeout(_timeout);
+      if (response.statusCode == 401) {
+        final newToken = await AuthService().refreshToken();
+        if (newToken != null) {
+          response = await http
+              .get(Uri.parse('$baseUrl/paper/positions'),
+              headers: {...headers, 'Authorization': 'Bearer $newToken'})
+              .timeout(_timeout);
+        }
+        if (response.statusCode == 401) {
+          await AuthService().logout();
+          onAuthError?.call();
+          throw const ActionException('Sitzung abgelaufen.',
+              statusCode: 401, isAuthError: true);
+        }
+      }
+      if (response.statusCode == 200)
+        return jsonDecode(response.body) as List<dynamic>;
+      throw Exception('HTTP ${response.statusCode}');
+    } on ActionException {
+      rethrow;
+    } catch (e) {
+      throw ActionException('Verbindungsfehler: $e');
+    }
+  }
+
+  static Future<List<dynamic>> getPaperHistory() async {
+    if (useMock) return [];
+    try {
+      final headers = await _authHeaders();
+      var response = await http
+          .get(Uri.parse('$baseUrl/paper/history'), headers: headers)
+          .timeout(_timeout);
+      if (response.statusCode == 401) {
+        final newToken = await AuthService().refreshToken();
+        if (newToken != null) {
+          response = await http
+              .get(Uri.parse('$baseUrl/paper/history'),
+              headers: {...headers, 'Authorization': 'Bearer $newToken'})
+              .timeout(_timeout);
+        }
+        if (response.statusCode == 401) {
+          await AuthService().logout();
+          onAuthError?.call();
+          throw const ActionException('Sitzung abgelaufen.',
+              statusCode: 401, isAuthError: true);
+        }
+      }
+      if (response.statusCode == 200)
+        return jsonDecode(response.body) as List<dynamic>;
+      throw Exception('HTTP ${response.statusCode}');
+    } on ActionException {
+      rethrow;
+    } catch (e) {
+      throw ActionException('Verbindungsfehler: $e');
+    }
+  }
+
 // ── Kalender ───────────────────────────────────────────────────
 
   static Future<Map<String, dynamic>> getCalendar(
