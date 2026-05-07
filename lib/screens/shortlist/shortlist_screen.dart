@@ -1,6 +1,7 @@
 import 'dart:convert';
 import 'dart:math' as math;
 import 'package:flutter/material.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import 'package:webview_flutter/webview_flutter.dart';
 import '../../services/api_service.dart';
 import '../../services/cache_service.dart';
@@ -12,7 +13,8 @@ import '../../widgets/bought_sheet.dart';
 import 'dart:ui' as ui;
 
 class ShortlistScreen extends StatefulWidget {
-  const ShortlistScreen({super.key});
+  final ValueNotifier<int>? refreshNotifier;
+  const ShortlistScreen({super.key, this.refreshNotifier});
 
   @override
   State<ShortlistScreen> createState() => _ShortlistScreenState();
@@ -23,6 +25,8 @@ class _ShortlistScreenState extends State<ShortlistScreen> {
   CachedResult<Map<String, dynamic>>? _systemResult;
   bool _loading = true;
   bool _infoOpen = false;
+  bool _shortlistStale = false;
+  bool _runLoading = false;
 
   // V2: Skip-State (lokal, bis nächstem Reload)
   final Set<String> _skipped = {};
@@ -42,7 +46,26 @@ class _ShortlistScreenState extends State<ShortlistScreen> {
   @override
   void initState() {
     super.initState();
-    _load();
+    _checkStaleness();
+    widget.refreshNotifier?.addListener(_onRefresh);
+  }
+
+  @override
+  void dispose() {
+    widget.refreshNotifier?.removeListener(_onRefresh);
+    super.dispose();
+  }
+
+  void _onRefresh() => _checkStaleness();
+
+  Future<void> _checkStaleness() async {
+    final prefs = await SharedPreferences.getInstance();
+    final stale = prefs.getBool('shortlist_stale') ?? false;
+    if (!mounted) return;
+    if (stale != _shortlistStale) {
+      setState(() => _shortlistStale = stale);
+    }
+    if (!stale) _load();
   }
 
   Future<void> _load() async {
@@ -85,8 +108,38 @@ class _ShortlistScreenState extends State<ShortlistScreen> {
     KestrelNav.of(context)?.refreshDashboard();
   }
 
+  Future<void> _triggerRun() async {
+    setState(() => _runLoading = true);
+    try {
+      await ApiService.triggerRun();
+      if (!mounted) return;
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.remove('shortlist_stale');
+      if (!mounted) return;
+      setState(() { _shortlistStale = false; _runLoading = false; });
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+        content: Text('Run gestartet – Shortlist folgt per Notification'),
+      ));
+      _load();
+    } catch (_) {
+      if (!mounted) return;
+      setState(() => _runLoading = false);
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+        content: Text('Run bereits aktiv'),
+      ));
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
+    if (_shortlistStale) {
+      return Scaffold(
+        backgroundColor: KestrelColors.screenBg,
+        appBar: _buildAppBar('–'),
+        body: _buildStaleState(),
+      );
+    }
+
     if (_loading) {
       return const Scaffold(
         backgroundColor: KestrelColors.screenBg,
@@ -181,6 +234,76 @@ class _ShortlistScreenState extends State<ShortlistScreen> {
             ),
           ),
         ],
+      ),
+    );
+  }
+
+  Widget _buildStaleState() {
+    final screenH = MediaQuery.of(context).size.height;
+    final screenW = MediaQuery.of(context).size.width;
+    return Center(
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 40),
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Opacity(
+              opacity: 0.35,
+              child: Image.asset(
+                'assets/images/empty_scan_pending.png',
+                width: screenW * 0.52,
+              ),
+            ),
+            SizedBox(height: screenH * 0.03),
+            const Text(
+              'Run ausstehend',
+              style: TextStyle(
+                color: KestrelColors.textPrimary,
+                fontSize: 16,
+                fontWeight: FontWeight.w700,
+              ),
+            ),
+            const SizedBox(height: 8),
+            const Text(
+              'Nach dem Verkauf ist die Shortlist veraltet. Starte einen neuen Run um Kandidaten zu finden.',
+              style: TextStyle(
+                color: KestrelColors.textDimmed,
+                fontSize: 12,
+                height: 1.5,
+              ),
+              textAlign: TextAlign.center,
+            ),
+            const SizedBox(height: 24),
+            SizedBox(
+              width: double.infinity,
+              child: ElevatedButton(
+                onPressed: _runLoading ? null : _triggerRun,
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: KestrelColors.green,
+                  disabledBackgroundColor: KestrelColors.green.withOpacity(0.3),
+                  foregroundColor: Colors.white,
+                  padding: const EdgeInsets.symmetric(vertical: 14),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                ),
+                child: _runLoading
+                    ? const SizedBox(
+                        width: 18,
+                        height: 18,
+                        child: CircularProgressIndicator(
+                          strokeWidth: 2,
+                          color: Colors.white,
+                        ),
+                      )
+                    : const Text(
+                        'Run starten',
+                        style: TextStyle(fontWeight: FontWeight.w700),
+                      ),
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }

@@ -22,6 +22,7 @@ class KestrelNav extends InheritedWidget {
   final VoidCallback goToHistory;
   final VoidCallback goToSettings;
   final VoidCallback refreshDashboard;
+  final VoidCallback? refreshShortlist;
   final ValueChanged<bool> setConnectionError;
   final ValueChanged<int> goToTab;
   final bool connectionError;
@@ -33,6 +34,7 @@ class KestrelNav extends InheritedWidget {
     required this.goToHistory,
     required this.goToSettings,
     required this.refreshDashboard,
+    this.refreshShortlist,
     required this.setConnectionError,
     required this.goToTab,
     required this.connectionError,
@@ -65,7 +67,8 @@ class MainScreen extends StatefulWidget {
 class _MainScreenState extends State<MainScreen> {
   int _index          = 0;
   bool _connError     = false;
-  final _dashboardRefresh = ValueNotifier<int>(0);
+  final _dashboardRefresh  = ValueNotifier<int>(0);
+  final _shortlistRefresh  = ValueNotifier<int>(0);
 
   @override
   void initState() {
@@ -80,6 +83,7 @@ class _MainScreenState extends State<MainScreen> {
   void dispose() {
     ApiService.onAuthError = null;
     _dashboardRefresh.dispose();
+    _shortlistRefresh.dispose();
     super.dispose();
   }
 
@@ -99,6 +103,7 @@ class _MainScreenState extends State<MainScreen> {
       goToHistory:        () => setState(() => _index = 2),
       goToSettings:       _openSettings,
       refreshDashboard:   () => _dashboardRefresh.value++,
+      refreshShortlist:   () => _shortlistRefresh.value++,
       setConnectionError: (v) => setState(() => _connError = v),
       goToTab:            (i) => setState(() => _index = i),
       connectionError:    _connError,
@@ -108,7 +113,7 @@ class _MainScreenState extends State<MainScreen> {
           index: _index,
           children: [
             DashboardScreen(refreshNotifier: _dashboardRefresh),
-            const ShortlistScreen(),
+            ShortlistScreen(refreshNotifier: _shortlistRefresh),
             const HistoryScreen(),
             const LabScreen(),
             const SystemScreen(),

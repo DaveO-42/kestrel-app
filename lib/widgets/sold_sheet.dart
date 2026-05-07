@@ -1,6 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import '../services/api_service.dart';
+import '../services/cache_service.dart';
+import '../main_screen.dart';
 import '../theme/kestrel_theme.dart';
 
 /// Bottom Sheet zum Bestätigen eines Verkaufs nach manueller Ausführung.
@@ -106,72 +109,18 @@ class _SoldSheetState extends State<SoldSheet> {
         ticker: widget.ticker,
         fillPriceEur: _fill,
       );
-      if (mounted) await _showTriggerRunDialog();
+      if (!mounted) return;
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setBool('shortlist_stale', true);
+      await CacheService.delete('cache_shortlist');
+      if (!mounted) return;
+      KestrelNav.of(context)?.refreshShortlist?.call();
+      Navigator.of(context).pop();
+      widget.onSuccess();
     } on ActionException catch (e) {
       setState(() { _error = e.message; _loading = false; });
     } catch (e) {
       setState(() { _error = e.toString(); _loading = false; });
-    }
-  }
-
-  Future<void> _showTriggerRunDialog() async {
-    final messenger = ScaffoldMessenger.of(context);
-
-    final startRun = await showDialog<bool>(
-      context: context,
-      barrierDismissible: false,
-      builder: (ctx) => AlertDialog(
-        backgroundColor: KestrelColors.cardBg,
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(12),
-          side: const BorderSide(color: KestrelColors.cardBorder),
-        ),
-        title: const Text(
-          'Verkauf erfasst. Neuen Run starten?',
-          style: TextStyle(
-            color: KestrelColors.textPrimary,
-            fontSize: 16,
-            fontWeight: FontWeight.w700,
-          ),
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.of(ctx).pop(false),
-            child: const Text('Überspringen',
-                style: TextStyle(color: KestrelColors.textDimmed)),
-          ),
-          ElevatedButton(
-            onPressed: () => Navigator.of(ctx).pop(true),
-            style: ElevatedButton.styleFrom(
-              backgroundColor: KestrelColors.green,
-              foregroundColor: Colors.white,
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(6),
-              ),
-            ),
-            child: const Text('Jetzt starten',
-                style: TextStyle(fontWeight: FontWeight.w700)),
-          ),
-        ],
-      ),
-    ) ?? false;
-
-    if (startRun) {
-      try {
-        await ApiService.triggerRun();
-        messenger.showSnackBar(const SnackBar(
-          content: Text('Run gestartet – Shortlist folgt per Notification'),
-        ));
-      } catch (_) {
-        messenger.showSnackBar(const SnackBar(
-          content: Text('Run bereits aktiv'),
-        ));
-      }
-    }
-
-    if (mounted) {
-      Navigator.of(context).pop();
-      widget.onSuccess();
     }
   }
 
