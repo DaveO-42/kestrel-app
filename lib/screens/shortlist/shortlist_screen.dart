@@ -60,6 +60,7 @@ class _ShortlistScreenState extends State<ShortlistScreen> {
 
   Future<void> _checkStaleness() async {
     final prefs = await SharedPreferences.getInstance();
+    await prefs.setBool('shortlist_stale', true);
     final stale = prefs.getBool('shortlist_stale') ?? false;
     if (!mounted) return;
     if (stale != _shortlistStale) {
@@ -279,9 +280,9 @@ class _ShortlistScreenState extends State<ShortlistScreen> {
               child: ElevatedButton(
                 onPressed: _runLoading ? null : _triggerRun,
                 style: ElevatedButton.styleFrom(
-                  backgroundColor: KestrelColors.green,
+                  backgroundColor: KestrelColors.gold,
                   disabledBackgroundColor: KestrelColors.green.withOpacity(0.3),
-                  foregroundColor: Colors.white,
+                  foregroundColor: Colors.black,
                   padding: const EdgeInsets.symmetric(vertical: 14),
                   shape: RoundedRectangleBorder(
                     borderRadius: BorderRadius.circular(8),
