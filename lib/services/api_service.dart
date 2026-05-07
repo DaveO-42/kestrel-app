@@ -538,7 +538,7 @@ class ApiService {
         }
       }
       if (response.statusCode == 200)
-        return jsonDecode(response.body) as List<dynamic>;
+        return (jsonDecode(response.body) as Map<String, dynamic>)['positions'] as List<dynamic>;
       throw Exception('HTTP ${response.statusCode}');
     } on ActionException {
       rethrow;
@@ -570,7 +570,7 @@ class ApiService {
         }
       }
       if (response.statusCode == 200)
-        return jsonDecode(response.body) as List<dynamic>;
+        return (jsonDecode(response.body) as Map<String, dynamic>)['history'] as List<dynamic>;
       throw Exception('HTTP ${response.statusCode}');
     } on ActionException {
       rethrow;

@@ -61,6 +61,14 @@ class _PaperTabState extends State<PaperTab> {
       );
     }
 
+    final positions = _positions ?? [];
+    final investiertEur = positions.fold<double>(0.0, (sum, p) {
+      final pos      = p as Map<String, dynamic>;
+      final price    = (pos['entry_price'] as num?)?.toDouble() ?? 0.0;
+      final qty      = (pos['quantity']    as num?)?.toDouble() ?? 0.0;
+      return sum + price * qty;
+    });
+
     return RefreshIndicator(
       onRefresh: _load,
       color: KestrelColors.gold,
@@ -68,9 +76,12 @@ class _PaperTabState extends State<PaperTab> {
       child: ListView(
         padding: const EdgeInsets.fromLTRB(12, 10, 12, 24),
         children: [
-          _PaperSummaryCard(summary: _summary ?? {}),
+          _PaperSummaryCard(
+            summary: _summary ?? {},
+            investiertEur: investiertEur,
+          ),
           const SizedBox(height: 8),
-          _PaperPositionList(positions: _positions ?? []),
+          _PaperPositionList(positions: positions),
           const SizedBox(height: 8),
           _PaperHistoryList(history: _history ?? []),
         ],
@@ -81,17 +92,50 @@ class _PaperTabState extends State<PaperTab> {
 
 // ── Summary Card ──────────────────────────────────────────────
 
-class _PaperSummaryCard extends StatelessWidget {
+class _PaperSummaryCard extends StatefulWidget {
   final Map<String, dynamic> summary;
-  const _PaperSummaryCard({required this.summary});
+  final double               investiertEur;
+  const _PaperSummaryCard({
+    required this.summary,
+    required this.investiertEur,
+  });
+
+  @override
+  State<_PaperSummaryCard> createState() => _PaperSummaryCardState();
+}
+
+class _PaperSummaryCardState extends State<_PaperSummaryCard> {
+  bool _strategyExpanded = false;
+
+  String _fmtBudget(num? budget) {
+    if (budget == null) return '€5.000 virtuell';
+    final intVal = budget.toInt();
+    if (intVal >= 1000) {
+      final thousands = intVal ~/ 1000;
+      final remainder = intVal % 1000;
+      return remainder == 0
+          ? '€$thousands.000 virtuell'
+          : '€$thousands.${remainder.toString().padLeft(3, '0')} virtuell';
+    }
+    return '€$intVal virtuell';
+  }
+
+  String _fmtInvestiert(double eur) {
+    if (eur == 0) return '€0';
+    return '€${eur.toStringAsFixed(2)}';
+  }
 
   @override
   Widget build(BuildContext context) {
+    final summary       = widget.summary;
     final totalTrades   = (summary['total_trades']   as num?)?.toInt() ?? 0;
     final winRate       = summary['win_rate']         as num?;
     final avgReturn     = summary['avg_return']       as num?;
     final sharpe        = summary['sharpe']           as num?;
     final openPositions = (summary['open_positions'] as num?)?.toInt() ?? 0;
+
+    final budgetStr     = _fmtBudget(summary['virtual_budget'] as num?);
+    final investiertStr = _fmtInvestiert(widget.investiertEur);
 
     return GoldTopCard(
       child: Padding(
@@ -99,13 +143,66 @@ class _PaperSummaryCard extends StatelessWidget {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            const Text('PAPER TRADING',
-                style: TextStyle(
-                    color: KestrelColors.gold,
-                    fontSize: 10,
-                    fontWeight: FontWeight.w700,
-                    letterSpacing: 0.8)),
+            // ── Header row ────────────────────────────────────
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                const Text('PAPER TRADING',
+                    style: TextStyle(
+                        color:         KestrelColors.gold,
+                        fontSize:      10,
+                        fontWeight:    FontWeight.w700,
+                        letterSpacing: 0.8)),
+                GestureDetector(
+                  onTap: () =>
+                      setState(() => _strategyExpanded = !_strategyExpanded),
+                  child: Row(
+                    children: [
+                      Text(
+                        'Strategie',
+                        style: const TextStyle(
+                            color:    KestrelColors.textDimmed,
+                            fontSize: 10),
+                      ),
+                      const SizedBox(width: 2),
+                      Icon(
+                        _strategyExpanded
+                            ? Icons.keyboard_arrow_up
+                            : Icons.keyboard_arrow_down,
+                        color: KestrelColors.textDimmed,
+                        size: 14,
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+
+            // ── Strategy section (collapsible) ────────────────
+            if (_strategyExpanded) ...[
+              const SizedBox(height: 10),
+              const Text('EARNINGS QUALITY',
+                  style: TextStyle(
+                      color:         KestrelColors.gold,
+                      fontSize:      10,
+                      fontWeight:    FontWeight.w700,
+                      letterSpacing: 0.8)),
+              const SizedBox(height: 6),
+              _StrategyRow(label: 'Budget',        value: budgetStr),
+              _StrategyRow(label: 'Investiert',    value: investiertStr),
+              _StrategyRow(label: 'EPS Surprise',  value: '≥ 5 %'),
+              _StrategyRow(label: 'Revenue Beat',  value: '≥ 2 %'),
+              _StrategyRow(label: 'Gap',           value: '≥ 5 %, kein Fill'),
+              _StrategyRow(label: 'Markt-Filter',  value: 'QQQ DD ≤ 15 %'),
+              _StrategyRow(label: 'Trailing Stop', value: 'ATR × 2.0'),
+              _StrategyRow(label: 'Live seit',     value: '07.05.2026'),
+              const SizedBox(height: 8),
+              Container(height: 0.5, color: KestrelColors.cardBorder),
+            ],
+
             const SizedBox(height: 10),
+
+            // ── Stats grid ────────────────────────────────────
             if (totalTrades == 0)
               const Padding(
                 padding: EdgeInsets.symmetric(vertical: 8),
@@ -151,6 +248,32 @@ class _PaperSummaryCard extends StatelessWidget {
               ),
           ],
         ),
+      ),
+    );
+  }
+}
+
+// ── Strategy Row ──────────────────────────────────────────────
+
+class _StrategyRow extends StatelessWidget {
+  final String label;
+  final String value;
+  const _StrategyRow({required this.label, required this.value});
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 4),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        children: [
+          Text(label,
+              style: const TextStyle(
+                  color: KestrelColors.textGrey, fontSize: 12)),
+          Text(value,
+              style: const TextStyle(
+                  color: KestrelColors.textPrimary, fontSize: 12)),
+        ],
       ),
     );
   }

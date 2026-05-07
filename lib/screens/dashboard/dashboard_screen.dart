@@ -214,6 +214,8 @@ class _DashboardScreenState extends State<DashboardScreen> {
           const SizedBox(height: 8),
           _PositionsCard(positions: positions),
           const SizedBox(height: 8),
+          const _StrategyCard(),
+          const SizedBox(height: 8),
           if (latestRun != null) _LastRunStrip(latestRun: latestRun),
         ],
       ),
@@ -810,7 +812,100 @@ class _PositionRow extends StatelessWidget {
   }
 }
 
-// ── Last Run Strip ────────────────────────────────────────────
+// ── Strategy Card ─────────────────────────────────────────────
+
+class _StrategyCard extends StatefulWidget {
+  const _StrategyCard();
+
+  @override
+  State<_StrategyCard> createState() => _StrategyCardState();
+}
+
+class _StrategyCardState extends State<_StrategyCard> {
+  bool _expanded = false;
+
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      onTap: () => setState(() => _expanded = !_expanded),
+      child: Container(
+      decoration: BoxDecoration(
+        color:        KestrelColors.cardBg,
+        borderRadius: BorderRadius.circular(12),
+        border:       Border.all(color: KestrelColors.cardBorder),
+      ),
+      padding: const EdgeInsets.fromLTRB(13, 11, 13, 11),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          // ── Header row ──────────────────────────────────────
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              const Text('STRATEGIE',
+                  style: TextStyle(
+                      color:         KestrelColors.gold,
+                      fontSize:      10,
+                      fontWeight:    FontWeight.w700,
+                      letterSpacing: 0.8)),
+              Icon(
+                _expanded ? Icons.expand_less : Icons.expand_more,
+                color: KestrelColors.textGrey,
+                size:  18,
+              ),
+            ],
+          ),
+
+          // ── Expanded section ─────────────────────────────────
+          if (_expanded) ...[
+            const SizedBox(height: 10),
+            Container(height: 0.5, color: KestrelColors.cardBorder),
+            const SizedBox(height: 10),
+            const Text('EARNINGS MOMENTUM',
+                style: TextStyle(
+                    color:         KestrelColors.textGrey,
+                    fontSize:      10,
+                    fontWeight:    FontWeight.w700,
+                    letterSpacing: 0.6)),
+            const SizedBox(height: 8),
+            _buildRow('Universum',       'Nasdaq 100 + S&P 500'),
+            _buildRow('Katalysator',     'EPS-Beat ≤ 30 Tage'),
+            _buildRow('Performance',     '> +3 % seit Beat'),
+            _buildRow('RSI',             '50 – 70'),
+            _buildRow('EMA-Konstell.',   'Kurs > EMA20 > EMA50'),
+            _buildRow('EMA-Steigung',    'positiv (5 Tage)'),
+            _buildRow('Earnings-Sperre', '< 7 Tage'),
+            _buildRow('Initial Stop',    'ATR × 2.0'),
+            _buildRow('Trailing Stop',   'ATR × 2.0'),
+            _buildRow('WARN-Stop',       'ATR × 1.0'),
+            _buildRow('Min. Position',   '€ 500'),
+            _buildRow('Live seit',       'April 2026'),
+          ],
+        ],
+      ),
+    ),
+    );
+  }
+
+  Widget _buildRow(String label, String value) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 4),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        children: [
+          Text(label,
+              style: const TextStyle(
+                  color: KestrelColors.textGrey, fontSize: 12)),
+          Text(value,
+              style: const TextStyle(
+                  color: KestrelColors.textPrimary, fontSize: 12)),
+        ],
+      ),
+    );
+  }
+}
+
+// ── Last Run Strip ─────────────────────────────────────────────
 
 class _LastRunStrip extends StatelessWidget {
   final Map<String, dynamic> latestRun;
