@@ -60,7 +60,6 @@ class _ShortlistScreenState extends State<ShortlistScreen> {
 
   Future<void> _checkStaleness() async {
     final prefs = await SharedPreferences.getInstance();
-    await prefs.setBool('shortlist_stale', true);
     final stale = prefs.getBool('shortlist_stale') ?? false;
     if (!mounted) return;
     if (stale != _shortlistStale) {

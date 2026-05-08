@@ -579,6 +579,38 @@ class ApiService {
     }
   }
 
+  static Future<List<dynamic>> getPaperRuns() async {
+    if (useMock) return [];
+    try {
+      final headers = await _authHeaders();
+      var response = await http
+          .get(Uri.parse('$baseUrl/paper/runs'), headers: headers)
+          .timeout(_timeout);
+      if (response.statusCode == 401) {
+        final newToken = await AuthService().refreshToken();
+        if (newToken != null) {
+          response = await http
+              .get(Uri.parse('$baseUrl/paper/runs'),
+              headers: {...headers, 'Authorization': 'Bearer $newToken'})
+              .timeout(_timeout);
+        }
+        if (response.statusCode == 401) {
+          await AuthService().logout();
+          onAuthError?.call();
+          throw const ActionException('Sitzung abgelaufen.',
+              statusCode: 401, isAuthError: true);
+        }
+      }
+      if (response.statusCode == 200)
+        return (jsonDecode(response.body) as Map<String, dynamic>)['runs'] as List<dynamic>;
+      throw Exception('HTTP ${response.statusCode}');
+    } on ActionException {
+      rethrow;
+    } catch (e) {
+      throw ActionException('Verbindungsfehler: $e');
+    }
+  }
+
 // ── Kalender ───────────────────────────────────────────────────
 
   static Future<Map<String, dynamic>> getCalendar(

@@ -13,6 +13,7 @@ class _PaperTabState extends State<PaperTab> {
   Map<String, dynamic>? _summary;
   List<dynamic>?        _positions;
   List<dynamic>?        _history;
+  List<dynamic>?        _runs;
   bool                  _loading = true;
   String?               _error;
 
@@ -28,11 +29,13 @@ class _PaperTabState extends State<PaperTab> {
       final summary   = await ApiService.getPaperSummary();
       final positions = await ApiService.getPaperPositions();
       final history   = await ApiService.getPaperHistory();
+      final runs      = await ApiService.getPaperRuns();
       if (!mounted) return;
       setState(() {
         _summary   = summary;
         _positions = positions;
         _history   = history;
+        _runs      = runs;
         _loading   = false;
       });
     } catch (e) {
@@ -84,6 +87,8 @@ class _PaperTabState extends State<PaperTab> {
           _PaperPositionList(positions: positions),
           const SizedBox(height: 8),
           _PaperHistoryList(history: _history ?? []),
+          const SizedBox(height: 8),
+          _PaperRunLog(runs: _runs ?? []),
         ],
       ),
     );
@@ -546,6 +551,134 @@ class _ExitBadge extends StatelessWidget {
         label,
         style: TextStyle(
             color: color, fontSize: 9, fontWeight: FontWeight.w600),
+      ),
+    );
+  }
+}
+
+// ── Run Log ───────────────────────────────────────────────────
+
+class _PaperRunLog extends StatelessWidget {
+  final List runs;
+  const _PaperRunLog({required this.runs});
+
+  String _fmtRunDateTime(Map<String, dynamic> run) {
+    final ts = run['timestamp'] as String?;
+    if (ts != null && ts.length >= 16) {
+      final tIdx = ts.indexOf('T');
+      if (tIdx > 0) {
+        final dateParts = ts.substring(0, tIdx).split('-');
+        final timePart  = ts.substring(tIdx + 1, tIdx + 6);
+        if (dateParts.length == 3) {
+          return '${dateParts[2]}.${dateParts[1]}. · $timePart';
+        }
+      }
+    }
+    final runId = run['run_id'] as String? ?? '';
+    if (runId.length >= 13) {
+      final day   = runId.substring(6, 8);
+      final month = runId.substring(4, 6);
+      final hour  = runId.substring(9, 11);
+      final min   = runId.substring(11, 13);
+      return '$day.$month. · $hour:$min';
+    }
+    return '–';
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final display = runs.take(10).toList();
+    return Container(
+      decoration: BoxDecoration(
+        color: KestrelColors.cardBg,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: KestrelColors.cardBorder),
+      ),
+      padding: const EdgeInsets.fromLTRB(13, 11, 13, 4),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Text('RUN-LOG',
+              style: TextStyle(
+                  color:         KestrelColors.gold,
+                  fontSize:      10,
+                  fontWeight:    FontWeight.w700,
+                  letterSpacing: 0.8)),
+          const SizedBox(height: 4),
+          if (display.isEmpty)
+            const Padding(
+              padding: EdgeInsets.symmetric(vertical: 16),
+              child: Center(
+                child: Text('Noch keine Runs aufgezeichnet',
+                    style: TextStyle(
+                        color: KestrelColors.textGrey, fontSize: 12)),
+              ),
+            )
+          else
+            ...display.map(
+              (r) => _PaperRunRow(
+                run:          r as Map<String, dynamic>,
+                fmtDateTime:  _fmtRunDateTime(r),
+              ),
+            ),
+        ],
+      ),
+    );
+  }
+}
+
+class _PaperRunRow extends StatelessWidget {
+  final Map<String, dynamic> run;
+  final String               fmtDateTime;
+  const _PaperRunRow({required this.run, required this.fmtDateTime});
+
+  @override
+  Widget build(BuildContext context) {
+    final accepted  = (run['accepted'] as num?)?.toInt() ?? 0;
+    final screened  = (run['screened'] as num?)?.toInt() ?? 0;
+    final marketOk  = run['market_ok'] as bool? ?? true;
+    final hasAccepted = accepted > 0;
+
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 8),
+      child: Row(
+        children: [
+          SizedBox(
+            width: 10,
+            child: hasAccepted
+                ? Container(
+                    width: 6,
+                    height: 6,
+                    decoration: const BoxDecoration(
+                      color: KestrelColors.gold,
+                      shape: BoxShape.circle,
+                    ),
+                  )
+                : null,
+          ),
+          const SizedBox(width: 4),
+          Expanded(
+            child: Text(
+              fmtDateTime,
+              style: const TextStyle(
+                  color: KestrelColors.textGrey, fontSize: 12),
+            ),
+          ),
+          Text(
+            '$accepted / $screened',
+            style: TextStyle(
+                color: hasAccepted
+                    ? KestrelColors.textPrimary
+                    : KestrelColors.textDimmed,
+                fontSize:   12,
+                fontWeight: FontWeight.w600),
+          ),
+          const SizedBox(width: 8),
+          _ExitBadge(
+            label: marketOk ? 'Markt OK' : 'Markt geblockt',
+            color: marketOk ? KestrelColors.green : KestrelColors.orange,
+          ),
+        ],
       ),
     );
   }
