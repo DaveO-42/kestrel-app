@@ -602,7 +602,7 @@ class ApiService {
         }
       }
       if (response.statusCode == 200)
-        return (jsonDecode(response.body) as Map<String, dynamic>)['runs'] as List<dynamic>;
+        return jsonDecode(response.body) as List<dynamic>;
       throw Exception('HTTP ${response.statusCode}');
     } on ActionException {
       rethrow;
