@@ -11,13 +11,6 @@
   Primär für die 30-Trade-Review: Dokumentation warum ein Trade funktioniert / nicht funktioniert hat.
   Backend: neue Spalte `notes` in `history`-Tabelle + `PATCH /positions/{ticker}/notes` Endpoint.
 
-- [ ] **Equity-Kurve in History** – P&L-Chart über Zeit statt nur Tabelle.
-  Drawdown-Phasen und Performance-Trend auf einen Blick. Daten aus vorhandenen History-Endpoints.
-
-- [ ] **Earnings-Warnung in Position Detail** – "Nächste Earnings in X Tagen" mit Ampelfarbe.
-  Grün (> 14 Tage) / Orange (7–14 Tage) / Rot (< 7 Tage = Earnings-Sperre fast erreicht).
-  Daten via FMP kommen bereits durch die Pipeline.
-
 - [ ] **Budget-Anpassung aus der App** – `TOTAL_BUDGET` via POST ändern ohne SSH auf den Pi.
   Backend: `POST /system/budget` schreibt neuen Wert in `.env` oder `tracker.db`.
 
@@ -27,9 +20,6 @@
 ---
 
 ## 🟢 Qualität / Schulden
-
-- [ ] **Widget-Tests schreiben** – Aktuell keine Tests im Frontend.
-  Priorität: `ApiService` (Mock-Mode), `CacheService`, `ShortlistScreen` (Bought-Flow).
 
 - [ ] **EUR/USD-Rate-Caching optimieren** – Backend macht bei bestimmten Endpoints
   mehrfach FMP-Requests für die Rate. Einmal pro Session/Stunde reicht.
@@ -61,3 +51,10 @@
 - [x] `--dart-define=USE_MOCK=true` Build-Flag (Impeller-Bug behoben, Flag entfernt)
 - [x] `GET /positions/{ticker}/chart` Endpoint (OHLCV + EMA20/50 + Entry/Stop-Overlays)
 - [x] Sandbox: Backtest-Ergebnis cachen (kein Re-Run bei Tab-Wechsel)
+- [x] **Widget-Tests schreiben** – Aktuell keine Tests im Frontend.
+    Priorität: `ApiService` (Mock-Mode), `CacheService`, `ShortlistScreen` (Bought-Flow).
+- [x] **Equity-Kurve in History** – P&L-Chart über Zeit statt nur Tabelle.
+    Drawdown-Phasen und Performance-Trend auf einen Blick. Daten aus vorhandenen History-Endpoints.
+- [x] **Earnings-Warnung in Position Detail** – "Nächste Earnings in X Tagen" mit Ampelfarbe.
+  Grün (> 14 Tage) / Orange (7–14 Tage) / Rot (< 7 Tage = Earnings-Sperre fast erreicht).
+  Daten via FMP kommen bereits durch die Pipeline.

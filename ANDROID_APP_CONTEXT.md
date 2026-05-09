@@ -1,7 +1,7 @@
 # ANDROID_APP_CONTEXT.md
 # Kestrel App – Vollständiger Projektkontext
 
-> Zuletzt aktualisiert: April 2026 | Repo: `DaveO-42/kestrel-app`
+> Zuletzt aktualisiert: Mai 2026 | Repo: `DaveO-42/kestrel-app`
 > Dieses Dokument dient als Kontext-Transfer für neue Claude-Sessions.
 
 ---
@@ -227,6 +227,18 @@ Login-Screen mit Passwort-Eingabe → JWT-Flow. Splash prüft Token-Status, leit
 
 ---
 
+## 5b. Tests
+
+| Befehl | Anzahl | Abdeckung |
+|---|---|---|
+| `flutter test test/services/` | 24 | AuthService, ApiService, CacheService |
+| `flutter test test/widgets/` | 41 | LoginScreen, SoldSheet, BoughtSheet, ErrorBanner, OfflineBanner |
+
+Kritische Flows abgedeckt: Auth-Flow, HitL Sell, HitL Buy, Offline-Darstellung.
+Integration Tests: zurückgestellt bis T212-Automation.
+
+---
+
 ## 6. Offene Punkte
 
 ### TODOs App
@@ -235,7 +247,7 @@ Login-Screen mit Passwort-Eingabe → JWT-Flow. Splash prüft Token-Status, leit
 - [ ] Earnings-Warnung in Position Detail: "Nächste Earnings in X Tagen" (< 7 Tage = rot)
 - [ ] Budget-Anpassung aus der App: `TOTAL_BUDGET` via POST ändern
 - [ ] History: Filter & Sortierung (Ticker, Zeitraum, Win/Loss)
-- [ ] Widget-Tests schreiben (ApiService Mock-Mode, CacheService, ShortlistScreen)
+- [x] Widget-Tests schreiben – Auth-Flow, HitL Sell/Buy, Offline-Banner abgedeckt. 65 Tests gesamt (24 Unit + 41 Widget)
 
 ### TODOs Backend (FastAPI-Layer)
 - [ ] EUR/USD-Rate-Caching optimieren (aktuell bei bestimmten Calls mehrfach FMP-Request)
