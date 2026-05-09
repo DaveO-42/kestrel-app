@@ -4,12 +4,18 @@ import 'package:http/http.dart' as http;
 import 'api_service.dart';
 
 class AuthService {
-  static const _storage   = FlutterSecureStorage();
   static const _keyAccess  = 'access_token';
   static const _keyRefresh = 'refresh_token';
 
+  final FlutterSecureStorage _storage;
+  final http.Client _httpClient;
+
+  AuthService({FlutterSecureStorage? storage, http.Client? httpClient})
+      : _storage = storage ?? const FlutterSecureStorage(),
+        _httpClient = httpClient ?? http.Client();
+
   Future<bool> login(String password) async {
-    final response = await http.post(
+    final response = await _httpClient.post(
       Uri.parse('${ApiService.baseUrl}/auth/login'),
       headers: {'Content-Type': 'application/json'},
       body: jsonEncode({'password': password}),
@@ -38,7 +44,7 @@ class AuthService {
     try {
       final refresh = await _storage.read(key: _keyRefresh);
       if (refresh == null || refresh.isEmpty) return null;
-      final response = await http.post(
+      final response = await _httpClient.post(
         Uri.parse('${ApiService.baseUrl}/auth/refresh'),
         headers: {'Content-Type': 'application/json'},
         body: jsonEncode({'refresh_token': refresh}),

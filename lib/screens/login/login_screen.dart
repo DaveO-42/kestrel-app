@@ -4,7 +4,9 @@ import '../../theme/kestrel_theme.dart';
 import '../../main_screen.dart';
 
 class LoginScreen extends StatefulWidget {
-  const LoginScreen({super.key});
+  final AuthService? authService;
+
+  const LoginScreen({super.key, this.authService});
 
   @override
   State<LoginScreen> createState() => _LoginScreenState();
@@ -27,7 +29,7 @@ class _LoginScreenState extends State<LoginScreen> {
     if (password.isEmpty) return;
     setState(() { _loading = true; _error = null; });
     try {
-      final ok = await AuthService().login(password);
+      final ok = await (widget.authService ?? AuthService()).login(password);
       if (!mounted) return;
       if (ok) {
         Navigator.of(context).pushReplacement(

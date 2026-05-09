@@ -13,6 +13,15 @@ class ApiService {
   static String baseUrl = 'https://api.kestrel-trading.com';
   static const _timeout = Duration(seconds: 8);
 
+  // ── Test Hooks ────────────────────────────────────────────────
+  @visibleForTesting
+  static http.Client? testClient;
+  static http.Client get _client => testClient ?? http.Client();
+
+  @visibleForTesting
+  static AuthService? testAuthService;
+  static AuthService _getAuthService() => testAuthService ?? AuthService();
+
   static Future<void> loadBaseUrl() async {
     final prefs = await SharedPreferences.getInstance();
     final saved = prefs.getString('server_url');
@@ -40,7 +49,7 @@ class ApiService {
   }
 
   static Future<Map<String, String>> _authHeaders() async {
-    final token = await AuthService().getAccessToken();
+    final token = await _getAuthService().getAccessToken();
     return {
       'Content-Type': 'application/json',
       if (token != null) 'Authorization': 'Bearer $token',
@@ -55,19 +64,19 @@ class ApiService {
     }
     try {
       final headers = await _authHeaders();
-      var response = await http
+      var response = await _client
           .get(Uri.parse('$baseUrl$endpoint'), headers: headers)
           .timeout(_timeout);
       if (response.statusCode == 401) {
-        final newToken = await AuthService().refreshToken();
+        final newToken = await _getAuthService().refreshToken();
         if (newToken != null) {
-          response = await http
+          response = await _client
               .get(Uri.parse('$baseUrl$endpoint'),
               headers: {...headers, 'Authorization': 'Bearer $newToken'})
               .timeout(_timeout);
         }
         if (response.statusCode == 401) {
-          await AuthService().logout();
+          await _getAuthService().logout();
           onAuthError?.call();
           throw const ActionException('Sitzung abgelaufen.',
               statusCode: 401, isAuthError: true);
@@ -96,19 +105,19 @@ class ApiService {
     }
     try {
       final headers = await _authHeaders();
-      var response = await http
+      var response = await _client
           .get(Uri.parse('$baseUrl$endpoint'), headers: headers)
           .timeout(_timeout);
       if (response.statusCode == 401) {
-        final newToken = await AuthService().refreshToken();
+        final newToken = await _getAuthService().refreshToken();
         if (newToken != null) {
-          response = await http
+          response = await _client
               .get(Uri.parse('$baseUrl$endpoint'),
               headers: {...headers, 'Authorization': 'Bearer $newToken'})
               .timeout(_timeout);
         }
         if (response.statusCode == 401) {
-          await AuthService().logout();
+          await _getAuthService().logout();
           onAuthError?.call();
           throw const ActionException('Sitzung abgelaufen.',
               statusCode: 401, isAuthError: true);
@@ -148,19 +157,19 @@ class ApiService {
     final key = _positionKey(ticker);
     try {
       final headers = await _authHeaders();
-      var response = await http
+      var response = await _client
           .get(Uri.parse('$baseUrl/positions/$ticker'), headers: headers)
           .timeout(_timeout);
       if (response.statusCode == 401) {
-        final newToken = await AuthService().refreshToken();
+        final newToken = await _getAuthService().refreshToken();
         if (newToken != null) {
-          response = await http
+          response = await _client
               .get(Uri.parse('$baseUrl/positions/$ticker'),
               headers: {...headers, 'Authorization': 'Bearer $newToken'})
               .timeout(_timeout);
         }
         if (response.statusCode == 401) {
-          await AuthService().logout();
+          await _getAuthService().logout();
           onAuthError?.call();
           throw const ActionException('Sitzung abgelaufen.',
               statusCode: 401, isAuthError: true);
@@ -207,7 +216,7 @@ class ApiService {
     if (useMock) return null;
     try {
       final headers = await _authHeaders();
-      final response = await http
+      final response = await _client
           .get(Uri.parse('$baseUrl/system/health'), headers: headers)
           .timeout(_timeout);
       if (response.statusCode == 200) {
@@ -226,7 +235,7 @@ class ApiService {
     if (useMock) return {'backend': '0.0.0-mock', 'api': '1.0.0'};
     try {
       final headers  = await _authHeaders();
-      final response = await http
+      final response = await _client
           .get(Uri.parse('$baseUrl/version'), headers: headers)
           .timeout(const Duration(seconds: 5));
       if (response.statusCode == 200) {
@@ -242,7 +251,7 @@ class ApiService {
     try {
       final stopwatch = Stopwatch()
         ..start();
-      final response = await http
+      final response = await _client
           .get(Uri.parse('$baseUrl/health'))
           .timeout(const Duration(seconds: 5));
       stopwatch.stop();
@@ -259,19 +268,19 @@ class ApiService {
 
   static Future<Map<String, dynamic>> getPositionChart(String ticker) async {
     final headers = await _authHeaders();
-    var response = await http
+    var response = await _client
         .get(Uri.parse('$baseUrl/positions/$ticker/chart'), headers: headers)
         .timeout(const Duration(seconds: 15));
     if (response.statusCode == 401) {
-      final newToken = await AuthService().refreshToken();
+      final newToken = await _getAuthService().refreshToken();
       if (newToken != null) {
-        response = await http
+        response = await _client
             .get(Uri.parse('$baseUrl/positions/$ticker/chart'),
             headers: {...headers, 'Authorization': 'Bearer $newToken'})
             .timeout(const Duration(seconds: 15));
       }
       if (response.statusCode == 401) {
-        await AuthService().logout();
+        await _getAuthService().logout();
         onAuthError?.call();
         throw const ActionException('Sitzung abgelaufen.',
             statusCode: 401, isAuthError: true);
@@ -285,19 +294,19 @@ class ApiService {
 
   static Future<Map<String, dynamic>> getCandidateChart(String ticker) async {
     final headers = await _authHeaders();
-    var response = await http
+    var response = await _client
         .get(Uri.parse('$baseUrl/candidates/$ticker/chart'), headers: headers)
         .timeout(const Duration(seconds: 15));
     if (response.statusCode == 401) {
-      final newToken = await AuthService().refreshToken();
+      final newToken = await _getAuthService().refreshToken();
       if (newToken != null) {
-        response = await http
+        response = await _client
             .get(Uri.parse('$baseUrl/candidates/$ticker/chart'),
             headers: {...headers, 'Authorization': 'Bearer $newToken'})
             .timeout(const Duration(seconds: 15));
       }
       if (response.statusCode == 401) {
-        await AuthService().logout();
+        await _getAuthService().logout();
         onAuthError?.call();
         throw const ActionException('Sitzung abgelaufen.',
             statusCode: 401, isAuthError: true);
@@ -377,20 +386,20 @@ class ApiService {
       return {'ok': true};
     }
     try {
-      final token = await AuthService().getAccessToken();
+      final token = await _getAuthService().getAccessToken();
       final headers = <String, String>{
         'Content-Type': 'application/json',
         if (token != null) 'Authorization': 'Bearer $token',
       };
 
-      var response = await http
+      var response = await _client
           .post(Uri.parse('$baseUrl$endpoint'), headers: headers, body: body)
           .timeout(_timeout);
 
       if (response.statusCode == 401) {
-        final newToken = await AuthService().refreshToken();
+        final newToken = await _getAuthService().refreshToken();
         if (newToken != null) {
-          response = await http
+          response = await _client
               .post(
             Uri.parse('$baseUrl$endpoint'),
             headers: {...headers, 'Authorization': 'Bearer $newToken'},
@@ -399,7 +408,7 @@ class ApiService {
               .timeout(_timeout);
         }
         if (response.statusCode == 401) {
-          await AuthService().logout();
+          await _getAuthService().logout();
           onAuthError?.call();
           throw const ActionException('Sitzung abgelaufen.',
               statusCode: 401, isAuthError: true);
@@ -452,19 +461,19 @@ class ApiService {
     };
     try {
       final headers = await _authHeaders();
-      var response = await http
+      var response = await _client
           .get(Uri.parse('$baseUrl/sandbox/status/$jobId'), headers: headers)
           .timeout(_timeout);
       if (response.statusCode == 401) {
-        final newToken = await AuthService().refreshToken();
+        final newToken = await _getAuthService().refreshToken();
         if (newToken != null) {
-          response = await http
+          response = await _client
               .get(Uri.parse('$baseUrl/sandbox/status/$jobId'),
               headers: {...headers, 'Authorization': 'Bearer $newToken'})
               .timeout(_timeout);
         }
         if (response.statusCode == 401) {
-          await AuthService().logout();
+          await _getAuthService().logout();
           onAuthError?.call();
           throw const ActionException(
               'Sitzung abgelaufen.', statusCode: 401, isAuthError: true);
@@ -487,19 +496,19 @@ class ApiService {
         'avg_return': null, 'sharpe': null, 'open_positions': 0};
     try {
       final headers = await _authHeaders();
-      var response = await http
+      var response = await _client
           .get(Uri.parse('$baseUrl/paper/summary'), headers: headers)
           .timeout(_timeout);
       if (response.statusCode == 401) {
-        final newToken = await AuthService().refreshToken();
+        final newToken = await _getAuthService().refreshToken();
         if (newToken != null) {
-          response = await http
+          response = await _client
               .get(Uri.parse('$baseUrl/paper/summary'),
               headers: {...headers, 'Authorization': 'Bearer $newToken'})
               .timeout(_timeout);
         }
         if (response.statusCode == 401) {
-          await AuthService().logout();
+          await _getAuthService().logout();
           onAuthError?.call();
           throw const ActionException('Sitzung abgelaufen.',
               statusCode: 401, isAuthError: true);
@@ -519,19 +528,19 @@ class ApiService {
     if (useMock) return [];
     try {
       final headers = await _authHeaders();
-      var response = await http
+      var response = await _client
           .get(Uri.parse('$baseUrl/paper/positions'), headers: headers)
           .timeout(_timeout);
       if (response.statusCode == 401) {
-        final newToken = await AuthService().refreshToken();
+        final newToken = await _getAuthService().refreshToken();
         if (newToken != null) {
-          response = await http
+          response = await _client
               .get(Uri.parse('$baseUrl/paper/positions'),
               headers: {...headers, 'Authorization': 'Bearer $newToken'})
               .timeout(_timeout);
         }
         if (response.statusCode == 401) {
-          await AuthService().logout();
+          await _getAuthService().logout();
           onAuthError?.call();
           throw const ActionException('Sitzung abgelaufen.',
               statusCode: 401, isAuthError: true);
@@ -551,19 +560,19 @@ class ApiService {
     if (useMock) return [];
     try {
       final headers = await _authHeaders();
-      var response = await http
+      var response = await _client
           .get(Uri.parse('$baseUrl/paper/history'), headers: headers)
           .timeout(_timeout);
       if (response.statusCode == 401) {
-        final newToken = await AuthService().refreshToken();
+        final newToken = await _getAuthService().refreshToken();
         if (newToken != null) {
-          response = await http
+          response = await _client
               .get(Uri.parse('$baseUrl/paper/history'),
               headers: {...headers, 'Authorization': 'Bearer $newToken'})
               .timeout(_timeout);
         }
         if (response.statusCode == 401) {
-          await AuthService().logout();
+          await _getAuthService().logout();
           onAuthError?.call();
           throw const ActionException('Sitzung abgelaufen.',
               statusCode: 401, isAuthError: true);
@@ -583,19 +592,19 @@ class ApiService {
     if (useMock) return [];
     try {
       final headers = await _authHeaders();
-      var response = await http
+      var response = await _client
           .get(Uri.parse('$baseUrl/paper/runs'), headers: headers)
           .timeout(_timeout);
       if (response.statusCode == 401) {
-        final newToken = await AuthService().refreshToken();
+        final newToken = await _getAuthService().refreshToken();
         if (newToken != null) {
-          response = await http
+          response = await _client
               .get(Uri.parse('$baseUrl/paper/runs'),
               headers: {...headers, 'Authorization': 'Bearer $newToken'})
               .timeout(_timeout);
         }
         if (response.statusCode == 401) {
-          await AuthService().logout();
+          await _getAuthService().logout();
           onAuthError?.call();
           throw const ActionException('Sitzung abgelaufen.',
               statusCode: 401, isAuthError: true);
@@ -619,20 +628,20 @@ class ApiService {
       return {'days': [], 'fetched_at': DateTime.now().toIso8601String()};
     try {
       final headers = await _authHeaders();
-      var response = await http
+      var response = await _client
           .get(
           Uri.parse('$baseUrl/lab/calendar?filter=$filter'), headers: headers)
           .timeout(_timeout);
       if (response.statusCode == 401) {
-        final newToken = await AuthService().refreshToken();
+        final newToken = await _getAuthService().refreshToken();
         if (newToken != null) {
-          response = await http
+          response = await _client
               .get(Uri.parse('$baseUrl/lab/calendar?filter=$filter'),
               headers: {...headers, 'Authorization': 'Bearer $newToken'})
               .timeout(_timeout);
         }
         if (response.statusCode == 401) {
-          await AuthService().logout();
+          await _getAuthService().logout();
           onAuthError?.call();
           throw const ActionException(
               'Sitzung abgelaufen.', statusCode: 401, isAuthError: true);

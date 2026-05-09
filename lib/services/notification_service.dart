@@ -9,30 +9,34 @@ class NotificationService {
   NotificationService._internal();
 
   Future<void> init(BuildContext context) async {
-    await FirebaseMessaging.instance.requestPermission();
+    try {
+      await FirebaseMessaging.instance.requestPermission();
 
-    final token = await FirebaseMessaging.instance.getToken();
-    if (token != null) await ApiService.postFcmToken(token);
+      final token = await FirebaseMessaging.instance.getToken();
+      if (token != null) await ApiService.postFcmToken(token);
 
-    FirebaseMessaging.instance.onTokenRefresh.listen((t) {
-      ApiService.postFcmToken(t);
-    });
+      FirebaseMessaging.instance.onTokenRefresh.listen((t) {
+        ApiService.postFcmToken(t);
+      });
 
-    // Capture context-dependent objects before async gaps
-    final nav = KestrelNav.of(context);
-    final messenger = ScaffoldMessenger.of(context);
+      // Capture context-dependent objects before async gaps
+      final nav = KestrelNav.of(context);
+      final messenger = ScaffoldMessenger.of(context);
 
-    FirebaseMessaging.onMessage.listen((message) {
-      final title = message.notification?.title ?? message.data['event'] ?? 'Kestrel';
-      messenger.showSnackBar(SnackBar(content: Text(title)));
-    });
+      FirebaseMessaging.onMessage.listen((message) {
+        final title = message.notification?.title ?? message.data['event'] ?? 'Kestrel';
+        messenger.showSnackBar(SnackBar(content: Text(title)));
+      });
 
-    FirebaseMessaging.onMessageOpenedApp.listen((message) {
-      _navigateFromMessage(message, nav);
-    });
+      FirebaseMessaging.onMessageOpenedApp.listen((message) {
+        _navigateFromMessage(message, nav);
+      });
 
-    final initial = await FirebaseMessaging.instance.getInitialMessage();
-    if (initial != null) _navigateFromMessage(initial, nav);
+      final initial = await FirebaseMessaging.instance.getInitialMessage();
+      if (initial != null) _navigateFromMessage(initial, nav);
+    } catch (e) {
+      debugPrint('[kestrel] NotificationService.init failed: $e');
+    }
   }
 
   void _navigateFromMessage(RemoteMessage message, KestrelNav? nav) {
