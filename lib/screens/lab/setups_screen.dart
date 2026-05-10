@@ -229,10 +229,12 @@ class _MiniMetrics extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final n      = (m['trades_total']    as num?)?.toInt();
     final win    = (m['win_rate_pct']   as num?)?.toStringAsFixed(1);
     final ret    = (m['avg_return_pct'] as num?)?.toStringAsFixed(1);
     final sharpe = (m['sharpe_ratio']   as num?)?.toStringAsFixed(2);
     return Row(children: [
+      if (n      != null) _M('$n Trades'),
       if (win    != null) _M('Win $win%'),
       if (ret    != null) _M('Ø +$ret%'),
       if (sharpe != null) _M('Sharpe $sharpe'),
@@ -261,9 +263,13 @@ class _ComparisonCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final aSharpe  = (a.results['total']?['sharpe_ratio'] as num?)?.toDouble() ?? 0;
-    final bSharpe  = (b.results['total']?['sharpe_ratio'] as num?)?.toDouble() ?? 0;
-    final aWins    = aSharpe >= bSharpe;
+    final aSharpe  = (a.results['total']?['sharpe_ratio']    as num?)?.toDouble() ?? 0;
+    final bSharpe  = (b.results['total']?['sharpe_ratio']    as num?)?.toDouble() ?? 0;
+    final aAvg     = (a.results['total']?['avg_return_pct']  as num?)?.toDouble() ?? 0;
+    final bAvg     = (b.results['total']?['avg_return_pct']  as num?)?.toDouble() ?? 0;
+    final aTrades  = (a.results['total']?['trades_total']    as num?)?.toInt()    ?? 0;
+    final bTrades  = (b.results['total']?['trades_total']    as num?)?.toInt()    ?? 0;
+    final aWins    = (aAvg - bAvg).abs() < 0.1 ? aSharpe >= bSharpe : aAvg > bAvg;
     final aMetrics = a.results['total'] as Map<String, dynamic>? ?? {};
     final bMetrics = b.results['total'] as Map<String, dynamic>? ?? {};
 
@@ -355,6 +361,21 @@ class _ComparisonCard extends StatelessWidget {
             bVal:  (bMetrics['sharpe_ratio']   as num?)?.toDouble(),
             fmt:   (v) => v != null ? v.toStringAsFixed(2) : '–',
           ),
+          _CmpRow(
+            label: 'Trades',
+            aVal:  (aMetrics['trades_total'] as num?)?.toDouble(),
+            bVal:  (bMetrics['trades_total'] as num?)?.toDouble(),
+            fmt:   (v) => v != null ? v.toInt().toString() : '–',
+          ),
+          if (aTrades < 10 || bTrades < 10)
+            Padding(
+              padding: const EdgeInsets.only(top: 6),
+              child: Text(
+                '⚠ ${aTrades < 10 ? a.name : b.name}: nur ${aTrades < 10 ? aTrades : bTrades} Trades – statistisch nicht belastbar',
+                style: const TextStyle(
+                    color: KestrelColors.gold, fontSize: 10),
+              ),
+            ),
         ],
       ),
     );
