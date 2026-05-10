@@ -1,6 +1,9 @@
 import 'package:flutter/material.dart';
 import '../../services/api_service.dart';
+import '../../services/cache_service.dart';
 import '../../theme/kestrel_theme.dart';
+import '../../main_screen.dart';
+import '../../widgets/offline_banner.dart';
 
 class PaperTab extends StatefulWidget {
   const PaperTab({super.key});
@@ -16,6 +19,8 @@ class _PaperTabState extends State<PaperTab> {
   List<dynamic>?        _runs;
   bool                  _loading = true;
   String?               _error;
+  bool                  _isOffline = false;
+  DateTime?             _cachedAt;
 
   @override
   void initState() {
@@ -30,17 +35,41 @@ class _PaperTabState extends State<PaperTab> {
       final positions = await ApiService.getPaperPositions();
       final history   = await ApiService.getPaperHistory();
       final runs      = await ApiService.getPaperRuns();
+      await CacheService.write('cache_paper_summary',   summary);
+      await CacheService.write('cache_paper_positions', positions);
+      await CacheService.write('cache_paper_history',   history);
+      await CacheService.write('cache_paper_runs',      runs);
       if (!mounted) return;
       setState(() {
-        _summary   = summary;
-        _positions = positions;
-        _history   = history;
-        _runs      = runs;
-        _loading   = false;
+        _summary    = summary;
+        _positions  = positions;
+        _history    = history;
+        _runs       = runs;
+        _isOffline  = false;
+        _loading    = false;
       });
+      KestrelNav.of(context)?.setConnectionError(false);
     } catch (e) {
+      final summaryCache   = await CacheService.read<Map<String, dynamic>>('cache_paper_summary');
+      final positionsCache = await CacheService.read<List<dynamic>>('cache_paper_positions');
+      final historyCache   = await CacheService.read<List<dynamic>>('cache_paper_history');
+      final runsCache      = await CacheService.read<List<dynamic>>('cache_paper_runs');
       if (!mounted) return;
-      setState(() { _loading = false; _error = e.toString(); });
+      if (summaryCache != null || positionsCache != null ||
+          historyCache != null || runsCache != null) {
+        setState(() {
+          _summary   = summaryCache?.data;
+          _positions = positionsCache?.data;
+          _history   = historyCache?.data;
+          _runs      = runsCache?.data;
+          _isOffline = true;
+          _cachedAt  = summaryCache?.cachedAt;
+          _loading   = false;
+        });
+      } else {
+        setState(() { _loading = false; _error = e.toString(); });
+      }
+      KestrelNav.of(context)?.setConnectionError(_isOffline);
     }
   }
 
@@ -72,25 +101,32 @@ class _PaperTabState extends State<PaperTab> {
       return sum + price * qty;
     });
 
-    return RefreshIndicator(
-      onRefresh: _load,
-      color: KestrelColors.gold,
-      backgroundColor: KestrelColors.cardBg,
-      child: ListView(
-        padding: const EdgeInsets.fromLTRB(12, 10, 12, 24),
-        children: [
-          _PaperSummaryCard(
-            summary: _summary ?? {},
-            investiertEur: investiertEur,
+    return Column(
+      children: [
+        if (_isOffline) OfflineBanner(cachedAt: _cachedAt),
+        Expanded(
+          child: RefreshIndicator(
+            onRefresh: _load,
+            color: KestrelColors.gold,
+            backgroundColor: KestrelColors.cardBg,
+            child: ListView(
+              padding: const EdgeInsets.fromLTRB(12, 10, 12, 24),
+              children: [
+                _PaperSummaryCard(
+                  summary: _summary ?? {},
+                  investiertEur: investiertEur,
+                ),
+                const SizedBox(height: 8),
+                _PaperPositionList(positions: positions),
+                const SizedBox(height: 8),
+                _PaperHistoryList(history: _history ?? []),
+                const SizedBox(height: 8),
+                _PaperRunLog(runs: _runs ?? []),
+              ],
+            ),
           ),
-          const SizedBox(height: 8),
-          _PaperPositionList(positions: positions),
-          const SizedBox(height: 8),
-          _PaperHistoryList(history: _history ?? []),
-          const SizedBox(height: 8),
-          _PaperRunLog(runs: _runs ?? []),
-        ],
-      ),
+        ),
+      ],
     );
   }
 }
