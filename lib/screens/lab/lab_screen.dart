@@ -4,7 +4,6 @@ import 'sandbox_screen.dart';
 import 'setups_screen.dart';
 import 'paper_tab.dart';
 import '../../main_screen.dart';
-import '../../widgets/offline_banner.dart';
 
 class LabScreen extends StatefulWidget {
   const LabScreen({super.key});
@@ -64,8 +63,6 @@ class _LabScreenState extends State<LabScreen> {
       ),
       body: Column(
         children: [
-          if (KestrelNav.of(context)?.connectionError == true)
-            const OfflineBanner(),
           _SegmentedControl(
             selectedIndex: _selectedIndex,
             onChanged: (i) {

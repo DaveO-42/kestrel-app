@@ -599,7 +599,7 @@ class _PaperRunLog extends StatelessWidget {
   const _PaperRunLog({required this.runs});
 
   String _fmtRunDateTime(Map<String, dynamic> run) {
-    final ts = run['timestamp'] as String?;
+    final ts = run['run_at'] as String?;
     if (ts != null && ts.length >= 16) {
       final tIdx = ts.indexOf('T');
       if (tIdx > 0) {
@@ -609,14 +609,6 @@ class _PaperRunLog extends StatelessWidget {
           return '${dateParts[2]}.${dateParts[1]}. · $timePart';
         }
       }
-    }
-    final runId = run['run_id'] as String? ?? '';
-    if (runId.length >= 13) {
-      final day   = runId.substring(6, 8);
-      final month = runId.substring(4, 6);
-      final hour  = runId.substring(9, 11);
-      final min   = runId.substring(11, 13);
-      return '$day.$month. · $hour:$min';
     }
     return '–';
   }
@@ -663,58 +655,117 @@ class _PaperRunLog extends StatelessWidget {
   }
 }
 
-class _PaperRunRow extends StatelessWidget {
+class _PaperRunRow extends StatefulWidget {
   final Map<String, dynamic> run;
   final String               fmtDateTime;
   const _PaperRunRow({required this.run, required this.fmtDateTime});
 
   @override
+  State<_PaperRunRow> createState() => _PaperRunRowState();
+}
+
+class _PaperRunRowState extends State<_PaperRunRow> {
+  bool _expanded = false;
+
+  static const _gateLabels = {
+    'eps_surprise': 'EPS',
+    'revenue_beat': 'Revenue',
+    'beat_age':     'Beat-Alter',
+    'gap_pct':      'Gap',
+    'rsi':          'RSI',
+    'ema_slope':    'EMA',
+    'dedup':        'Duplikat',
+  };
+
+  @override
   Widget build(BuildContext context) {
-    final accepted  = (run['accepted'] as num?)?.toInt() ?? 0;
-    final screened  = (run['screened'] as num?)?.toInt() ?? 0;
-    final marketOk  = run['market_ok'] as bool? ?? true;
+    final run         = widget.run;
+    final accepted    = (run['accepted']  as num?)?.toInt() ?? 0;
+    final screened    = (run['screened']  as num?)?.toInt() ?? 0;
+    final marketOk    = run['market_ok']  as bool? ?? true;
+    final marketDd    = (run['market_dd_pct'] as num?)?.toDouble();
     final hasAccepted = accepted > 0;
 
-    return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 8),
-      child: Row(
-        children: [
-          SizedBox(
-            width: 10,
-            child: hasAccepted
-                ? Container(
-                    width: 6,
-                    height: 6,
-                    decoration: const BoxDecoration(
-                      color: KestrelColors.gold,
-                      shape: BoxShape.circle,
-                    ),
-                  )
-                : null,
-          ),
-          const SizedBox(width: 4),
-          Expanded(
-            child: Text(
-              fmtDateTime,
-              style: const TextStyle(
-                  color: KestrelColors.textGrey, fontSize: 12),
+    final rejectRaw   = run['reject_summary'] as Map<String, dynamic>?;
+    final rejectGates = rejectRaw?.entries
+        .where((e) => ((e.value as num?)?.toInt() ?? 0) > 0)
+        .toList() ?? [];
+    final hasReject   = rejectGates.isNotEmpty;
+
+    final marketLabel = marketOk
+        ? 'Markt OK'
+        : (marketDd != null
+            ? 'Markt geblockt · −${marketDd.abs().toStringAsFixed(1)}%'
+            : 'Markt geblockt');
+
+    return GestureDetector(
+      onTap: hasReject ? () => setState(() => _expanded = !_expanded) : null,
+      child: Padding(
+        padding: const EdgeInsets.symmetric(vertical: 8),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                SizedBox(
+                  width: 10,
+                  child: hasAccepted
+                      ? Container(
+                          width: 6,
+                          height: 6,
+                          decoration: const BoxDecoration(
+                            color: KestrelColors.gold,
+                            shape: BoxShape.circle,
+                          ),
+                        )
+                      : null,
+                ),
+                const SizedBox(width: 4),
+                Expanded(
+                  child: Text(
+                    widget.fmtDateTime,
+                    style: const TextStyle(
+                        color: KestrelColors.textGrey, fontSize: 12),
+                  ),
+                ),
+                Text(
+                  '$accepted / $screened',
+                  style: TextStyle(
+                      color: hasAccepted
+                          ? KestrelColors.textPrimary
+                          : KestrelColors.textDimmed,
+                      fontSize:   12,
+                      fontWeight: FontWeight.w600),
+                ),
+                const SizedBox(width: 8),
+                _ExitBadge(
+                  label: marketLabel,
+                  color: marketOk ? KestrelColors.green : KestrelColors.orange,
+                ),
+              ],
             ),
-          ),
-          Text(
-            '$accepted / $screened',
-            style: TextStyle(
-                color: hasAccepted
-                    ? KestrelColors.textPrimary
-                    : KestrelColors.textDimmed,
-                fontSize:   12,
-                fontWeight: FontWeight.w600),
-          ),
-          const SizedBox(width: 8),
-          _ExitBadge(
-            label: marketOk ? 'Markt OK' : 'Markt geblockt',
-            color: marketOk ? KestrelColors.green : KestrelColors.orange,
-          ),
-        ],
+            if (_expanded && hasReject) ...[
+              const SizedBox(height: 6),
+              Padding(
+                padding: const EdgeInsets.only(left: 14),
+                child: Wrap(
+                  spacing:   12,
+                  runSpacing: 2,
+                  children: rejectGates.map((e) {
+                    final label = _gateLabels[e.key] ?? e.key;
+                    final count = (e.value as num).toInt();
+                    return Text(
+                      '$label: $count',
+                      style: const TextStyle(
+                          color:    KestrelColors.textDimmed,
+                          fontSize: 11),
+                    );
+                  }).toList(),
+                ),
+              ),
+            ],
+          ],
+        ),
       ),
     );
   }

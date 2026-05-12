@@ -7,6 +7,11 @@ Format: MAJOR.MINOR.PATCH
 
 ---
 
+## [1.2.6] – 2026-05-12
+- Fix: OfflineBanner im Lab zeigte "unbekannt" – jeder Tab zeigt jetzt sein eigenes Datenalter korrekt an
+- Fix: Run-Log Datum wurde nicht angezeigt (Feldname-Mismatch `timestamp` → `run_at`)
+- Run-Log: Tap auf Zeile zeigt reject_summary-Breakdown (Gate-Ablehnungen)
+
 ## [1.2.5] – 2026-05-01
 - Earnings-Warnung in Position Detail (gold: 7–14 Tage, orange + "Sperre aktiv": <7 Tage)
 
