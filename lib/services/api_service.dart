@@ -270,14 +270,14 @@ class ApiService {
     final headers = await _authHeaders();
     var response = await _client
         .get(Uri.parse('$baseUrl/positions/$ticker/chart'), headers: headers)
-        .timeout(const Duration(seconds: 15));
+        .timeout(const Duration(seconds: 30));
     if (response.statusCode == 401) {
       final newToken = await _getAuthService().refreshToken();
       if (newToken != null) {
         response = await _client
             .get(Uri.parse('$baseUrl/positions/$ticker/chart'),
             headers: {...headers, 'Authorization': 'Bearer $newToken'})
-            .timeout(const Duration(seconds: 15));
+            .timeout(const Duration(seconds: 30));
       }
       if (response.statusCode == 401) {
         await _getAuthService().logout();
@@ -296,14 +296,14 @@ class ApiService {
     final headers = await _authHeaders();
     var response = await _client
         .get(Uri.parse('$baseUrl/candidates/$ticker/chart'), headers: headers)
-        .timeout(const Duration(seconds: 15));
+        .timeout(const Duration(seconds: 30));
     if (response.statusCode == 401) {
       final newToken = await _getAuthService().refreshToken();
       if (newToken != null) {
         response = await _client
             .get(Uri.parse('$baseUrl/candidates/$ticker/chart'),
             headers: {...headers, 'Authorization': 'Bearer $newToken'})
-            .timeout(const Duration(seconds: 15));
+            .timeout(const Duration(seconds: 30));
       }
       if (response.statusCode == 401) {
         await _getAuthService().logout();

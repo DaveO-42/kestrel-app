@@ -73,6 +73,7 @@ class _PositionDetailScreenState extends State<PositionDetailScreen> {
       });
     } catch (e) {
       if (!mounted) return;
+      print('[kestrel] Chart-Fehler: $e');
       setState(() { _chartLoading = false; _chartData = null; });
     }
   }
