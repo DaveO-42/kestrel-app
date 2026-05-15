@@ -7,6 +7,9 @@ Format: MAJOR.MINOR.PATCH
 
 ---
 
+## [1.2.7] – 2026-05-15
+- Trigger-Run-Button auch im Empty-State der Shortlist verfügbar (kein Stale-Flag mehr als Voraussetzung)
+
 ## [1.2.6] – 2026-05-12
 - Fix: OfflineBanner im Lab zeigte "unbekannt" – jeder Tab zeigt jetzt sein eigenes Datenalter korrekt an
 - Fix: Run-Log Datum wurde nicht angezeigt (Feldname-Mismatch `timestamp` → `run_at`)

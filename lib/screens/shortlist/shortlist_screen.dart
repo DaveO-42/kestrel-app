@@ -367,6 +367,8 @@ class _ShortlistScreenState extends State<ShortlistScreen> {
             variant: variant,
             subText: isBudget ? reason : null,
             runTime: runTime,
+            onTriggerRun: _triggerRun,
+            runLoading: _runLoading,
           ),
         ),
       ],
@@ -974,7 +976,15 @@ class _ShortlistEmptyState extends StatelessWidget {
   final _EmptyVariant variant;
   final String? subText;
   final String? runTime;
-  const _ShortlistEmptyState({required this.variant, this.subText, this.runTime});
+  final VoidCallback? onTriggerRun;
+  final bool runLoading;
+  const _ShortlistEmptyState({
+    required this.variant,
+    this.subText,
+    this.runTime,
+    this.onTriggerRun,
+    this.runLoading = false,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -1067,6 +1077,40 @@ class _ShortlistEmptyState extends StatelessWidget {
               style: const TextStyle(
                 color: KestrelColors.textHint,
                 fontSize: 10,
+              ),
+            ),
+          ],
+          if (onTriggerRun != null) ...[
+            const SizedBox(height: 24),
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 40),
+              child: SizedBox(
+                width: double.infinity,
+                child: ElevatedButton(
+                  onPressed: runLoading ? null : onTriggerRun,
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: KestrelColors.gold,
+                    disabledBackgroundColor: KestrelColors.green.withOpacity(0.3),
+                    foregroundColor: Colors.black,
+                    padding: const EdgeInsets.symmetric(vertical: 14),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                  ),
+                  child: runLoading
+                      ? const SizedBox(
+                          width: 18,
+                          height: 18,
+                          child: CircularProgressIndicator(
+                            strokeWidth: 2,
+                            color: Colors.white,
+                          ),
+                        )
+                      : const Text(
+                          'Run starten',
+                          style: TextStyle(fontWeight: FontWeight.w700),
+                        ),
+                ),
               ),
             ),
           ],
