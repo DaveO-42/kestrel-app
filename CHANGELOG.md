@@ -7,6 +7,10 @@ Format: MAJOR.MINOR.PATCH
 
 ---
 
+## [1.3.1] – 2026-05-16
+- Paper-Tab: Run-Log für H (clientseitig gefiltert nach hypothesis-Feld, Alle-Tab zeigt alle Runs)
+- Paper-Tab: Hypothesen-Beschreibung im collapsible Strategie-Abschnitt für C, H und Alle
+
 ## [1.3.0] – 2026-05-16
 - Paper-Tab: Sub-Tabs C / H / Alle für Hypothese H
   - Segmented Control innerhalb des Paper-Tabs (C | H | Alle)

@@ -141,6 +141,15 @@ class _PaperTabState extends State<PaperTab> {
         ((t as Map<String, dynamic>)['hypothesis'] as String?) == hyp).toList();
   }
 
+  List<dynamic> _runsForHypothesis(String hyp) {
+    final all = _runs ?? [];
+    if (hyp == 'all') return all;
+    return all.where((r) {
+      final h = (r as Map<String, dynamic>)['hypothesis'] as String?;
+      return (h ?? 'C') == hyp;
+    }).toList();
+  }
+
   // ── Tab content ───────────────────────────────────────────────
 
   Widget _buildHypothesisTab(String hyp) {
@@ -170,10 +179,8 @@ class _PaperTabState extends State<PaperTab> {
           ),
           const SizedBox(height: 8),
           _PaperHistoryList(history: history),
-          if (hyp == 'C') ...[
-            const SizedBox(height: 8),
-            _PaperRunLog(runs: _runs ?? []),
-          ],
+          const SizedBox(height: 8),
+          _PaperRunLog(runs: _runsForHypothesis(hyp)),
         ],
       ),
     );
@@ -398,6 +405,18 @@ class _PaperSummaryCardState extends State<_PaperSummaryCard> {
                         fontWeight:    FontWeight.w700,
                         letterSpacing: 0.8)),
                 const SizedBox(height: 6),
+                const Padding(
+                  padding: EdgeInsets.only(bottom: 8),
+                  child: Text(
+                    'Earnings-Beat als Katalysator. Kauft Momentum nach starkem '
+                    'EPS- und Revenue-Beat mit Gap. Hält Trend solange technische '
+                    'Struktur intakt.',
+                    style: TextStyle(
+                        color:      KestrelColors.textGrey,
+                        fontSize:   11,
+                        fontStyle:  FontStyle.italic),
+                  ),
+                ),
                 _StrategyRow(label: 'Budget',        value: budgetStr),
                 _StrategyRow(label: 'Investiert',    value: investiertStr),
                 _StrategyRow(label: 'EPS Surprise',  value: '≥ 5 %'),
@@ -414,6 +433,19 @@ class _PaperSummaryCardState extends State<_PaperSummaryCard> {
                         fontWeight:    FontWeight.w700,
                         letterSpacing: 0.8)),
                 const SizedBox(height: 6),
+                const Padding(
+                  padding: EdgeInsets.only(bottom: 8),
+                  child: Text(
+                    'Kauft statistische Überreaktionen. Steigt ein wenn der Kurs '
+                    '2,5 Standardabweichungen unter seinem 30-Tage-Mittelwert liegt '
+                    'und der Trend langfristig intakt ist. Ziel: Rückkehr zum '
+                    'Mittelwert innerhalb von 10 Tagen.',
+                    style: TextStyle(
+                        color:      KestrelColors.textGrey,
+                        fontSize:   11,
+                        fontStyle:  FontStyle.italic),
+                  ),
+                ),
                 _StrategyRow(label: 'Budget',         value: budgetStr),
                 _StrategyRow(label: 'Investiert',     value: investiertStr),
                 _StrategyRow(label: 'Z-Score Entry',  value: '< −2.5'),
@@ -431,6 +463,18 @@ class _PaperSummaryCardState extends State<_PaperSummaryCard> {
                         fontWeight:    FontWeight.w700,
                         letterSpacing: 0.8)),
                 const SizedBox(height: 6),
+                const Padding(
+                  padding: EdgeInsets.only(bottom: 8),
+                  child: Text(
+                    'C und H laufen parallel. C handelt Earnings-Momentum, '
+                    'H handelt Mean Reversion. Unterschiedliche Katalysatoren, '
+                    'gleiche Risikokontrolle.',
+                    style: TextStyle(
+                        color:      KestrelColors.textGrey,
+                        fontSize:   11,
+                        fontStyle:  FontStyle.italic),
+                  ),
+                ),
                 _StrategyRow(label: 'Aktive Strategien', value: 'C + H'),
               ],
               const SizedBox(height: 8),
