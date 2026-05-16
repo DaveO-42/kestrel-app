@@ -7,6 +7,14 @@ Format: MAJOR.MINOR.PATCH
 
 ---
 
+## [1.3.0] – 2026-05-16
+- Paper-Tab: Sub-Tabs C / H / Alle für Hypothese H
+  - Segmented Control innerhalb des Paper-Tabs (C | H | Alle)
+  - H-Positionen zeigen Z-Score bei Entry und Haltedauer (Tag X / 10)
+  - Hypothesis-Badge (gold / lila) sichtbar im Alle-Tab
+  - Kombinierte Summary für Alle-Tab (gewichtete Mittelwerte)
+  - Clientseitiges Filtern bis Backend-Update, danach Query-Parameter
+
 ## [1.2.7] – 2026-05-15
 - Trigger-Run-Button auch im Empty-State der Shortlist verfügbar (kein Stale-Flag mehr als Voraussetzung)
 

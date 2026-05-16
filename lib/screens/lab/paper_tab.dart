@@ -21,6 +21,9 @@ class _PaperTabState extends State<PaperTab> {
   String?               _error;
   bool                  _isOffline = false;
   DateTime?             _cachedAt;
+  String                _selectedHypothesis = 'C'; // 'C' | 'H' | 'all'
+
+  static const _hypotheses = ['C', 'H', 'all'];
 
   @override
   void initState() {
@@ -73,6 +76,109 @@ class _PaperTabState extends State<PaperTab> {
     }
   }
 
+  // ── Summary helpers ───────────────────────────────────────────
+
+  Map<String, dynamic> _summaryForHypothesis(String hyp) {
+    final s = _summary;
+    if (s == null) return {};
+    // New backend format: top-level 'C' key
+    if (s.containsKey('C')) {
+      final c = (s['C'] as Map<String, dynamic>?) ?? {};
+      final h = (s['H'] as Map<String, dynamic>?) ?? {};
+      if (hyp == 'C') return c;
+      if (hyp == 'H') return h;
+      return _combinedSummary(c, h);
+    }
+    // Old flat format — treat as C only
+    if (hyp == 'H') return {};
+    return s;
+  }
+
+  Map<String, dynamic> _combinedSummary(
+      Map<String, dynamic> c, Map<String, dynamic> h) {
+    final cT = (c['total_trades'] as num?)?.toInt() ?? 0;
+    final hT = (h['total_trades'] as num?)?.toInt() ?? 0;
+    final cWin    = (c['win_rate']       as num?)?.toDouble();
+    final hWin    = (h['win_rate']       as num?)?.toDouble();
+    final cAvg    = (c['avg_return']     as num?)?.toDouble();
+    final hAvg    = (h['avg_return']     as num?)?.toDouble();
+    final cSharpe = (c['sharpe']         as num?)?.toDouble();
+    final hSharpe = (h['sharpe']         as num?)?.toDouble();
+    final cOpen   = (c['open_positions'] as num?)?.toInt() ?? 0;
+    final hOpen   = (h['open_positions'] as num?)?.toInt() ?? 0;
+
+    double? weighted(double? cv, int cn, double? hv, int hn) {
+      if (cv == null && hv == null) return null;
+      if (cv == null) return hv;
+      if (hv == null) return cv;
+      final t = cn + hn;
+      return t == 0 ? null : (cv * cn + hv * hn) / t;
+    }
+
+    return {
+      'total_trades':   cT + hT,
+      'win_rate':       weighted(cWin, cT, hWin, hT),
+      'avg_return':     weighted(cAvg, cT, hAvg, hT),
+      'sharpe':         (cSharpe != null && hSharpe != null)
+          ? (cSharpe + hSharpe) / 2
+          : cSharpe ?? hSharpe,
+      'open_positions': cOpen + hOpen,
+      'virtual_budget': c['virtual_budget'] ?? h['virtual_budget'],
+    };
+  }
+
+  List<dynamic> _positionsForHypothesis(String hyp) {
+    final all = _positions ?? [];
+    if (hyp == 'all') return all;
+    return all.where((p) =>
+        (p as Map<String, dynamic>)['hypothesis'] as String? == hyp).toList();
+  }
+
+  List<dynamic> _historyForHypothesis(String hyp) {
+    final all = _history ?? [];
+    if (hyp == 'all') return all;
+    return all.where((t) =>
+        (t as Map<String, dynamic>)['hypothesis'] as String? == hyp).toList();
+  }
+
+  // ── Tab content ───────────────────────────────────────────────
+
+  Widget _buildHypothesisTab(String hyp) {
+    final summary   = _summaryForHypothesis(hyp);
+    final positions = _positionsForHypothesis(hyp);
+    final history   = _historyForHypothesis(hyp);
+
+    final investiertEur = positions.fold<double>(0.0, (sum, p) {
+      final pos   = p as Map<String, dynamic>;
+      final price = (pos['entry_price'] as num?)?.toDouble() ?? 0.0;
+      final qty   = (pos['quantity']    as num?)?.toDouble() ?? 0.0;
+      return sum + price * qty;
+    });
+
+    return RefreshIndicator(
+      onRefresh: _load,
+      color: KestrelColors.gold,
+      backgroundColor: KestrelColors.cardBg,
+      child: ListView(
+        padding: const EdgeInsets.fromLTRB(12, 10, 12, 24),
+        children: [
+          _PaperSummaryCard(summary: summary, investiertEur: investiertEur),
+          const SizedBox(height: 8),
+          _PaperPositionList(
+            positions: positions,
+            showHypothesisBadge: hyp == 'all',
+          ),
+          const SizedBox(height: 8),
+          _PaperHistoryList(history: history),
+          if (hyp == 'C') ...[
+            const SizedBox(height: 8),
+            _PaperRunLog(runs: _runs ?? []),
+          ],
+        ],
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     if (_loading) {
@@ -93,40 +199,95 @@ class _PaperTabState extends State<PaperTab> {
       );
     }
 
-    final positions = _positions ?? [];
-    final investiertEur = positions.fold<double>(0.0, (sum, p) {
-      final pos      = p as Map<String, dynamic>;
-      final price    = (pos['entry_price'] as num?)?.toDouble() ?? 0.0;
-      final qty      = (pos['quantity']    as num?)?.toDouble() ?? 0.0;
-      return sum + price * qty;
-    });
+    final selectedIdx = _hypotheses.indexOf(_selectedHypothesis);
 
     return Column(
       children: [
         if (_isOffline) OfflineBanner(cachedAt: _cachedAt),
+        _SegmentedControl(
+          labels: const ['C', 'H', 'Alle'],
+          selectedIndex: selectedIdx,
+          onChanged: (i) =>
+              setState(() => _selectedHypothesis = _hypotheses[i]),
+        ),
+        Container(height: 1, color: KestrelColors.cardBorder),
         Expanded(
-          child: RefreshIndicator(
-            onRefresh: _load,
-            color: KestrelColors.gold,
-            backgroundColor: KestrelColors.cardBg,
-            child: ListView(
-              padding: const EdgeInsets.fromLTRB(12, 10, 12, 24),
-              children: [
-                _PaperSummaryCard(
-                  summary: _summary ?? {},
-                  investiertEur: investiertEur,
-                ),
-                const SizedBox(height: 8),
-                _PaperPositionList(positions: positions),
-                const SizedBox(height: 8),
-                _PaperHistoryList(history: _history ?? []),
-                const SizedBox(height: 8),
-                _PaperRunLog(runs: _runs ?? []),
-              ],
-            ),
+          child: IndexedStack(
+            index: selectedIdx,
+            children: _hypotheses.map(_buildHypothesisTab).toList(),
           ),
         ),
       ],
+    );
+  }
+}
+
+// ── Segmented Control (local, analog lab_screen.dart) ─────────
+
+class _SegmentedControl extends StatelessWidget {
+  final int selectedIndex;
+  final ValueChanged<int> onChanged;
+  final List<String> labels;
+  const _SegmentedControl({
+    required this.selectedIndex,
+    required this.onChanged,
+    required this.labels,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      color: KestrelColors.appBarBg,
+      padding: const EdgeInsets.fromLTRB(12, 8, 12, 8),
+      child: ClipRRect(
+        borderRadius: BorderRadius.circular(10),
+        child: Container(
+          decoration: BoxDecoration(
+            color:        KestrelColors.cardBg,
+            borderRadius: BorderRadius.circular(10),
+            border:       Border.all(color: KestrelColors.cardBorder),
+          ),
+          child: Stack(
+            children: [
+              Positioned(
+                top: 0, left: 0, right: 0,
+                child: Container(height: 2, color: KestrelColors.gold),
+              ),
+              Padding(
+                padding: const EdgeInsets.fromLTRB(3, 5, 3, 3),
+                child: Row(
+                  children: List.generate(labels.length, (i) {
+                    final active = i == selectedIndex;
+                    return Expanded(
+                      child: GestureDetector(
+                        onTap: () => onChanged(i),
+                        child: AnimatedContainer(
+                          duration: const Duration(milliseconds: 150),
+                          curve: Curves.easeInOut,
+                          decoration: BoxDecoration(
+                            color:        active ? KestrelColors.gold : Colors.transparent,
+                            borderRadius: BorderRadius.circular(8),
+                          ),
+                          padding: const EdgeInsets.symmetric(vertical: 7),
+                          alignment: Alignment.center,
+                          child: Text(
+                            labels[i],
+                            style: TextStyle(
+                              color:      active ? KestrelColors.appBarBg : KestrelColors.textGrey,
+                              fontSize:   13,
+                              fontWeight: active ? FontWeight.w700 : FontWeight.normal,
+                            ),
+                          ),
+                        ),
+                      ),
+                    );
+                  }),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
     );
   }
 }
@@ -324,7 +485,11 @@ class _StrategyRow extends StatelessWidget {
 
 class _PaperPositionList extends StatelessWidget {
   final List positions;
-  const _PaperPositionList({required this.positions});
+  final bool showHypothesisBadge;
+  const _PaperPositionList({
+    required this.positions,
+    this.showHypothesisBadge = false,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -356,7 +521,10 @@ class _PaperPositionList extends StatelessWidget {
             )
           else
             ...positions.map(
-              (p) => _PaperPositionRow(position: p as Map<String, dynamic>),
+              (p) => _PaperPositionRow(
+                position: p as Map<String, dynamic>,
+                showHypothesisBadge: showHypothesisBadge,
+              ),
             ),
         ],
       ),
@@ -366,14 +534,23 @@ class _PaperPositionList extends StatelessWidget {
 
 class _PaperPositionRow extends StatelessWidget {
   final Map<String, dynamic> position;
-  const _PaperPositionRow({required this.position});
+  final bool showHypothesisBadge;
+  const _PaperPositionRow({
+    required this.position,
+    this.showHypothesisBadge = false,
+  });
 
   @override
   Widget build(BuildContext context) {
-    final ticker = position['ticker']      as String? ?? '–';
-    final pnlPct = (position['pnl_pct']   as num?)   ?? 0;
-    final pnlAbs = (position['pnl_abs_eur'] as num?)  ?? 0;
-    final isPos  = pnlPct >= 0;
+    final ticker   = position['ticker']        as String? ?? '–';
+    final pnlPct   = (position['pnl_pct']      as num?)   ?? 0;
+    final pnlAbs   = (position['pnl_abs_eur']  as num?)   ?? 0;
+    final hyp      = position['hypothesis']    as String?;
+    final isH      = hyp == 'H';
+    final isPos    = pnlPct >= 0;
+
+    final zScore   = isH ? (position['z_score_entry'] as num?) : null;
+    final entryDay = isH ? (position['entry_day']      as num?)?.toInt() : null;
 
     return Container(
       margin: const EdgeInsets.only(bottom: 8),
@@ -399,12 +576,44 @@ class _PaperPositionRow extends StatelessWidget {
                     const EdgeInsets.symmetric(horizontal: 10, vertical: 9),
                 child: Row(
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text(ticker,
-                        style: const TextStyle(
-                            color: KestrelColors.textPrimary,
-                            fontSize: 13,
-                            fontWeight: FontWeight.w600)),
+                    // ── Left: ticker + H-specific info ────────
+                    Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Row(
+                          children: [
+                            Text(ticker,
+                                style: const TextStyle(
+                                    color: KestrelColors.textPrimary,
+                                    fontSize: 13,
+                                    fontWeight: FontWeight.w600)),
+                            if (showHypothesisBadge && hyp != null) ...[
+                              const SizedBox(width: 6),
+                              _HypothesisBadge(hypothesis: hyp),
+                            ],
+                          ],
+                        ),
+                        if (isH && zScore != null) ...[
+                          const SizedBox(height: 3),
+                          Text(
+                            'Z-Score ${zScore.toStringAsFixed(1)} bei Entry',
+                            style: const TextStyle(
+                                color: KestrelColors.textGrey, fontSize: 10),
+                          ),
+                        ],
+                        if (isH && entryDay != null) ...[
+                          const SizedBox(height: 1),
+                          Text(
+                            'Tag $entryDay / 10',
+                            style: const TextStyle(
+                                color: KestrelColors.textGrey, fontSize: 10),
+                          ),
+                        ],
+                      ],
+                    ),
+                    // ── Right: P&L ────────────────────────────
                     Column(
                       crossAxisAlignment: CrossAxisAlignment.end,
                       children: [
@@ -430,6 +639,33 @@ class _PaperPositionRow extends StatelessWidget {
             ),
           ],
         ),
+      ),
+    );
+  }
+}
+
+// ── Hypothesis Badge ──────────────────────────────────────────
+
+class _HypothesisBadge extends StatelessWidget {
+  final String hypothesis;
+  const _HypothesisBadge({required this.hypothesis});
+
+  @override
+  Widget build(BuildContext context) {
+    final color = hypothesis == 'H'
+        ? const Color(0xFF7C5CBF)
+        : KestrelColors.gold;
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1),
+      decoration: BoxDecoration(
+        color:        color.withValues(alpha: 0.15),
+        borderRadius: BorderRadius.circular(4),
+        border:       Border.all(color: color.withValues(alpha: 0.5)),
+      ),
+      child: Text(
+        hypothesis,
+        style: TextStyle(
+            color: color, fontSize: 9, fontWeight: FontWeight.w700),
       ),
     );
   }
