@@ -131,14 +131,14 @@ class _PaperTabState extends State<PaperTab> {
     final all = _positions ?? [];
     if (hyp == 'all') return all;
     return all.where((p) =>
-        (p as Map<String, dynamic>)['hypothesis'] as String? == hyp).toList();
+        ((p as Map<String, dynamic>)['hypothesis'] as String?) == hyp).toList();
   }
 
   List<dynamic> _historyForHypothesis(String hyp) {
     final all = _history ?? [];
     if (hyp == 'all') return all;
     return all.where((t) =>
-        (t as Map<String, dynamic>)['hypothesis'] as String? == hyp).toList();
+        ((t as Map<String, dynamic>)['hypothesis'] as String?) == hyp).toList();
   }
 
   // ── Tab content ───────────────────────────────────────────────
@@ -162,7 +162,7 @@ class _PaperTabState extends State<PaperTab> {
       child: ListView(
         padding: const EdgeInsets.fromLTRB(12, 10, 12, 24),
         children: [
-          _PaperSummaryCard(summary: summary, investiertEur: investiertEur),
+          _PaperSummaryCard(summary: summary, investiertEur: investiertEur, hypothesis: hyp),
           const SizedBox(height: 8),
           _PaperPositionList(
             positions: positions,
@@ -297,9 +297,11 @@ class _SegmentedControl extends StatelessWidget {
 class _PaperSummaryCard extends StatefulWidget {
   final Map<String, dynamic> summary;
   final double               investiertEur;
+  final String               hypothesis;
   const _PaperSummaryCard({
     required this.summary,
     required this.investiertEur,
+    required this.hypothesis,
   });
 
   @override
@@ -349,8 +351,13 @@ class _PaperSummaryCardState extends State<_PaperSummaryCard> {
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
-                const Text('PAPER TRADING',
-                    style: TextStyle(
+                Text(
+                    switch (widget.hypothesis) {
+                      'C'   => 'PAPER TRADING · C',
+                      'H'   => 'PAPER TRADING · H',
+                      _     => 'PAPER TRADING',
+                    },
+                    style: const TextStyle(
                         color:         KestrelColors.gold,
                         fontSize:      10,
                         fontWeight:    FontWeight.w700,
@@ -383,21 +390,49 @@ class _PaperSummaryCardState extends State<_PaperSummaryCard> {
             // ── Strategy section (collapsible) ────────────────
             if (_strategyExpanded) ...[
               const SizedBox(height: 10),
-              const Text('EARNINGS QUALITY',
-                  style: TextStyle(
-                      color:         KestrelColors.gold,
-                      fontSize:      10,
-                      fontWeight:    FontWeight.w700,
-                      letterSpacing: 0.8)),
-              const SizedBox(height: 6),
-              _StrategyRow(label: 'Budget',        value: budgetStr),
-              _StrategyRow(label: 'Investiert',    value: investiertStr),
-              _StrategyRow(label: 'EPS Surprise',  value: '≥ 5 %'),
-              _StrategyRow(label: 'Revenue Beat',  value: '≥ 2 %'),
-              _StrategyRow(label: 'Gap',           value: '≥ 5 %, kein Fill'),
-              _StrategyRow(label: 'Markt-Filter',  value: 'QQQ DD ≤ 15 %'),
-              _StrategyRow(label: 'Trailing Stop', value: 'ATR × 2.0'),
-              _StrategyRow(label: 'Live seit',     value: '07.05.2026'),
+              if (widget.hypothesis == 'C') ...[
+                const Text('EARNINGS QUALITY',
+                    style: TextStyle(
+                        color:         KestrelColors.gold,
+                        fontSize:      10,
+                        fontWeight:    FontWeight.w700,
+                        letterSpacing: 0.8)),
+                const SizedBox(height: 6),
+                _StrategyRow(label: 'Budget',        value: budgetStr),
+                _StrategyRow(label: 'Investiert',    value: investiertStr),
+                _StrategyRow(label: 'EPS Surprise',  value: '≥ 5 %'),
+                _StrategyRow(label: 'Revenue Beat',  value: '≥ 2 %'),
+                _StrategyRow(label: 'Gap',           value: '≥ 5 %, kein Fill'),
+                _StrategyRow(label: 'Markt-Filter',  value: 'QQQ DD ≤ 15 %'),
+                _StrategyRow(label: 'Trailing Stop', value: 'ATR × 2.0'),
+                _StrategyRow(label: 'Live seit',     value: '07.05.2026'),
+              ] else if (widget.hypothesis == 'H') ...[
+                const Text('Z-SCORE MEAN REVERSION',
+                    style: TextStyle(
+                        color:         KestrelColors.gold,
+                        fontSize:      10,
+                        fontWeight:    FontWeight.w700,
+                        letterSpacing: 0.8)),
+                const SizedBox(height: 6),
+                _StrategyRow(label: 'Budget',         value: budgetStr),
+                _StrategyRow(label: 'Investiert',     value: investiertStr),
+                _StrategyRow(label: 'Z-Score Entry',  value: '< −2.5'),
+                _StrategyRow(label: 'Z-Score Stop',   value: '< −3.0'),
+                _StrategyRow(label: 'Z-Score Target', value: '≥ +0.5'),
+                _StrategyRow(label: 'MA-Fenster',     value: '30 Tage'),
+                _StrategyRow(label: 'Max Hold',       value: '10 Handelstage'),
+                _StrategyRow(label: 'EMA200-Filter',  value: 'Kurs > EMA200'),
+                _StrategyRow(label: 'Live seit',      value: '16.05.2026'),
+              ] else ...[
+                const Text('ALLE HYPOTHESEN',
+                    style: TextStyle(
+                        color:         KestrelColors.gold,
+                        fontSize:      10,
+                        fontWeight:    FontWeight.w700,
+                        letterSpacing: 0.8)),
+                const SizedBox(height: 6),
+                _StrategyRow(label: 'Aktive Strategien', value: 'C + H'),
+              ],
               const SizedBox(height: 8),
               Container(height: 0.5, color: KestrelColors.cardBorder),
             ],
