@@ -457,9 +457,17 @@ class _DrawdownCard extends StatelessWidget {
     this.onTap,
   });
 
+  // Severity based on consecutive losses ratio (unchanged)
   Color _accentColor(double pct) {
     if (pct >= 0.9) return KestrelColors.red;
-    if (pct >= 0.7) return KestrelColors.orange;
+    if (pct >= 0.6) return KestrelColors.orange;
+    return KestrelColors.green;
+  }
+
+  // Severity based on drawdown utilisation
+  Color _ddColor(double auslastung) {
+    if (auslastung >= 0.85) return KestrelColors.red;
+    if (auslastung >= 0.60) return KestrelColors.orange;
     return KestrelColors.green;
   }
 
@@ -472,14 +480,14 @@ class _DrawdownCard extends StatelessWidget {
         ? (consLosses / consLimit).clamp(0.0, 1.0).toDouble()
         : 0.0;
 
-    final ddColor   = _accentColor(ddPct);
-    final consColor = _accentColor(consPct);
+    final ddSeverity = _ddColor(ddPct);
+    final consColor  = _accentColor(consPct);
 
-    // Card accent = higher risk of the two
+    // Card border accent = higher risk of the two
     final Color cardAccent;
-    if (ddPct >= 0.9 || consPct >= 0.9) {
+    if (ddPct >= 0.85 || consPct >= 0.9) {
       cardAccent = KestrelColors.red;
-    } else if (ddPct >= 0.7 || consPct >= 0.7) {
+    } else if (ddPct >= 0.60 || consPct >= 0.7) {
       cardAccent = KestrelColors.orange;
     } else {
       cardAccent = KestrelColors.green;
@@ -491,146 +499,167 @@ class _DrawdownCard extends StatelessWidget {
 
     final consStatusText = consPct >= 0.9
         ? 'Gefahr'
-        : consPct >= 0.7
+        : consPct >= 0.6
         ? 'Warnung'
         : 'kein Risiko';
 
     return GestureDetector(
       onTap: onTap,
       child: Container(
-      decoration: BoxDecoration(
-        color: KestrelColors.cardBg,
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: borderColor),
-      ),
-      padding: const EdgeInsets.fromLTRB(13, 12, 13, 12),
-      child: Column(
-        children: [
-          // ── Oberer Bereich: Ring + Info ───────────────────────
-          Row(
-            children: [
-              // Ring
-              SizedBox(
-                width: 64,
-                height: 64,
-                child: Stack(
-                  alignment: Alignment.center,
-                  children: [
-                    CircularProgressIndicator(
-                      value: ddPct,
-                      strokeWidth: 7,
-                      backgroundColor: KestrelColors.screenBg,
-                      valueColor: AlwaysStoppedAnimation<Color>(ddColor),
-                      strokeCap: StrokeCap.round,
-                    ),
-                    Text(
-                      '${drawdown.toStringAsFixed(1).replaceAll('.', ',')}%',
-                      style: TextStyle(
-                        color: ddColor,
-                        fontSize: 13,
-                        fontWeight: FontWeight.w700,
-                      ),
-                    ),
-                  ],
-                ),
+        decoration: BoxDecoration(
+          color: KestrelColors.cardBg,
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(color: borderColor),
+        ),
+        padding: const EdgeInsets.fromLTRB(13, 12, 13, 12),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            // ── Header ───────────────────────────────────────────
+            const Text(
+              'DRAWDOWN',
+              style: TextStyle(
+                color: KestrelColors.gold,
+                fontSize: 9,
+                fontWeight: FontWeight.w700,
+                letterSpacing: 0.8,
               ),
-              const SizedBox(width: 14),
-              // Info-Spalte
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    const Text(
-                      'DRAWDOWN',
-                      style: TextStyle(
-                        color: KestrelColors.gold,
-                        fontSize: 9,
-                        fontWeight: FontWeight.w700,
-                        letterSpacing: 0.8,
-                      ),
-                    ),
-                    const SizedBox(height: 3),
-                    Text(
-                      'Hard Stop  ${limit.toStringAsFixed(1).replaceAll('.', ',')} %',
-                      style: const TextStyle(
-                        color: KestrelColors.textDimmed,
-                        fontSize: 11,
-                      ),
-                    ),
-                    const SizedBox(height: 2),
-                    Text(
-                      'Auslastung  ${(ddPct * 100).toStringAsFixed(0)} %',
-                      style: TextStyle(
-                        color: ddColor,
-                        fontSize: 11,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            ],
-          ),
+            ),
+            const SizedBox(height: 10),
 
-          // ── Divider ───────────────────────────────────────────
-          const Padding(
-            padding: EdgeInsets.symmetric(vertical: 12),
-            child: Divider(height: 1, color: KestrelColors.cardBorder),
-          ),
-
-          // ── Unterer Bereich: Konsek. Verluste ─────────────────
-          Row(
-            children: [
-              // Label + Status
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    const Text(
-                      'KONSEK. VERLUSTE',
-                      style: TextStyle(
-                        color: KestrelColors.gold,
-                        fontSize: 9,
-                        fontWeight: FontWeight.w700,
-                        letterSpacing: 0.8,
+            // ── Zwei-Spalten-Row ──────────────────────────────────
+            Row(
+              crossAxisAlignment: CrossAxisAlignment.center,
+              children: [
+                // Links: Arc-Ring mit Auslastung % innen
+                Expanded(
+                  flex: 2,
+                  child: Center(
+                    child: SizedBox(
+                      width: 56,
+                      height: 56,
+                      child: Stack(
+                        alignment: Alignment.center,
+                        children: [
+                          CircularProgressIndicator(
+                            value: ddPct,
+                            strokeWidth: 7,
+                            backgroundColor: KestrelColors.screenBg,
+                            valueColor: AlwaysStoppedAnimation<Color>(ddSeverity),
+                            strokeCap: StrokeCap.round,
+                          ),
+                          Text(
+                            '${(ddPct * 100).toStringAsFixed(0)} %',
+                            style: const TextStyle(
+                              color: Colors.white,
+                              fontSize: 15,
+                              fontWeight: FontWeight.w700,
+                            ),
+                          ),
+                        ],
                       ),
                     ),
-                    const SizedBox(height: 3),
-                    Text(
-                      consStatusText,
-                      style: TextStyle(
-                        color: consColor,
-                        fontSize: 12,
-                        fontWeight: FontWeight.w500,
-                      ),
-                    ),
-                  ],
+                  ),
                 ),
-              ),
-              // Punkte-Reihe
-              Row(
-                children: List.generate(consLimit, (i) {
-                  final filled = i < consLosses;
-                  return Padding(
-                    padding: const EdgeInsets.only(left: 5),
-                    child: Container(
-                      width: 10,
-                      height: 10,
-                      decoration: BoxDecoration(
-                        shape: BoxShape.circle,
-                        color: filled ? consColor : KestrelColors.screenBg,
-                        border: Border.all(
-                          color: filled ? consColor : KestrelColors.cardBorder,
+                // Rechts: Drawdown-Wert + Hard Stop
+                Expanded(
+                  flex: 3,
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: [
+                          const Text('Aktuell',
+                              style: TextStyle(
+                                  color: KestrelColors.textGrey, fontSize: 12)),
+                          Text(
+                            '${drawdown.toStringAsFixed(1).replaceAll('.', ',')} %',
+                            style: TextStyle(
+                                color: ddSeverity,
+                                fontSize: 13,
+                                fontWeight: FontWeight.w600),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 4),
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: [
+                          const Text('Hard Stop',
+                              style: TextStyle(
+                                  color: KestrelColors.textGrey, fontSize: 12)),
+                          Text(
+                            '${limit.toStringAsFixed(1).replaceAll('.', ',')} %',
+                            style: const TextStyle(
+                                color: KestrelColors.textPrimary, fontSize: 12),
+                          ),
+                        ],
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+
+            // ── Divider ───────────────────────────────────────────
+            const Padding(
+              padding: EdgeInsets.symmetric(vertical: 12),
+              child: Divider(height: 1, color: KestrelColors.cardBorder),
+            ),
+
+            // ── Konsek. Verluste (unverändert) ────────────────────
+            Row(
+              children: [
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      const Text(
+                        'KONSEK. VERLUSTE',
+                        style: TextStyle(
+                          color: KestrelColors.gold,
+                          fontSize: 9,
+                          fontWeight: FontWeight.w700,
+                          letterSpacing: 0.8,
                         ),
                       ),
-                    ),
-                  );
-                }),
-              ),
-            ],
-          ),
-        ],
+                      const SizedBox(height: 3),
+                      Text(
+                        consStatusText,
+                        style: TextStyle(
+                          color: consColor,
+                          fontSize: 12,
+                          fontWeight: FontWeight.w500,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                Row(
+                  children: List.generate(consLimit, (i) {
+                    final filled = i < consLosses;
+                    return Padding(
+                      padding: const EdgeInsets.only(left: 5),
+                      child: Container(
+                        width: 10,
+                        height: 10,
+                        decoration: BoxDecoration(
+                          shape: BoxShape.circle,
+                          color: filled ? consColor : KestrelColors.screenBg,
+                          border: Border.all(
+                            color: filled ? consColor : KestrelColors.cardBorder,
+                          ),
+                        ),
+                      ),
+                    );
+                  }),
+                ),
+              ],
+            ),
+          ],
+        ),
       ),
-    ),
     );
   }
 }

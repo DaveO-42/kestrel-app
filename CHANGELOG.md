@@ -7,6 +7,15 @@ Format: MAJOR.MINOR.PATCH
 
 ---
 
+## [1.3.4] – 2026-05-17
+- Dashboard: Drawdown-Card zeigt Auslastung im Ring (Zahl weiß innen); absoluter Drawdown rechts mit Severity-Farbe
+
+## [1.3.3] – 2026-05-17
+- Dashboard: Drawdown-Card Redesign — Prozentzahl außerhalb Arc-Ring (28px, farbcodiert), Hard Stop und Auslastung als Info-Spalte
+
+## [1.3.2] – 2026-05-16
+- Status: Pi → Pipeline, inactive-Status zeigt "inaktiv" statt leer
+
 ## [1.3.1] – 2026-05-16
 - Paper-Tab: Run-Log für H (clientseitig gefiltert nach hypothesis-Feld, Alle-Tab zeigt alle Runs)
 - Paper-Tab: Hypothesen-Beschreibung im collapsible Strategie-Abschnitt für C, H und Alle

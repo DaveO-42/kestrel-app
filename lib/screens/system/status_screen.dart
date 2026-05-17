@@ -376,11 +376,13 @@ class _ServicesCard extends StatelessWidget {
           const Text('SERVICES', style: kCardLabelStyle),
           const SizedBox(height: 8),
           _ServiceRow(
-            name:   'Pi',
-            status: health != null ? svcStatus('pi')
+            name:   'Pipeline',
+            status: health != null ? svcStatus('pipeline')
                                    : (pingOk ? 'ok' : null),
-            detail: health != null ? svcDetail('pi')
-                                   : (pingOk ? _fmtTime(lastPing) : null),
+            detail: health != null
+                ? (svcDetail('pipeline') ??
+                    (svcStatus('pipeline') == 'ok' ? 'inaktiv' : null))
+                : (pingOk ? _fmtTime(lastPing) : null),
           ),
           _ServiceRow(name: 'FMP',          status: svcStatus('fmp'),          detail: svcDetail('fmp')),
           _ServiceRow(name: 'Claude',       status: svcStatus('claude'),       detail: svcDetail('claude')),
